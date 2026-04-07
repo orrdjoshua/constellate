@@ -1,0 +1,21 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# VS/VSCode
+.vs/
+.vscode/.ionide.json
+
+# Rider/IDEA
+.idea/
+
+# User-specific
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Avalonia designer cache
+**/.avalonia/

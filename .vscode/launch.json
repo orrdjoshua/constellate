@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Launch (Constellate.App)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Constellate.App/bin/Debug/net10.0/Constellate.App.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Constellate.App",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

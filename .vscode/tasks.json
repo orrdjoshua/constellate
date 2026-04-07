@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "restore",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["restore", "Constellate.sln"],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    },
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["build", "Constellate.sln", "-c", "Debug", "/consoleloggerparameters:Summary"],
+      "problemMatcher": "$msCompile",
+      "group": "build",
+      "dependsOn": ["restore"]
+    },
+    {
+      "label": "watch-app",
+      "command": "dotnet",
+      "type": "process",
+      "args": ["watch", "--project", "src/Constellate.App"],
+      "problemMatcher": "$msCompile",
+      "isBackground": true
+    }
+  ]
+}
