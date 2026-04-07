@@ -5,7 +5,7 @@
       "label": "restore",
       "command": "dotnet",
       "type": "process",
-      "args": ["restore", "Constellate.sln"],
+      "args": ["restore", "Constellate.slnx"],
       "problemMatcher": "$msCompile",
       "group": "build"
     },
@@ -13,7 +13,7 @@
       "label": "build",
       "command": "dotnet",
       "type": "process",
-      "args": ["build", "Constellate.sln", "-c", "Debug", "/consoleloggerparameters:Summary"],
+      "args": ["build", "Constellate.slnx", "-c", "Debug", "/consoleloggerparameters:Summary"],
       "problemMatcher": "$msCompile",
       "group": "build",
       "dependsOn": ["restore"]

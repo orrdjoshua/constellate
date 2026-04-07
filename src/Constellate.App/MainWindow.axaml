@@ -1,9 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:rt="clr-namespace:Constellate.Renderer.OpenTK.Controls;assembly=Constellate.Renderer.OpenTK"
         x:Class="Constellate.App.MainWindow"
-        Title="Constellate.App">
-    Welcome to Avalonia!
+        Width="1000" Height="700"
+        Title="Constellate — Hybrid 2D/3D">
+  <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
+    <TextBlock Margin="8" Text="Constellate — Placeholder 3D viewport (OpenTK target)" />
+    <rt:OpenTkViewportControl Grid.Row="1" />
+  </Grid>
 </Window>

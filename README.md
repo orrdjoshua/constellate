@@ -17,3 +17,12 @@ Structure
 Notes
 - Target Framework: net10.0
 - Initial GL surface wiring will land in subsequent commits.
+
+Troubleshooting
+- Legacy Constellate.slnx in repo root:
+  - If a non-standard Constellate.slnx exists, the setup script now backs it up to Constellate.slnx.bak.TIMESTAMP and creates a proper Constellate.sln used by dotnet and VS Code tasks.
+  - If running commands manually, rename Constellate.slnx to a .bak before creating the solution.
+- Template “Project capabilities: No project was found at the path …” messages:
+  - These are safe warnings that appear while installing/updating Avalonia templates. They do not affect solution/project creation.
+- net10.0 template compatibility:
+  - If your local template/runtime combo resists net10.0, re-run the setup script with -Framework net8.0 and proceed. We can bump TFMs later.

@@ -1,2 +1,8 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Constellate.App/Constellate.App.csproj" />
+    <Project Path="src/Constellate.Core/Constellate.Core.csproj" />
+    <Project Path="src/Constellate.Renderer.OpenTK/Constellate.Renderer.OpenTK.csproj" />
+    <Project Path="src/Constellate.SDK/Constellate.SDK.csproj" />
+  </Folder>
 </Solution>

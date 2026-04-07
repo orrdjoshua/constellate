@@ -23,14 +23,30 @@ if (-not (Test-Path $src)) {
 Write-Host "Installing Avalonia templates (safe to re-run)..."
 dotnet new install Avalonia.Templates
 
-# Create solution if missing
-$sln = Join-Path $RepoRoot "Constellate.sln"
-if (-not (Test-Path $sln)) {
-    Write-Host "Creating solution Constellate.sln..."
-    dotnet new sln -n Constellate
+# Detect or create solution (prefer .slnx in .NET 10+)
+$slnx = Join-Path $RepoRoot "Constellate.slnx"
+$sln  = Join-Path $RepoRoot "Constellate.sln"
+$solutionPath = $null
+
+if (Test-Path $slnx) {
+    $solutionPath = $slnx
+    Write-Host "Detected existing solution: $solutionPath"
+} elseif (Test-Path $sln) {
+    $solutionPath = $sln
+    Write-Host "Detected existing solution: $solutionPath"
 } else {
-    Write-Host "Solution already exists; skipping creation."
+    Write-Host "Creating solution 'Constellate' (will be .slnx on newer SDKs)..."
+    # Use --force to avoid conflicts with placeholder files (e.g., .slnx stub)
+    dotnet new sln -n Constellate --force
+    if (Test-Path $slnx) {
+        $solutionPath = $slnx
+    } elseif (Test-Path $sln) {
+        $solutionPath = $sln
+    } else {
+        throw "Failed to create a solution (.slnx or .sln) at $RepoRoot"
+    }
 }
+Write-Host "Solution path: $solutionPath"
 
 # Project specs
 $projects = @(
@@ -59,15 +75,19 @@ foreach ($p in $projects) {
 
 # Add to solution (safe; duplicates will be caught)
 Write-Host "Adding projects to solution..."
+Set-Location $RepoRoot
+
 $projPaths = @(
   "src/Constellate.App/Constellate.App.csproj",
   "src/Constellate.Core/Constellate.Core.csproj",
   "src/Constellate.Renderer.OpenTK/Constellate.Renderer.OpenTK.csproj",
   "src/Constellate.SDK/Constellate.SDK.csproj"
 )
+
 foreach ($pp in $projPaths) {
+    $ppFull = Join-Path $RepoRoot $pp
     try {
-        dotnet sln Constellate.sln add $pp
+        dotnet sln "$solutionPath" add "$ppFull"
     } catch {
         Write-Host "Note: $pp may already be in the solution; continuing."
     }
@@ -84,10 +104,28 @@ try {
     Write-Host "Note: references may already exist; continuing."
 }
 
-# Restore and build
+# Restore and build (prefer solution; fall back to repo root if needed)
 Write-Host "Restoring and building the solution..."
-dotnet restore "Constellate.sln"
-dotnet build "Constellate.sln" -c Debug /consoleloggerparameters:Summary
+$restoreOk = $true
+try {
+    dotnet restore "$solutionPath"
+} catch {
+    Write-Host "Restore on solution failed; attempting restore at repo root..."
+    $restoreOk = $false
+    dotnet restore "$RepoRoot"
+}
+
+try {
+    if ($restoreOk) {
+        dotnet build "$solutionPath" -c Debug /consoleloggerparameters:Summary
+    } else {
+        dotnet build "$RepoRoot" -c Debug /consoleloggerparameters:Summary
+    }
+} catch {
+    Write-Host "Build failed; you can also try:"
+    Write-Host "  dotnet build `"$RepoRoot`" -c Debug"
+    throw
+}
 
 Write-Host ""
 Write-Host "== Done =="

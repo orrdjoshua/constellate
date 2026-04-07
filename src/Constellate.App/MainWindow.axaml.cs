@@ -1,11 +1,17 @@
 using Avalonia.Controls;
 
-namespace Constellate.App;
-
-public partial class MainWindow : Window
+namespace Constellate.App
 {
-    public MainWindow()
+    public partial class MainWindow : Window
     {
-        InitializeComponent();
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void InitializeComponent()
+        {
+            Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
+        }
     }
 }
