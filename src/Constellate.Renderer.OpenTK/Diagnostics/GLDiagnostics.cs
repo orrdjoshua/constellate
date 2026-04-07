@@ -10,6 +10,9 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
         private static bool _enabled;
         private static DebugProc? _callback;
 
+        // Expose a read so _enabled isn't write-only (avoids CS0414 warnings and is useful if queried later).
+        public static bool IsDebugOutputEnabled => _enabled;
+
         public static void TryEnableDebugOutputOnce()
         {
             if (_triedEnable) return;
@@ -27,12 +30,12 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
                 // Accept everything; we can refine filters later.
                 GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DontCare, DebugSeverityControl.DontCare, 0, Array.Empty<int>(), true);
                 _enabled = true;
-                Debug.WriteLine("[GLDiag] KHR_debug enabled.");
+                Trace.WriteLine("[GLDiag] KHR_debug enabled.");
             }
             catch (Exception ex)
             {
                 _enabled = false;
-                Debug.WriteLine($"[GLDiag] KHR_debug not available or failed to enable: {ex.Message}");
+                Trace.WriteLine($"[GLDiag] KHR_debug not available or failed to enable: {ex.Message}");
             }
         }
 
@@ -41,7 +44,7 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
             try
             {
                 string msg = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(message, length) ?? "(null)";
-                Debug.WriteLine($"[GLDiag] {source}/{type}/{severity} (id={id}): {msg}");
+                Trace.WriteLine($"[GLDiag] {source}/{type}/{severity} (id={id}): {msg}");
             }
             catch
             {
@@ -56,11 +59,11 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
             while ((err = GL.GetError()) != ErrorCode.NoError)
             {
                 any = true;
-                Debug.WriteLine($"[GLDiag] GL.GetError at {where}: {err}");
+                Trace.WriteLine($"[GLDiag] GL.GetError at {where}: {err}");
             }
             if (!any)
             {
-                Debug.WriteLine($"[GLDiag] {where}: OK");
+                Trace.WriteLine($"[GLDiag] {where}: OK");
             }
         }
 
@@ -78,11 +81,11 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
                 bool depth = GL.IsEnabled(EnableCap.DepthTest);
                 bool cull = GL.IsEnabled(EnableCap.CullFace);
 
-                Debug.WriteLine($"[GLDiag] State {tag} -> prog={prog}, vao={vao}, vbo={vbo}, drawFBO={drawFbo}, readFBO={readFbo}, depth={depth} func={(DepthFunction)depthFunc}, cull={cull}, viewport0={vp0}");
+                Trace.WriteLine($"[GLDiag] State {tag} -> prog={prog}, vao={vao}, vbo={vbo}, drawFBO={drawFbo}, readFBO={readFbo}, depth={depth} func={(DepthFunction)depthFunc}, cull={cull}, viewport0={vp0}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[GLDiag] DumpBasicState failed: {ex.Message}");
+                Trace.WriteLine($"[GLDiag] DumpBasicState failed: {ex.Message}");
             }
         }
 

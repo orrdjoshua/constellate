@@ -25,7 +25,8 @@ namespace Constellate.Renderer.OpenTK.Controls
     /// OpenTK-backed viewport control (offscreen FBO → CPU readback → WriteableBitmap).
     /// - GL path is preferred; fallback is software triangle.
     /// - Toggle GL off by setting process env CONSTELLATE_GL=0 before launch.
-    /// - Enable verbose diagnostics by setting CONSTELLATE_GL_DIAG=1 before launch.
+    /// - DEBUG builds: diagnostics default ON unless CONSTELLATE_GL_DIAG=0.
+    /// - Release builds: enable diagnostics with CONSTELLATE_GL_DIAG=1.
     /// </summary>
     public class OpenTkViewportControl : Control
     {
@@ -36,8 +37,24 @@ namespace Constellate.Renderer.OpenTK.Controls
         private readonly bool _preferGl =
             !string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL"), "0", StringComparison.OrdinalIgnoreCase);
 
+        #if DEBUG
+        private readonly bool _diagVerbose =
+            !string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_DIAG"), "0", StringComparison.OrdinalIgnoreCase);
+        #else
         private readonly bool _diagVerbose =
             string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_DIAG"), "1", StringComparison.OrdinalIgnoreCase);
+        #endif
+        private readonly bool _selfTest =
+            string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_SELFTEST"), "1", StringComparison.OrdinalIgnoreCase);
+        // New diagnostics toggles
+        private readonly bool _noDepth =
+            string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_NODEPTH"), "1", StringComparison.OrdinalIgnoreCase);
+        private readonly bool _noClear =
+            string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_NOCLEAR"), "1", StringComparison.OrdinalIgnoreCase);
+        private readonly bool _forceIdentity =
+            string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_FORCEIDENTITY"), "1", StringComparison.OrdinalIgnoreCase);
+        private readonly bool _scissorMark =
+            string.Equals(Environment.GetEnvironmentVariable("CONSTELLATE_GL_MARK"), "1", StringComparison.OrdinalIgnoreCase);
 
         // GL resources (offscreen)
         private GameWindow? _glWindow;
@@ -80,7 +97,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
         }
 
-        private OrbitCamera _cam = new OrbitCamera { Yaw = 0f, Pitch = 0f, Distance = 2.0f };
+        private OrbitCamera _cam = new OrbitCamera { Yaw = MathF.PI / 2f, Pitch = 0f, Distance = 2.0f };
 
         // Minimal scene node (position, uniform scale, phase for animation)
         private struct Node
@@ -304,15 +321,32 @@ namespace Constellate.Renderer.OpenTK.Controls
 
         private void CreateTrianglePipeline()
         {
-            const string vsSrc = @"#version 330 core
+            // Choose shader pair: normal (with uMVP) or self-test (gl_VertexID full-screen triangle)
+            string vsSrc;
+            string fsSrc;
+            if (_selfTest)
+            {
+                vsSrc = @"#version 330 core
+void main() {
+    const vec2 pos[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+    gl_Position = vec4(pos[gl_VertexID], 0.0, 1.0);
+}";
+                fsSrc = @"#version 330 core
+out vec4 FragColor;
+void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
+            }
+            else
+            {
+                vsSrc = @"#version 330 core
 layout(location=0) in vec3 aPos;
 uniform mat4 uMVP;
 void main() {
   gl_Position = uMVP * vec4(aPos, 1.0);
 }";
-            const string fsSrc = @"#version 330 core
+                fsSrc = @"#version 330 core
 out vec4 FragColor;
 void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
+            }
 
             int vs = CompileShader(ShaderType.VertexShader, vsSrc);
             int fs = CompileShader(ShaderType.FragmentShader, fsSrc);
@@ -335,35 +369,45 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             GL.DeleteShader(vs);
             GL.DeleteShader(fs);
 
-            // Triangle geometry (3D positions)
-            float[] vertices =
+            // VAO/VBO setup (only needed for normal path). For self-test, a dummy VAO is enough.
+            if (_selfTest)
             {
-                -0.5f, -0.5f, 0f,
-                 0.5f, -0.5f, 0f,
-                 0.0f,  0.5f, 0f
-            };
+                if (_vao == 0)
+                    _vao = GL.GenVertexArray();
+                _locMvp = -1;
+            }
+            else
+            {
+                // Triangle geometry (3D positions)
+                float[] vertices =
+                {
+                    -0.5f, -0.5f, 0f,
+                     0.5f, -0.5f, 0f,
+                     0.0f,  0.5f, 0f
+                };
 
-            _vao = GL.GenVertexArray();
-            _vbo = GL.GenBuffer();
+                _vao = GL.GenVertexArray();
+                _vbo = GL.GenBuffer();
 
-            GL.BindVertexArray(_vao);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+                GL.BindVertexArray(_vao);
+                GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
+                GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
 
-            GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+                GL.EnableVertexAttribArray(0);
+                GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
 
-            _locMvp = GL.GetUniformLocation(_program, "uMVP");
+                _locMvp = GL.GetUniformLocation(_program, "uMVP");
 
-            // Unbind
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindVertexArray(0);
+                // Unbind
+                GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+                GL.BindVertexArray(0);
+            }
 
             if (_diagVerbose)
             {
                 GLDiagnostics.CheckError("CreateTrianglePipeline");
                 GLDiagnostics.DumpBasicState("After pipeline creation");
-                if (_locMvp < 0) Debug.WriteLine("[GLDiag] Warning: uMVP location < 0; uniform may be optimized out.");
+                if (!_selfTest && _locMvp < 0) Debug.WriteLine("[GLDiag] Warning: uMVP location < 0; uniform may be optimized out.");
             }
         }
 
@@ -432,12 +476,20 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             // Bind offscreen FBO and explicitly select color attachment 0
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _fbo);
             GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
+            // Also set draw buffers explicitly for portability
+            try
+            {
+                var bufs = new[] { DrawBuffersEnum.ColorAttachment0 };
+                GL.DrawBuffers(1, bufs);
+            }
+            catch { /* ignore if not supported on this context */ }
             GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
             GL.Viewport(0, 0, _texW, _texH);
 
             // Initialize depth/cull state deterministically
             GL.Disable(EnableCap.CullFace);
-            GL.Enable(EnableCap.DepthTest);
+            if (_noDepth) GL.Disable(EnableCap.DepthTest);
+            else GL.Enable(EnableCap.DepthTest);
             GL.DepthFunc(DepthFunction.Lequal);
             GL.DepthMask(true);
             GL.ClearDepth(1.0f);
@@ -447,8 +499,16 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             float r = (float)(0.25 + 0.75 * Math.Abs(Math.Sin(tColor * Math.PI * 2)));
             float g = (float)(0.25 + 0.75 * Math.Abs(Math.Sin((tColor + 0.33) * Math.PI * 2)));
             float b = (float)(0.25 + 0.75 * Math.Abs(Math.Sin((tColor + 0.66) * Math.PI * 2)));
-            GL.ClearColor(r, g, b, 1.0f);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            if (_noClear)
+            {
+                // Only clear depth; keep prior color to detect accumulation/overdraw
+                GL.Clear(ClearBufferMask.DepthBufferBit);
+            }
+            else
+            {
+                GL.ClearColor(r, g, b, 1.0f);
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            }
 
             if (_diagVerbose) GLDiagnostics.CheckError("After Clear");
 
@@ -468,26 +528,64 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
 
             GL.BindVertexArray(_vao);
 
-            // Draw each node with its own model matrix
-            for (int i = 0; i < _nodes.Length; i++)
+            if (_selfTest)
             {
-                ref var node = ref _nodes[i];
-
-                // Compose model: scale → rotate (Y) → translate
-                var model =
-                      Matrix4.CreateScale(node.Scale)
-                    * Matrix4.CreateRotationY(t + node.Phase)
-                    * Matrix4.CreateTranslation(node.Position);
-
-                // uMVP = proj * view * model
-                var mvp = model;
-                mvp = view * mvp;
-                mvp = proj * mvp;
-
-                if (_locMvp < 0) _locMvp = GL.GetUniformLocation(_program, "uMVP");
-                if (_locMvp >= 0) GL.UniformMatrix4(_locMvp, false, ref mvp);
-
+                // Self-test: identity path, no depth, full-screen tri via gl_VertexID
+                GL.Disable(EnableCap.DepthTest);
                 GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+            }
+            else
+            {
+                // Draw each node with its own model matrix
+                for (int i = 0; i < _nodes.Length; i++)
+                {
+                    ref var node = ref _nodes[i];
+
+                    Matrix4 mvp;
+                    if (_forceIdentity)
+                    {
+                        // Guaranteed-visible clip-space tri (no projection/view)
+                        mvp = Matrix4.Identity;
+                    }
+                    else
+                    {
+                        // Compose model: scale → rotate (Y) → translate
+                        var model =
+                              Matrix4.CreateScale(node.Scale)
+                            * Matrix4.CreateRotationY(t + node.Phase)
+                            * Matrix4.CreateTranslation(node.Position);
+                        // uMVP = proj * view * model
+                        mvp = model;
+                        mvp = view * mvp;
+                        mvp = proj * mvp;
+                    }
+
+                    if (_locMvp < 0) _locMvp = GL.GetUniformLocation(_program, "uMVP");
+                    if (_locMvp >= 0) GL.UniformMatrix4(_locMvp, false, ref mvp);
+
+                    GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+                }
+            }
+
+            // Optional center scissor mark (white 20x20 box), after all draws
+            if (_scissorMark)
+            {
+                try
+                {
+                    GL.Disable(EnableCap.DepthTest);
+                    GL.Enable(EnableCap.ScissorTest);
+                    int cx = Math.Max(0, _texW / 2 - 10);
+                    int cy = Math.Max(0, _texH / 2 - 10);
+                    GL.Scissor(cx, cy, Math.Min(20, _texW), Math.Min(20, _texH));
+                    GL.ClearColor(1f, 1f, 1f, 1f);
+                    GL.Clear(ClearBufferMask.ColorBufferBit);
+                }
+                catch { /* best-effort marker */ }
+                finally
+                {
+                    GL.Disable(EnableCap.ScissorTest);
+                    if (!_noDepth) GL.Enable(EnableCap.DepthTest);
+                }
             }
 
             // Unbind
@@ -577,7 +675,7 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
         private Matrix4 ComputeProjection()
         {
             float fovy = MathHelper.DegreesToRadians(60f);
-            float aspect = Math.Max(0.001f, _texW / Math.Max(1f, (float)_texH));
+            float aspect = Math.Max(0.001f, (float)_texW / Math.Max(1f, (float)_texH));
             return Matrix4.CreatePerspectiveFieldOfView(fovy, aspect, 0.1f, 100f);
         }
 

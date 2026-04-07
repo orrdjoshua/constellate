@@ -26,3 +26,9 @@ Troubleshooting
   - These are safe warnings that appear while installing/updating Avalonia templates. They do not affect solution/project creation.
 - net10.0 template compatibility:
   - If your local template/runtime combo resists net10.0, re-run the setup script with -Framework net8.0 and proceed. We can bump TFMs later.
+
+
+How to set relevant environment variables:
+
+$env:CONSTELLATE_GL_DIAG="1"
+$env:CONSTELLATE_GL_SELFTEST="1"
