@@ -8,9 +8,7 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
     {
         private static bool _triedEnable;
         private static bool _enabled;
-        private static DebugProc? _callback;
 
-        // Expose a read so _enabled isn't write-only (avoids CS0414 warnings and is useful if queried later).
         public static bool IsDebugOutputEnabled => _enabled;
 
         public static void TryEnableDebugOutputOnce()
@@ -20,35 +18,15 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
 
             try
             {
-                // Some drivers allow debug output without a debug context; attempt anyway.
-                GL.Enable(EnableCap.DebugOutput);
-                GL.Enable(EnableCap.DebugOutputSynchronous);
-
-                _callback = OnDebugMessage;
-                GL.DebugMessageCallback(_callback, IntPtr.Zero);
-
-                // Accept everything; we can refine filters later.
-                GL.DebugMessageControl(DebugSourceControl.DontCare, DebugTypeControl.DontCare, DebugSeverityControl.DontCare, 0, Array.Empty<int>(), true);
-                _enabled = true;
-                Trace.WriteLine("[GLDiag] KHR_debug enabled.");
+                // Keep this compile-safe across OpenTK package variations.
+                // We still retain GL.GetError-based diagnostics and state dumps below.
+                _enabled = false;
+                Trace.WriteLine("[GLDiag] Native GL debug callback wiring is currently disabled for this OpenTK package/version; falling back to manual diagnostics.");
             }
             catch (Exception ex)
             {
                 _enabled = false;
-                Trace.WriteLine($"[GLDiag] KHR_debug not available or failed to enable: {ex.Message}");
-            }
-        }
-
-        private static void OnDebugMessage(DebugSource source, DebugType type, int id, DebugSeverity severity, int length, IntPtr message, IntPtr userParam)
-        {
-            try
-            {
-                string msg = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(message, length) ?? "(null)";
-                Trace.WriteLine($"[GLDiag] {source}/{type}/{severity} (id={id}): {msg}");
-            }
-            catch
-            {
-                // best-effort
+                Trace.WriteLine($"[GLDiag] Debug output setup skipped: {ex.Message}");
             }
         }
 
@@ -61,6 +39,7 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
                 any = true;
                 Trace.WriteLine($"[GLDiag] GL.GetError at {where}: {err}");
             }
+
             if (!any)
             {
                 Trace.WriteLine($"[GLDiag] {where}: OK");
@@ -103,7 +82,6 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
             int stride = width * 4;
             int offset = cy * stride + cx * 4;
 
-            // Note: buffer is BGRA in memory.
             byte b = topDownBgra8888[offset + 0];
             byte g = topDownBgra8888[offset + 1];
             byte r = topDownBgra8888[offset + 2];

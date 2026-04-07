@@ -7,6 +7,10 @@ namespace Constellate.SDK
         public const string PanelInteraction = "PanelInteraction";
         public const string QueryCompleted = "QueryCompleted";
         public const string CommandInvoked = "CommandInvoked";
+        public const string FocusChanged = "FocusChanged";
+        public const string PanelFocusChanged = "PanelFocusChanged";
+        public const string PanelAttachmentsChanged = "PanelAttachmentsChanged";
+        public const string SceneChanged = "SceneChanged";
         public const string Error = "Error";
     }
 }

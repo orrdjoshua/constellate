@@ -9,6 +9,10 @@ namespace Constellate.SDK
         public const string Connect = "Connect";
         public const string AttachPanel = "AttachPanel";
         public const string Focus = "Focus";
+        public const string FocusPanel = "FocusPanel";
+        public const string Select = "Select";
+        public const string SelectPanel = "SelectPanel";
+        public const string ClearSelection = "ClearSelection";
         public const string BookmarkSave = "BookmarkSave";
         public const string BookmarkRestore = "BookmarkRestore";
         public const string SetLayout = "SetLayout";

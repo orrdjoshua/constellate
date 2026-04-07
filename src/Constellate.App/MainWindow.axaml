@@ -2,11 +2,150 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:rt="clr-namespace:Constellate.Renderer.OpenTK.Controls;assembly=Constellate.Renderer.OpenTK"
+        xmlns:app="clr-namespace:Constellate.App"
+        xmlns:cap="clr-namespace:Constellate.Core.Capabilities;assembly=Constellate.Core"
         x:Class="Constellate.App.MainWindow"
-        Width="1000" Height="700"
+        x:DataType="app:MainWindowViewModel"
+        Width="1200" Height="760"
         Title="Constellate — Hybrid 2D/3D">
-  <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
-    <TextBlock Margin="8" Text="Constellate — Placeholder 3D viewport (OpenTK target)" />
-    <rt:OpenTkViewportControl Grid.Row="1" />
+  <Grid ColumnDefinitions="300,*" RowDefinitions="Auto,*">
+    <Border Grid.RowSpan="2"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,1,0"
+            Padding="14">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Engine Capabilities"
+                     FontSize="18"
+                     FontWeight="SemiBold"
+                     Foreground="#F4F7FB" />
+          <TextBlock Text="Core-owned registrations currently available to the shell."
+                     Foreground="#C7D2DE"
+                     Opacity="0.95"
+                     TextWrapping="Wrap" />
+
+          <Border Padding="10"
+                  Background="#1A2430"
+                  BorderBrush="#3A4D63"
+                  BorderThickness="1"
+                  CornerRadius="6">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding FocusSummary}"
+                         Foreground="#F4F7FB"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding SelectionSummary}"
+                         Foreground="#D9E2EC"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ActionReadinessSummary}"
+                         Foreground="#9FD3FF"
+                         FontFamily="Cascadia Code, Consolas, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LastActivitySummary}"
+                         Foreground="#8BE9A8"
+                         FontFamily="Cascadia Code, Consolas, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LinkSummary}"
+                         Foreground="#D9E2EC"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding LinkDetails}"
+                         Foreground="#B9C7D6"
+                         FontFamily="Cascadia Code, Consolas, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding PanelSummary}"
+                         Foreground="#D9E2EC"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding PanelDetails}"
+                         Foreground="#B9C7D6"
+                         FontFamily="Cascadia Code, Consolas, monospace"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <Border Padding="10"
+                  Background="#16202A"
+                  BorderBrush="#35506A"
+                  BorderThickness="1"
+                  CornerRadius="6">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Demo Actions"
+                         Foreground="#F4F7FB"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="Exercise node and panel targeting contracts directly from the shell."
+                         Foreground="#C7D2DE"
+                         TextWrapping="Wrap" />
+              <Button Content="Focus First Node"
+                      Command="{Binding FocusFirstNodeCommand}" />
+              <Button Content="Select First Node"
+                      Command="{Binding SelectFirstNodeCommand}" />
+              <Button Content="Focus First Panel"
+                      Command="{Binding FocusFirstPanelCommand}" />
+              <Button Content="Select First Panel"
+                      Command="{Binding SelectFirstPanelCommand}" />
+               <Button Content="Create Demo Node"
+                       Command="{Binding CreateDemoNodeCommand}" />
+               <Button Content="Nudge Focused Node"
+                       Command="{Binding NudgeFocusedNodeCommand}" />
+               <Button Content="Delete Focused Node"
+                       Command="{Binding DeleteFocusedNodeCommand}" />
+               <Button Content="Attach Demo Panel To Focused Node"
+                       Command="{Binding AttachDemoPanelCommand}" />
+              <Button Content="Clear Selection"
+                      Command="{Binding ClearSelectionCommand}" />
+            </StackPanel>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding Capabilities}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="cap:EngineCapability">
+                <Border Margin="0,6,0,0"
+                        Padding="10"
+                        Background="#18222D"
+                        BorderBrush="#33485E"
+                        BorderThickness="1"
+                        CornerRadius="6">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding DisplayName}"
+                               Foreground="#F4F7FB"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Category}"
+                               Foreground="#7DD3FC" />
+                    <TextBlock Text="{Binding Key}"
+                               Foreground="#C7D2DE"
+                               FontFamily="Cascadia Code, Consolas, monospace"
+                               FontSize="11"
+                               Opacity="1.0"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Provider, StringFormat=Provider: {0}}"
+                               Foreground="#D9E2EC"
+                               Opacity="1.0"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Version, StringFormat=Version: {0}}"
+                               Foreground="#D9E2EC"
+                               Opacity="1.0" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Border Grid.Column="1"
+            Padding="12,10,12,6">
+      <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
+                 FontSize="16"
+                 FontWeight="SemiBold" />
+    </Border>
+
+    <rt:OpenTkViewportControl Grid.Column="1"
+                              Grid.Row="1" />
   </Grid>
 </Window>

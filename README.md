@@ -32,3 +32,5 @@ How to set relevant environment variables:
 
 $env:CONSTELLATE_GL_DIAG="1"
 $env:CONSTELLATE_GL_SELFTEST="1"
+
+dir env:*CONSTELLATE* shows env variables
