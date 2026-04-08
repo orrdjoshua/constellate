@@ -13,6 +13,7 @@ namespace Constellate.Core.Scene
         private readonly Dictionary<NodeId, PanelAttachment> _panelAttachments = new();
         private readonly HashSet<PanelTarget> _selectedPanels = new();
         private readonly Dictionary<string, SceneLink> _links = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, SceneGroup> _groups = new(StringComparer.Ordinal);
 
         public NodeId? FocusedNodeId { get; private set; }
         public PanelTarget? FocusedPanel { get; private set; }
@@ -44,6 +45,27 @@ namespace Constellate.Core.Scene
                     foreach (var linkId in linkIdsToRemove)
                     {
                         _links.Remove(linkId);
+                    }
+
+                    var nextGroups = _groups.Values
+                        .Select(group =>
+                        {
+                            var remaining = group.NodeIds
+                                .Where(nodeId => nodeId != id)
+                                .ToArray();
+
+                            return remaining.Length == 0
+                                ? null
+                                : group with { NodeIds = remaining };
+                        })
+                        .Where(group => group is not null)
+                        .Cast<SceneGroup>()
+                        .ToArray();
+
+                    _groups.Clear();
+                    foreach (var group in nextGroups)
+                    {
+                        _groups[group.Id] = group;
                     }
 
                     if (FocusedNodeId == id)
@@ -277,6 +299,32 @@ namespace Constellate.Core.Scene
             }
         }
 
+        public bool TryGroupSelection(string? label, out SceneGroup group)
+        {
+            lock (_gate)
+            {
+                var nodeIds = _selectedNodeIds
+                    .Where(_nodes.ContainsKey)
+                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                    .ToArray();
+
+                if (nodeIds.Length < 2)
+                {
+                    group = default!;
+                    return false;
+                }
+
+                var groupId = $"group:{Guid.NewGuid():N}";
+                var groupLabel = string.IsNullOrWhiteSpace(label)
+                    ? $"Group {(_groups.Count + 1)}"
+                    : label.Trim();
+
+                group = new SceneGroup(groupId, groupLabel, nodeIds);
+                _groups[groupId] = group;
+                return true;
+            }
+        }
+
         public SceneSnapshot GetSnapshot()
         {
             lock (_gate)
@@ -288,7 +336,8 @@ namespace Constellate.Core.Scene
                     new Dictionary<NodeId, PanelAttachment>(_panelAttachments),
                     FocusedPanel,
                     _selectedPanels.ToArray(),
-                    _links.Values.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray());
+                    _links.Values.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray(),
+                    _groups.Values.OrderBy(group => group.Label, StringComparer.Ordinal).ToArray());
             }
         }
 

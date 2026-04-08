@@ -8,6 +8,58 @@
         x:DataType="app:MainWindowViewModel"
         Width="1200" Height="760"
         Title="Constellate — Hybrid 2D/3D">
+  <Window.Styles>
+    <Style Selector="Button.SidebarActionButton">
+      <Setter Property="Foreground" Value="#F7FBFF" />
+      <Setter Property="Background" Value="#2A5F8A" />
+      <Setter Property="BorderBrush" Value="#7DCBFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.SidebarActionButton:pointerover">
+      <Setter Property="Background" Value="#3476AB" />
+      <Setter Property="BorderBrush" Value="#A7DFFF" />
+    </Style>
+
+    <Style Selector="Button.SidebarActionButton:pressed">
+      <Setter Property="Background" Value="#214C6D" />
+      <Setter Property="BorderBrush" Value="#D5F0FF" />
+    </Style>
+
+    <Style Selector="Button.SidebarActionButton:disabled">
+      <Setter Property="Foreground" Value="#AAB7C4" />
+      <Setter Property="Background" Value="#1A2733" />
+      <Setter Property="BorderBrush" Value="#314658" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="TextBox.SidebarReadout">
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="AcceptsReturn" Value="True" />
+      <Setter Property="Background" Value="#101821" />
+      <Setter Property="Foreground" Value="#B9C7D6" />
+      <Setter Property="BorderBrush" Value="#33485E" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="FontFamily" Value="Cascadia Code, Consolas, monospace" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+
+    <Style Selector="TextBox.SidebarReadout.activity">
+      <Setter Property="Foreground" Value="#8BE9A8" />
+    </Style>
+
+    <Style Selector="TextBox.SidebarReadout.readiness">
+      <Setter Property="Foreground" Value="#9FD3FF" />
+    </Style>
+  </Window.Styles>
+
   <Grid ColumnDefinitions="300,*" RowDefinitions="Auto,*">
     <Border Grid.RowSpan="2"
             Background="#0E141B"
@@ -38,32 +90,25 @@
               <TextBlock Text="{Binding SelectionSummary}"
                          Foreground="#D9E2EC"
                          TextWrapping="Wrap" />
-              <TextBlock Text="{Binding ActionReadinessSummary}"
-                         Foreground="#9FD3FF"
-                         FontFamily="Cascadia Code, Consolas, monospace"
-                         FontSize="11"
+              <TextBox Classes="SidebarReadout readiness"
+                       Text="{Binding ActionReadinessSummary}" />
+              <TextBox Classes="SidebarReadout activity"
+                       Text="{Binding LastActivitySummary}" />
+              <TextBlock Text="{Binding GroupSummary}"
+                         Foreground="#D9E2EC"
                          TextWrapping="Wrap" />
-              <TextBlock Text="{Binding LastActivitySummary}"
-                         Foreground="#8BE9A8"
-                         FontFamily="Cascadia Code, Consolas, monospace"
-                         FontSize="11"
-                         TextWrapping="Wrap" />
+              <TextBox Classes="SidebarReadout"
+                       Text="{Binding GroupDetails}" />
               <TextBlock Text="{Binding LinkSummary}"
                          Foreground="#D9E2EC"
                          TextWrapping="Wrap" />
-              <TextBlock Text="{Binding LinkDetails}"
-                         Foreground="#B9C7D6"
-                         FontFamily="Cascadia Code, Consolas, monospace"
-                         FontSize="11"
-                         TextWrapping="Wrap" />
+              <TextBox Classes="SidebarReadout"
+                       Text="{Binding LinkDetails}" />
               <TextBlock Text="{Binding PanelSummary}"
                          Foreground="#D9E2EC"
                          TextWrapping="Wrap" />
-              <TextBlock Text="{Binding PanelDetails}"
-                         Foreground="#B9C7D6"
-                         FontFamily="Cascadia Code, Consolas, monospace"
-                         FontSize="11"
-                         TextWrapping="Wrap" />
+              <TextBox Classes="SidebarReadout"
+                       Text="{Binding PanelDetails}" />
             </StackPanel>
           </Border>
 
@@ -76,26 +121,41 @@
               <TextBlock Text="Demo Actions"
                          Foreground="#F4F7FB"
                          FontWeight="SemiBold" />
-              <TextBlock Text="Exercise node and panel targeting contracts directly from the shell."
+              <TextBlock Text="Exercise node, panel, link, and group contracts directly from the shell."
                          Foreground="#C7D2DE"
                          TextWrapping="Wrap" />
-              <Button Content="Focus First Node"
+              <Button Classes="SidebarActionButton"
+                      Content="Focus First Node"
                       Command="{Binding FocusFirstNodeCommand}" />
-              <Button Content="Select First Node"
+              <Button Classes="SidebarActionButton"
+                      Content="Select First Node"
                       Command="{Binding SelectFirstNodeCommand}" />
-              <Button Content="Focus First Panel"
+              <Button Classes="SidebarActionButton"
+                      Content="Focus First Panel"
                       Command="{Binding FocusFirstPanelCommand}" />
-              <Button Content="Select First Panel"
+              <Button Classes="SidebarActionButton"
+                      Content="Select First Panel"
                       Command="{Binding SelectFirstPanelCommand}" />
-               <Button Content="Create Demo Node"
-                       Command="{Binding CreateDemoNodeCommand}" />
-               <Button Content="Nudge Focused Node"
-                       Command="{Binding NudgeFocusedNodeCommand}" />
-               <Button Content="Delete Focused Node"
-                       Command="{Binding DeleteFocusedNodeCommand}" />
-               <Button Content="Attach Demo Panel To Focused Node"
-                       Command="{Binding AttachDemoPanelCommand}" />
-              <Button Content="Clear Selection"
+              <Button Classes="SidebarActionButton"
+                      Content="Create Demo Node"
+                      Command="{Binding CreateDemoNodeCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Nudge Focused Node"
+                      Command="{Binding NudgeFocusedNodeCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Connect Focused Node To First Other Node"
+                      Command="{Binding ConnectFocusedNodeCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Group Current Node Selection"
+                      Command="{Binding GroupSelectionCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Delete Focused Node"
+                      Command="{Binding DeleteFocusedNodeCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Attach Demo Panel To Focused Node"
+                      Command="{Binding AttachDemoPanelCommand}" />
+              <Button Classes="SidebarActionButton"
+                      Content="Clear Selection"
                       Command="{Binding ClearSelectionCommand}" />
             </StackPanel>
           </Border>

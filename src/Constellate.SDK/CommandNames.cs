@@ -13,6 +13,7 @@ namespace Constellate.SDK
         public const string Select = "Select";
         public const string SelectPanel = "SelectPanel";
         public const string ClearSelection = "ClearSelection";
+        public const string GroupSelection = "GroupSelection";
         public const string BookmarkSave = "BookmarkSave";
         public const string BookmarkRestore = "BookmarkRestore";
         public const string SetLayout = "SetLayout";

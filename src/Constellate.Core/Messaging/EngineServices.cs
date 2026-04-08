@@ -363,6 +363,31 @@ namespace Constellate.Core.Messaging
 
                 return true;
             });
+
+            commandBus.Subscribe(CommandNames.GroupSelection, command =>
+            {
+                if (!TryDeserialize(command.Payload, out GroupSelectionPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TryGroupSelection(payload.Label, out var group))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.GroupChanged,
+                    new
+                    {
+                        reason = "group_selection",
+                        groupId = group.Id,
+                        label = group.Label,
+                        nodeIds = group.NodeIds.Select(id => id.ToString()).ToArray()
+                    });
+
+                return true;
+            });
         }
 
         private static void PublishEvent(string eventName, object payload)

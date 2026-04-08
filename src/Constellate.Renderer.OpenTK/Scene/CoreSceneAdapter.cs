@@ -79,7 +79,15 @@ namespace Constellate.Renderer.OpenTK.Scene
                 .ToArray()
                 ?? [];
 
-            return new RenderSceneSnapshot(nodes, panelSurfaces, links);
+            var groups = snapshot.Groups?
+                .Select(group => new RenderGroup(
+                    group.Id,
+                    group.Label,
+                    group.NodeIds.Select(id => id.ToString()).ToArray()))
+                .ToArray()
+                ?? [];
+
+            return new RenderSceneSnapshot(nodes, panelSurfaces, links, groups);
         }
 
         public static RenderNode[] ToRenderNodes(SceneSnapshot snapshot)

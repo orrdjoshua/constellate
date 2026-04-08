@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -176,6 +177,7 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             if (_preferGl && !_glFailed)
             {
+                DrawLinkPlaceholders(ctx, bounds);
                 DrawPanelPlaceholders(ctx, bounds);
             }
 
@@ -249,9 +251,10 @@ namespace Constellate.Renderer.OpenTK.Controls
                 var panelSummary = renderSnapshot.PanelSurfaces.Length == 0
                     ? "panels=0"
                     : $"panels={renderSnapshot.PanelSurfaces.Length} first={renderSnapshot.PanelSurfaces[0].ViewRef}";
+                var linkSummary = $"links={renderSnapshot.Links.Length}";
                 var info =
                     $"cam yaw={_cam.Yaw:0.00} pitch={_cam.Pitch:0.00} dist={_cam.Distance:0.00}\n" +
-                    $"order={order} depth={!_noDepth} clear={!_noClear} {panelSummary}";
+                    $"order={order} depth={!_noDepth} clear={!_noClear} {panelSummary} {linkSummary}";
 
                 var ft = new FormattedText(
                     info,
@@ -261,9 +264,69 @@ namespace Constellate.Renderer.OpenTK.Controls
                     12,
                     Brushes.White);
 
-                var bg = new Rect(8, 8, 460, 38);
+                var bg = new Rect(8, 8, 520, 38);
                 ctx.DrawRectangle(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), null, bg);
                 ctx.DrawText(ft, new Point(12, 12));
+            }
+            catch
+            {
+            }
+        }
+
+        private void DrawLinkPlaceholders(DrawingContext ctx, Rect bounds)
+        {
+            try
+            {
+                var renderSnapshot = GetRenderSceneSnapshot();
+                if (renderSnapshot.Links.Length == 0 || renderSnapshot.Nodes.Length == 0)
+                {
+                    return;
+                }
+
+                var byId = renderSnapshot.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+                var view = ComputeView();
+                var proj = ComputeProjection();
+
+                foreach (var link in renderSnapshot.Links)
+                {
+                    if (!byId.TryGetValue(link.SourceId, out var source) ||
+                        !byId.TryGetValue(link.TargetId, out var target))
+                    {
+                        continue;
+                    }
+
+                    if (!TryProjectWorldPoint(source.Position, view, proj, bounds, out var sourcePoint) ||
+                        !TryProjectWorldPoint(target.Position, view, proj, bounds, out var targetPoint))
+                    {
+                        continue;
+                    }
+
+                    var strokeThickness = Math.Clamp(link.Weight, 1.0f, 3.0f);
+                    var strokeBrush = new SolidColorBrush(Color.FromArgb(220, 125, 211, 252));
+                    var pen = new Pen(strokeBrush, strokeThickness);
+
+                    ctx.DrawLine(pen, sourcePoint, targetPoint);
+
+                    var mid = new Point(
+                        (sourcePoint.X + targetPoint.X) * 0.5,
+                        (sourcePoint.Y + targetPoint.Y) * 0.5);
+
+                    var label = new FormattedText(
+                        link.Kind,
+                        CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight,
+                        new Typeface("Segoe UI"),
+                        10,
+                        Brushes.White);
+
+                    var labelRect = new Rect(mid.X - 24, mid.Y - 10, 48, 18);
+                    ctx.DrawRectangle(
+                        new SolidColorBrush(Color.FromArgb(140, 12, 20, 28)),
+                        new Pen(new SolidColorBrush(Color.FromArgb(180, 125, 211, 252)), 1),
+                        labelRect,
+                        4);
+                    ctx.DrawText(label, new Point(labelRect.X + 6, labelRect.Y + 2));
+                }
             }
             catch
             {
@@ -356,6 +419,35 @@ namespace Constellate.Renderer.OpenTK.Controls
             catch
             {
             }
+        }
+
+        private bool TryProjectWorldPoint(
+            Vector3 worldPosition,
+            Matrix4 view,
+            Matrix4 proj,
+            Rect bounds,
+            out Point screenPoint)
+        {
+            var world = new Vector4(worldPosition.X, worldPosition.Y, worldPosition.Z, 1f);
+            var clip = world * view * proj;
+
+            if (clip.W <= 0.0001f)
+            {
+                screenPoint = default;
+                return false;
+            }
+
+            var ndc = clip.Xyz / clip.W;
+            if (ndc.Z < -1.2f || ndc.Z > 1.2f)
+            {
+                screenPoint = default;
+                return false;
+            }
+
+            screenPoint = new Point(
+                bounds.X + ((ndc.X + 1f) * 0.5 * bounds.Width),
+                bounds.Y + ((1f - (ndc.Y + 1f) * 0.5) * bounds.Height));
+            return true;
         }
 
         private static Point GetAnchorOffset(string? anchor, double width, double height)
@@ -784,7 +876,7 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
                     }
                     else
                     {
-                        var model = 
+                        var model =
                             Matrix4.CreateScale(node.VisualScale) *
                             Matrix4.CreateRotationX(node.RotationEuler.X) *
                             Matrix4.CreateRotationY(node.RotationEuler.Y + time + node.Phase) *

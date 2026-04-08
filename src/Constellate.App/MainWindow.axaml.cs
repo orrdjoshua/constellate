@@ -42,6 +42,8 @@ namespace Constellate.App
         private readonly RelayCommand _selectFirstPanelCommand;
         private readonly RelayCommand _createDemoNodeCommand;
         private readonly RelayCommand _nudgeFocusedNodeCommand;
+        private readonly RelayCommand _connectFocusedNodeCommand;
+        private readonly RelayCommand _groupSelectionCommand;
         private readonly RelayCommand _deleteFocusedNodeCommand;
         private readonly RelayCommand _attachDemoPanelCommand;
         private readonly RelayCommand _clearSelectionCommand;
@@ -57,6 +59,8 @@ namespace Constellate.App
         public ICommand SelectFirstPanelCommand => _selectFirstPanelCommand;
         public ICommand CreateDemoNodeCommand => _createDemoNodeCommand;
         public ICommand NudgeFocusedNodeCommand => _nudgeFocusedNodeCommand;
+        public ICommand ConnectFocusedNodeCommand => _connectFocusedNodeCommand;
+        public ICommand GroupSelectionCommand => _groupSelectionCommand;
         public ICommand DeleteFocusedNodeCommand => _deleteFocusedNodeCommand;
         public ICommand AttachDemoPanelCommand => _attachDemoPanelCommand;
         public ICommand ClearSelectionCommand => _clearSelectionCommand;
@@ -70,7 +74,8 @@ namespace Constellate.App
                 SubscribeRefresh(EventNames.FocusChanged, "focus changed"),
                 SubscribeRefresh(EventNames.PanelFocusChanged, "panel focus changed"),
                 SubscribeRefresh(EventNames.SelectionChanged, "selection changed"),
-                SubscribeRefresh(EventNames.PanelAttachmentsChanged, "panel attachments changed")
+                SubscribeRefresh(EventNames.PanelAttachmentsChanged, "panel attachments changed"),
+                SubscribeRefresh(EventNames.GroupChanged, "group changed")
             ];
 
             _focusFirstNodeCommand = new RelayCommand(
@@ -173,6 +178,52 @@ namespace Constellate.App
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
+            _connectFocusedNodeCommand = new RelayCommand(
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return;
+                    }
+
+                    var targetNode = _shellScene.GetNodes()
+                        .FirstOrDefault(node => node.Id != focusedNode.Id);
+
+                    if (targetNode is null)
+                    {
+                        return;
+                    }
+
+                    SendCommand(
+                        CommandNames.Connect,
+                        new ConnectEntitiesPayload(
+                            focusedNode.Id.ToString(),
+                            targetNode.Id.ToString(),
+                            Kind: "demo",
+                            Weight: 1.0f));
+                },
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return false;
+                    }
+
+                    return _shellScene.GetNodes().Any(node => node.Id != focusedNode.Id);
+                });
+
+            _groupSelectionCommand = new RelayCommand(
+                _ =>
+                {
+                    var selectedCount = _shellScene.GetSelectedNodeIds().Count;
+                    SendCommand(
+                        CommandNames.GroupSelection,
+                        new GroupSelectionPayload($"Group {(_shellScene.GetGroups().Count + 1)} ({selectedCount} nodes)"));
+                },
+                _ => _shellScene.GetSelectedNodeIds().Count >= 2);
+
             _deleteFocusedNodeCommand = new RelayCommand(
                 _ =>
                 {
@@ -185,7 +236,7 @@ namespace Constellate.App
                     SendCommand(
                         CommandNames.Delete,
                         new DeleteEntityPayload(focusedNode.Id.ToString()));
-                    },
+                },
                 _ => _shellScene.GetFocusedNode() is not null);
 
             _attachDemoPanelCommand = new RelayCommand(
@@ -254,6 +305,34 @@ namespace Constellate.App
             }
         }
 
+        public string GroupSummary
+        {
+            get
+            {
+                var count = _shellScene.GetGroups().Count;
+                return count == 0
+                    ? "Groups: none"
+                    : $"Groups: {count}";
+            }
+        }
+
+        public string GroupDetails
+        {
+            get
+            {
+                var groups = _shellScene.GetGroups();
+                if (groups.Count == 0)
+                {
+                    return "No groups yet.";
+                }
+
+                return string.Join(
+                    "\n",
+                    groups.Select(group =>
+                        $"{group.Label} [{group.Id}] => {string.Join(", ", group.NodeIds.Select(id => id.ToString()))}"));
+            }
+        }
+
         public string PanelSummary
         {
             get
@@ -306,6 +385,8 @@ namespace Constellate.App
                         $"select-panel={FormatReady(_selectFirstPanelCommand.CanExecute(null))}",
                         $"create-node={FormatReady(_createDemoNodeCommand.CanExecute(null))}",
                         $"nudge={FormatReady(_nudgeFocusedNodeCommand.CanExecute(null))}",
+                        $"connect={FormatReady(_connectFocusedNodeCommand.CanExecute(null))}",
+                        $"group={FormatReady(_groupSelectionCommand.CanExecute(null))}",
                         $"delete={FormatReady(_deleteFocusedNodeCommand.CanExecute(null))}",
                         $"attach-panel={FormatReady(_attachDemoPanelCommand.CanExecute(null))}",
                         $"clear={FormatReady(_clearSelectionCommand.CanExecute(null))}"
@@ -414,14 +495,81 @@ namespace Constellate.App
 
         private void UpdateLastActivity(string eventName, string activityLabel, Envelope envelope)
         {
-            _lastActivitySummary = $"Last Activity: {activityLabel} ({eventName}) @ {envelope.Ts:HH:mm:ss}";
+            var detail = TryDescribeActivity(envelope);
+            _lastActivitySummary = string.IsNullOrWhiteSpace(detail)
+                ? $"Last Activity: {activityLabel} ({eventName}) @ {envelope.Ts:HH:mm:ss}"
+                : $"Last Activity: {activityLabel} ({eventName}: {detail}) @ {envelope.Ts:HH:mm:ss}";
             OnPropertyChanged(nameof(LastActivitySummary));
+        }
+
+        private static string? TryDescribeActivity(Envelope envelope)
+        {
+            if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+            {
+                return envelope.Name;
+            }
+
+            if (string.Equals(envelope.Name, EventNames.CommandInvoked, StringComparison.Ordinal))
+            {
+                if (TryGetString(payload, "commandName", out var commandName))
+                {
+                    return commandName;
+                }
+
+                return envelope.Name;
+            }
+
+            if (TryGetString(payload, "reason", out var reason))
+            {
+                return reason;
+            }
+
+            if (TryGetString(payload, "label", out var label))
+            {
+                return label;
+            }
+
+            if (TryGetString(payload, "focusedNodeId", out var focusedNodeId))
+            {
+                return focusedNodeId;
+            }
+
+            if (TryGetString(payload, "viewRef", out var viewRef))
+            {
+                return viewRef;
+            }
+
+            return envelope.Name;
+        }
+
+        private static bool TryGetString(JsonElement element, string propertyName, out string value)
+        {
+            value = string.Empty;
+
+            if (!element.TryGetProperty(propertyName, out var propertyValue))
+            {
+                return false;
+            }
+
+            if (propertyValue.ValueKind == JsonValueKind.String)
+            {
+                var text = propertyValue.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    value = text;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void RaiseSceneStateChanged()
         {
             OnPropertyChanged(nameof(FocusSummary));
             OnPropertyChanged(nameof(SelectionSummary));
+            OnPropertyChanged(nameof(GroupSummary));
+            OnPropertyChanged(nameof(GroupDetails));
             OnPropertyChanged(nameof(LinkSummary));
             OnPropertyChanged(nameof(LinkDetails));
             OnPropertyChanged(nameof(PanelSummary));
@@ -438,6 +586,8 @@ namespace Constellate.App
             _selectFirstPanelCommand.RaiseCanExecuteChanged();
             _createDemoNodeCommand.RaiseCanExecuteChanged();
             _nudgeFocusedNodeCommand.RaiseCanExecuteChanged();
+            _connectFocusedNodeCommand.RaiseCanExecuteChanged();
+            _groupSelectionCommand.RaiseCanExecuteChanged();
             _deleteFocusedNodeCommand.RaiseCanExecuteChanged();
             _attachDemoPanelCommand.RaiseCanExecuteChanged();
             _clearSelectionCommand.RaiseCanExecuteChanged();

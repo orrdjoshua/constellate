@@ -9,5 +9,6 @@ namespace Constellate.Core.Scene
         IReadOnlyDictionary<NodeId, PanelAttachment>? PanelAttachments = null,
         PanelTarget? FocusedPanel = null,
         IReadOnlyList<PanelTarget>? SelectedPanels = null,
-        IReadOnlyList<SceneLink>? Links = null);
+        IReadOnlyList<SceneLink>? Links = null,
+        IReadOnlyList<SceneGroup>? Groups = null);
 }

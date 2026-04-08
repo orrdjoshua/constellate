@@ -58,5 +58,9 @@ namespace Constellate.Core.Scene
         public IReadOnlyList<SceneLink> GetLinks() =>
             _scene.GetSnapshot().Links
             ?? Array.Empty<SceneLink>();
+
+        public IReadOnlyList<SceneGroup> GetGroups() =>
+            _scene.GetSnapshot().Groups
+            ?? Array.Empty<SceneGroup>();
     }
 }

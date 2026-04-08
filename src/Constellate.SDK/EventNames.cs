@@ -11,6 +11,7 @@ namespace Constellate.SDK
         public const string PanelFocusChanged = "PanelFocusChanged";
         public const string PanelAttachmentsChanged = "PanelAttachmentsChanged";
         public const string SceneChanged = "SceneChanged";
+        public const string GroupChanged = "GroupChanged";
         public const string Error = "Error";
     }
 }

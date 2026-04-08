@@ -60,6 +60,9 @@ namespace Constellate.SDK
         string? Kind = null,
         float? Weight = null);
 
+    public sealed record GroupSelectionPayload(
+        string? Label = null);
+
     public sealed record CommandInvokedPayload(
         string CommandName,
         Guid CommandId);
