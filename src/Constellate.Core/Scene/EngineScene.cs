@@ -14,9 +14,69 @@ namespace Constellate.Core.Scene
         private readonly HashSet<PanelTarget> _selectedPanels = new();
         private readonly Dictionary<string, SceneLink> _links = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SceneGroup> _groups = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, SceneBookmark> _bookmarks = new(StringComparer.Ordinal);
+        private readonly Stack<SceneSnapshot> _undoStack = new();
+
+        // Last-known renderer-neutral view (yaw/pitch/distance/target), updated by EngineServices on ViewChanged
+        private ViewParams? _lastView;
 
         public NodeId? FocusedNodeId { get; private set; }
         public PanelTarget? FocusedPanel { get; private set; }
+
+        public void SetLastView(ViewParams view)
+        {
+            lock (_gate)
+            {
+                _lastView = view;
+            }
+        }
+
+        public bool CanUndo
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _undoStack.Count > 0;
+                }
+            }
+        }
+
+        public void PushUndoSnapshot(SceneSnapshot snapshot)
+        {
+            lock (_gate)
+            {
+                _undoStack.Push(snapshot);
+            }
+        }
+
+        public bool TryUndo()
+        {
+            lock (_gate)
+            {
+                if (_undoStack.Count == 0)
+                {
+                    return false;
+                }
+
+                RestoreSnapshotUnderLock(_undoStack.Pop());
+                return true;
+            }
+        }
+
+        public bool ClearLinks()
+        {
+            lock (_gate)
+            {
+                if (_links.Count == 0)
+                {
+                    return false;
+                }
+
+                _links.Clear();
+                return true;
+            }
+        }
 
         public void Upsert(SceneNode node)
         {
@@ -66,6 +126,37 @@ namespace Constellate.Core.Scene
                     foreach (var group in nextGroups)
                     {
                         _groups[group.Id] = group;
+                    }
+
+                    var nextBookmarks = _bookmarks.Values
+                        .Select(bookmark =>
+                        {
+                            var focusedNodeId = bookmark.FocusedNodeId == id ? null : bookmark.FocusedNodeId;
+                            var selectedNodeIds = bookmark.SelectedNodeIds
+                                .Where(nodeId => nodeId != id)
+                                .ToArray();
+                            var focusedPanel = bookmark.FocusedPanel is { } focusedPanelBookmark &&
+                                              focusedPanelBookmark.NodeId == id
+                                ? null
+                                : bookmark.FocusedPanel;
+                            var selectedPanels = bookmark.SelectedPanels
+                                .Where(panel => panel.NodeId != id)
+                                .ToArray();
+
+                            return bookmark with
+                            {
+                                FocusedNodeId = focusedNodeId,
+                                SelectedNodeIds = selectedNodeIds,
+                                FocusedPanel = focusedPanel,
+                                SelectedPanels = selectedPanels
+                            };
+                        })
+                        .ToArray();
+
+                    _bookmarks.Clear();
+                    foreach (var bookmark in nextBookmarks)
+                    {
+                        _bookmarks[bookmark.Name] = bookmark;
                     }
 
                     if (FocusedNodeId == id)
@@ -325,19 +416,100 @@ namespace Constellate.Core.Scene
             }
         }
 
+        public bool TrySaveBookmark(string name, out SceneBookmark bookmark)
+        {
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    bookmark = default!;
+                    return false;
+                }
+
+                var normalizedName = name.Trim();
+                bookmark = new SceneBookmark(
+                    normalizedName,
+                    FocusedNodeId,
+                    _selectedNodeIds
+                        .Where(_nodes.ContainsKey)
+                        .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                        .ToArray(),
+                    FocusedPanel is { } focusedPanel &&
+                    TryGetPanelTargetUnderLock(focusedPanel.NodeId, focusedPanel.ViewRef, out var normalizedFocusedPanel)
+                        ? normalizedFocusedPanel
+                        : null,
+                    _selectedPanels
+                        .Where(panel => TryGetPanelTargetUnderLock(panel.NodeId, panel.ViewRef, out _))
+                        .OrderBy(panel => panel.NodeId.ToString(), StringComparer.Ordinal)
+                        .ThenBy(panel => panel.ViewRef, StringComparer.Ordinal)
+                        .ToArray(),
+                    _lastView);
+
+                _bookmarks[normalizedName] = bookmark;
+                return true;
+            }
+        }
+
+        public bool TryRestoreBookmark(string name, out SceneBookmark bookmark)
+        {
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(name) || !_bookmarks.TryGetValue(name.Trim(), out var stored))
+                {
+                    bookmark = default!;
+                    return false;
+                }
+
+                FocusedNodeId = stored.FocusedNodeId is { } focusedNodeId && _nodes.ContainsKey(focusedNodeId)
+                    ? focusedNodeId
+                    : null;
+
+                _selectedNodeIds.Clear();
+                foreach (var nodeId in stored.SelectedNodeIds)
+                {
+                    if (_nodes.ContainsKey(nodeId))
+                    {
+                        _selectedNodeIds.Add(nodeId);
+                    }
+                }
+
+                FocusedPanel = stored.FocusedPanel is { } focusedPanel &&
+                               TryGetPanelTargetUnderLock(focusedPanel.NodeId, focusedPanel.ViewRef, out var normalizedFocusedPanel)
+                    ? normalizedFocusedPanel
+                    : null;
+
+                _selectedPanels.Clear();
+                foreach (var panel in stored.SelectedPanels)
+                {
+                    if (TryGetPanelTargetUnderLock(panel.NodeId, panel.ViewRef, out var normalizedPanel))
+                    {
+                        _selectedPanels.Add(normalizedPanel);
+                    }
+                }
+
+                bookmark = new SceneBookmark(
+                    stored.Name,
+                    FocusedNodeId,
+                    _selectedNodeIds
+                        .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                        .ToArray(),
+                    FocusedPanel,
+                    _selectedPanels
+                        .OrderBy(panel => panel.NodeId.ToString(), StringComparer.Ordinal)
+                        .ThenBy(panel => panel.ViewRef, StringComparer.Ordinal)
+                        .ToArray(),
+                    stored.View);
+
+                _bookmarks[stored.Name] = bookmark;
+                return true;
+            }
+        }
+
         public SceneSnapshot GetSnapshot()
         {
             lock (_gate)
             {
-                return new SceneSnapshot(
-                    _nodes.Values.ToList(),
-                    FocusedNodeId,
-                    _selectedNodeIds.ToArray(),
-                    new Dictionary<NodeId, PanelAttachment>(_panelAttachments),
-                    FocusedPanel,
-                    _selectedPanels.ToArray(),
-                    _links.Values.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray(),
-                    _groups.Values.OrderBy(group => group.Label, StringComparer.Ordinal).ToArray());
+                return CreateSnapshotUnderLock();
             }
         }
 
@@ -348,6 +520,94 @@ namespace Constellate.Core.Scene
                 lock (_gate)
                 {
                     return _nodes.Count == 0;
+                }
+            }
+        }
+
+        private SceneSnapshot CreateSnapshotUnderLock()
+        {
+            return new SceneSnapshot(
+                _nodes.Values.ToList(),
+                FocusedNodeId,
+                _selectedNodeIds.ToArray(),
+                new Dictionary<NodeId, PanelAttachment>(_panelAttachments),
+                FocusedPanel,
+                _selectedPanels.ToArray(),
+                _links.Values.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray(),
+                _groups.Values.OrderBy(group => group.Label, StringComparer.Ordinal).ToArray(),
+                _bookmarks.Values.OrderBy(bookmark => bookmark.Name, StringComparer.Ordinal).ToArray());
+        }
+
+        private void RestoreSnapshotUnderLock(SceneSnapshot snapshot)
+        {
+            _nodes.Clear();
+            foreach (var node in snapshot.Nodes)
+            {
+                _nodes[node.Id] = node;
+            }
+
+            _selectedNodeIds.Clear();
+            if (snapshot.SelectedNodeIds is not null)
+            {
+                foreach (var nodeId in snapshot.SelectedNodeIds.Where(_nodes.ContainsKey))
+                {
+                    _selectedNodeIds.Add(nodeId);
+                }
+            }
+
+            _panelAttachments.Clear();
+            if (snapshot.PanelAttachments is not null)
+            {
+                foreach (var attachment in snapshot.PanelAttachments)
+                {
+                    _panelAttachments[attachment.Key] = attachment.Value;
+                }
+            }
+
+            _links.Clear();
+            if (snapshot.Links is not null)
+            {
+                foreach (var link in snapshot.Links)
+                {
+                    _links[link.Id] = link;
+                }
+            }
+
+            _groups.Clear();
+            if (snapshot.Groups is not null)
+            {
+                foreach (var group in snapshot.Groups)
+                {
+                    _groups[group.Id] = group;
+                }
+            }
+
+            _bookmarks.Clear();
+            if (snapshot.Bookmarks is not null)
+            {
+                foreach (var bookmark in snapshot.Bookmarks)
+                {
+                    _bookmarks[bookmark.Name] = bookmark;
+                }
+            }
+
+            FocusedNodeId = snapshot.FocusedNodeId is { } focusedNodeId && _nodes.ContainsKey(focusedNodeId)
+                ? focusedNodeId
+                : null;
+            FocusedPanel = snapshot.FocusedPanel is { } focusedPanel &&
+                           TryGetPanelTargetUnderLock(focusedPanel.NodeId, focusedPanel.ViewRef, out var normalizedFocusedPanel)
+                ? normalizedFocusedPanel
+                : null;
+
+            _selectedPanels.Clear();
+            if (snapshot.SelectedPanels is not null)
+            {
+                foreach (var panel in snapshot.SelectedPanels)
+                {
+                    if (TryGetPanelTargetUnderLock(panel.NodeId, panel.ViewRef, out var normalizedPanel))
+                    {
+                        _selectedPanels.Add(normalizedPanel);
+                    }
                 }
             }
         }

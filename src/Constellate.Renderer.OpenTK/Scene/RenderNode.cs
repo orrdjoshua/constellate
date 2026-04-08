@@ -9,5 +9,7 @@ namespace Constellate.Renderer.OpenTK.Scene
         Vector3 RotationEuler,
         Vector3 Scale,
         float VisualScale,
-        float Phase);
+        float Phase,
+        bool IsFocused,
+        bool IsSelected);
 }

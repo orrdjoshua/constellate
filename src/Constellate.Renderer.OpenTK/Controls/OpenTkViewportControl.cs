@@ -10,10 +10,12 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using System.Text.Json;
 using Constellate.Core.Messaging;
 using Constellate.Renderer.OpenTK.Scene;
 using Constellate.Core.Scene;
 using Constellate.Renderer.OpenTK.Diagnostics;
+using Constellate.SDK;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -88,6 +90,17 @@ namespace Constellate.Renderer.OpenTK.Controls
 
         private readonly Stopwatch _sw = Stopwatch.StartNew();
 
+        private IDisposable? _viewSetSubscription;
+
+        private const double ClickDragThreshold = 4.0;
+
+        private enum InteractionMode
+        {
+            None,
+            Orbit,
+            Pan
+        }
+
         private struct OrbitCamera
         {
             public float Yaw;
@@ -120,19 +133,25 @@ namespace Constellate.Renderer.OpenTK.Controls
             Target = Vector3.Zero
         };
 
-        private bool _dragging;
-        private bool _panning;
+        private InteractionMode _interactionMode;
+        private bool _leftPointerPending;
+        private bool _pendingAdditiveSelection;
+        private bool _pointerMovedBeyondThreshold;
         private Point _lastPt;
+        private Point _pointerPressedPt;
+        private string? _pressedNodeId;
 
         public OpenTkViewportControl()
         {
             Focusable = true;
             IsHitTestVisible = true;
+            IsTabStop = true;
 
             AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
             AddHandler(PointerReleasedEvent, OnPointerReleased, handledEventsToo: true);
             AddHandler(PointerMovedEvent, OnPointerMoved, handledEventsToo: true);
             AddHandler(PointerWheelChangedEvent, OnPointerWheelChanged, handledEventsToo: true);
+            AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             _timer.Tick += (_, _) =>
@@ -156,6 +175,45 @@ namespace Constellate.Renderer.OpenTK.Controls
                 InvalidateVisual();
             };
             _timer.Start();
+
+            // Subscribe to view-set requests (e.g., bookmark restore)
+            _viewSetSubscription = EngineServices.EventBus.Subscribe(EventNames.ViewSetRequested, envelope =>
+            {
+                try
+                {
+                    if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+                    {
+                        return false;
+                    }
+
+                    float yaw = _cam.Yaw, pitch = _cam.Pitch, distance = _cam.Distance;
+                    float tx = _cam.Target.X, ty = _cam.Target.Y, tz = _cam.Target.Z;
+
+                    TryGetFloat(payload, "yaw", ref yaw);
+                    TryGetFloat(payload, "pitch", ref pitch);
+                    TryGetFloat(payload, "distance", ref distance);
+
+                    if (payload.TryGetProperty("target", out var t) && t.ValueKind == JsonValueKind.Object)
+                    {
+                        TryGetFloat(t, "x", ref tx);
+                        TryGetFloat(t, "y", ref ty);
+                        TryGetFloat(t, "z", ref tz);
+                    }
+
+                    _cam.Yaw = yaw;
+                    _cam.Pitch = pitch;
+                    _cam.Distance = distance;
+                    _cam.Target = new Vector3(tx, ty, tz);
+                    _cam.Clamp();
+
+                    InvalidateVisual();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
         }
 
         public override void Render(DrawingContext ctx)
@@ -177,7 +235,9 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             if (_preferGl && !_glFailed)
             {
+                DrawNodeInteractionOverlays(ctx, bounds);
                 DrawLinkPlaceholders(ctx, bounds);
+                DrawGroupPlaceholders(ctx, bounds);
                 DrawPanelPlaceholders(ctx, bounds);
             }
 
@@ -198,6 +258,15 @@ namespace Constellate.Renderer.OpenTK.Controls
             catch
             {
             }
+
+            try
+            {
+                _viewSetSubscription?.Dispose();
+            }
+            catch
+            {
+            }
+            _viewSetSubscription = null;
 
             TeardownGl();
             _glBitmap?.Dispose();
@@ -252,9 +321,10 @@ namespace Constellate.Renderer.OpenTK.Controls
                     ? "panels=0"
                     : $"panels={renderSnapshot.PanelSurfaces.Length} first={renderSnapshot.PanelSurfaces[0].ViewRef}";
                 var linkSummary = $"links={renderSnapshot.Links.Length}";
+                var groupSummary = $"groups={renderSnapshot.Groups.Length}";
                 var info =
                     $"cam yaw={_cam.Yaw:0.00} pitch={_cam.Pitch:0.00} dist={_cam.Distance:0.00}\n" +
-                    $"order={order} depth={!_noDepth} clear={!_noClear} {panelSummary} {linkSummary}";
+                    $"order={order} depth={!_noDepth} clear={!_noClear} {panelSummary} {linkSummary} {groupSummary}";
 
                 var ft = new FormattedText(
                     info,
@@ -264,9 +334,67 @@ namespace Constellate.Renderer.OpenTK.Controls
                     12,
                     Brushes.White);
 
-                var bg = new Rect(8, 8, 520, 38);
+                var bg = new Rect(8, 8, 560, 38);
                 ctx.DrawRectangle(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), null, bg);
                 ctx.DrawText(ft, new Point(12, 12));
+            }
+            catch
+            {
+            }
+        }
+
+        private void DrawNodeInteractionOverlays(DrawingContext ctx, Rect bounds)
+        {
+            try
+            {
+                var renderSnapshot = GetRenderSceneSnapshot();
+                if (renderSnapshot.Nodes.Length == 0)
+                {
+                    return;
+                }
+
+                var view = ComputeView();
+                var proj = ComputeProjection();
+
+                foreach (var node in renderSnapshot.Nodes)
+                {
+                    if (!node.IsFocused && !node.IsSelected)
+                    {
+                        continue;
+                    }
+
+                    if (!TryProjectWorldPoint(node.Position, view, proj, bounds, out var screenPoint))
+                    {
+                        continue;
+                    }
+
+                    var radius = Math.Max(12.0, node.VisualScale * 18.0);
+                    var fillColor = node.IsFocused
+                        ? Color.FromArgb(90, 250, 204, 21)
+                        : Color.FromArgb(72, 96, 165, 250);
+                    var strokeColor = node.IsFocused
+                        ? Color.FromArgb(255, 250, 204, 21)
+                        : Color.FromArgb(255, 96, 165, 250);
+                    var stateLabel = node.IsFocused && node.IsSelected
+                        ? "focused + selected"
+                        : node.IsFocused
+                            ? "focused"
+                            : "selected";
+
+                    ctx.DrawEllipse(
+                        new SolidColorBrush(fillColor),
+                        new Pen(new SolidColorBrush(strokeColor), node.IsFocused ? 3.0 : 2.0),
+                        screenPoint,
+                        radius,
+                        radius);
+
+                    var label = new FormattedText($"{node.Label} • {stateLabel}", CultureInfo.InvariantCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), 10, Brushes.White);
+                    var labelWidth = label.WidthIncludingTrailingWhitespace;
+                    var labelHeight = label.Height;
+                    var labelRect = new Rect(screenPoint.X - (labelWidth / 2.0) - 6.0, screenPoint.Y - radius - labelHeight - 12.0, Math.Max(46.0, labelWidth + 12.0), Math.Max(18.0, labelHeight + 6.0));
+                    ctx.DrawRectangle(new SolidColorBrush(Color.FromArgb(150, 12, 20, 28)), new Pen(new SolidColorBrush(strokeColor), 1.0), labelRect, 4);
+                    ctx.DrawText(label, new Point(labelRect.X + 6.0, labelRect.Y + 3.0));
+                }
             }
             catch
             {
@@ -326,6 +454,79 @@ namespace Constellate.Renderer.OpenTK.Controls
                         labelRect,
                         4);
                     ctx.DrawText(label, new Point(labelRect.X + 6, labelRect.Y + 2));
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void DrawGroupPlaceholders(DrawingContext ctx, Rect bounds)
+        {
+            try
+            {
+                var renderSnapshot = GetRenderSceneSnapshot();
+                if (renderSnapshot.Groups.Length == 0 || renderSnapshot.Nodes.Length == 0)
+                {
+                    return;
+                }
+
+                var byId = renderSnapshot.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+                var view = ComputeView();
+                var proj = ComputeProjection();
+
+                foreach (var group in renderSnapshot.Groups)
+                {
+                    // Project all nodes in the group; require at least two visible points
+                    var points = group.NodeIds
+                        .Where(byId.ContainsKey)
+                        .Select(id => byId[id])
+                        .Select(node =>
+                        {
+                            return TryProjectWorldPoint(node.Position, view, proj, bounds, out var p)
+                                ? (ok: true, p)
+                                : (ok: false, p: default(Point));
+                        })
+                        .Where(t => t.ok)
+                        .Select(t => t.p)
+                        .ToArray();
+
+                    if (points.Length < 2)
+                    {
+                        continue;
+                    }
+
+                    var minX = points.Min(p => p.X);
+                    var minY = points.Min(p => p.Y);
+                    var maxX = points.Max(p => p.X);
+                    var maxY = points.Max(p => p.Y);
+
+                    // Pad a bit for readability
+                    const double pad = 10.0;
+                    var rect = new Rect(minX - pad, minY - pad, Math.Max(2, (maxX - minX) + 2 * pad), Math.Max(2, (maxY - minY) + 2 * pad));
+
+                    var fill = new SolidColorBrush(Color.FromArgb(50, 20, 180, 120));    // subtle greenish overlay
+                    var stroke = new Pen(new SolidColorBrush(Color.FromArgb(220, 20, 200, 140)), 1.5); // brighter outline
+                    ctx.DrawRectangle(fill, stroke, rect, 6);
+
+                    var label = new FormattedText(
+                        group.Label,
+                        CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight,
+                        new Typeface("Segoe UI"),
+                        11,
+                        Brushes.White);
+
+                    // Label box
+                    var labelWidth = label.WidthIncludingTrailingWhitespace;
+                    var labelHeight = label.Height;
+                    var labelBox = new Rect(rect.X + 8, rect.Y + 6, Math.Max(48, labelWidth + 10), Math.Max(18, labelHeight + 6));
+                    ctx.DrawRectangle(
+                        new SolidColorBrush(Color.FromArgb(140, 12, 20, 28)),
+                        new Pen(new SolidColorBrush(Color.FromArgb(180, 125, 211, 252)), 1),
+                        labelBox,
+                        4);
+                    ctx.DrawText(label, new Point(labelBox.X + 5, labelBox.Y + 2));
                 }
             }
             catch
@@ -421,6 +622,36 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
         }
 
+        private void OnKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key == Key.Z)
+            {
+                SendCommand<object?>(CommandNames.Undo, null);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Tab)
+            {
+                CycleFocusedNode(!e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter || e.Key == Key.Space)
+            {
+                SelectFocusedNode(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Escape)
+            {
+                SendCommand<object?>(CommandNames.ClearSelection, null);
+                e.Handled = true;
+            }
+        }
+
         private bool TryProjectWorldPoint(
             Vector3 worldPosition,
             Matrix4 view,
@@ -474,6 +705,125 @@ namespace Constellate.Renderer.OpenTK.Controls
                 _ => new Point(-(width / 2.0), -(height / 2.0))
             };
         }
+
+        private void HandleNodeClick(string? nodeId, bool additiveSelection)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId))
+            {
+                if (!additiveSelection)
+                {
+                    SendCommand<object?>(CommandNames.ClearSelection, null);
+                }
+
+                return;
+            }
+
+            SendCommand(CommandNames.Focus, new FocusEntityPayload(nodeId));
+            SendCommand(CommandNames.Select, new SelectEntitiesPayload([nodeId], !additiveSelection));
+        }
+
+        private bool TryLinkInteractionNode(string targetNodeId)
+        {
+            var renderSnapshot = GetRenderSceneSnapshot();
+            var sourceNodeId = renderSnapshot.Nodes
+                .Where(node => node.IsSelected && !string.Equals(node.Id, targetNodeId, StringComparison.Ordinal))
+                .OrderBy(node => node.Label, StringComparer.Ordinal)
+                .ThenBy(node => node.Id, StringComparer.Ordinal)
+                .Select(node => node.Id)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(sourceNodeId))
+            {
+                sourceNodeId = renderSnapshot.Nodes
+                    .Where(node => node.IsFocused && !string.Equals(node.Id, targetNodeId, StringComparison.Ordinal))
+                    .Select(node => node.Id)
+                    .FirstOrDefault();
+            }
+
+            if (string.IsNullOrWhiteSpace(sourceNodeId) ||
+                string.Equals(sourceNodeId, targetNodeId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            SendCommand(CommandNames.Connect, new ConnectEntitiesPayload(sourceNodeId, targetNodeId, Kind: "directed", Weight: 1.0f));
+            SendCommand(CommandNames.Focus, new FocusEntityPayload(targetNodeId));
+            SendCommand(CommandNames.Select, new SelectEntitiesPayload([targetNodeId], false));
+            return true;
+        }
+
+        private void CycleFocusedNode(bool forward)
+        {
+            var nodes = GetOrderedRenderNodes();
+            if (nodes.Length == 0)
+            {
+                return;
+            }
+
+            var focusedIndex = Array.FindIndex(nodes, node => node.IsFocused);
+            var nextIndex = focusedIndex < 0
+                ? (forward ? 0 : nodes.Length - 1)
+                : (focusedIndex + (forward ? 1 : -1) + nodes.Length) % nodes.Length;
+
+            SendCommand(CommandNames.Focus, new FocusEntityPayload(nodes[nextIndex].Id));
+        }
+
+        private void SelectFocusedNode(bool additiveSelection)
+        {
+            var nodes = GetOrderedRenderNodes();
+            if (nodes.Length == 0)
+            {
+                return;
+            }
+
+            var focused = nodes.FirstOrDefault(node => node.IsFocused);
+            var nodeId = string.IsNullOrWhiteSpace(focused.Id) ? nodes[0].Id : focused.Id;
+            HandleNodeClick(nodeId, additiveSelection);
+        }
+
+        private string? HitTestProjectedNodeId(Point point)
+        {
+            var renderSnapshot = GetRenderSceneSnapshot();
+            if (renderSnapshot.Nodes.Length == 0)
+            {
+                return null;
+            }
+
+            var view = ComputeView();
+            var proj = ComputeProjection();
+            const double hitRadius = 24.0;
+            var hitRadiusSquared = hitRadius * hitRadius;
+            var bestDistanceSquared = double.MaxValue;
+            string? bestNodeId = null;
+
+            foreach (var node in renderSnapshot.Nodes)
+            {
+                if (!TryProjectWorldPoint(node.Position, view, proj, new Rect(Bounds.Size), out var screenPoint))
+                {
+                    continue;
+                }
+
+                var dx = screenPoint.X - point.X;
+                var dy = screenPoint.Y - point.Y;
+                var distanceSquared = (dx * dx) + (dy * dy);
+                if (distanceSquared <= hitRadiusSquared && distanceSquared < bestDistanceSquared)
+                {
+                    bestDistanceSquared = distanceSquared;
+                    bestNodeId = node.Id;
+                }
+            }
+
+            return bestNodeId;
+        }
+
+        private static RenderNode[] GetOrderedRenderNodes() =>
+            GetRenderSceneSnapshot().Nodes
+                .OrderBy(node => node.Label, StringComparer.Ordinal)
+                .ThenBy(node => node.Id, StringComparer.Ordinal)
+                .ToArray();
+
+        private static void SendCommand<TPayload>(string commandName, TPayload payload) =>
+            EngineServices.CommandBus.Send(new Envelope { V = "1.0", Id = Guid.NewGuid(), Ts = DateTimeOffset.UtcNow, Type = EnvelopeType.Command, Name = commandName, Payload = payload is null ? null : JsonSerializer.SerializeToElement(payload), CorrelationId = null });
 
         private void EnsureGl(int width, int height)
         {
@@ -628,25 +978,25 @@ namespace Constellate.Renderer.OpenTK.Controls
             if (_selfTest)
             {
                 vsSrc = @"#version 330 core
-void main() {
-    const vec2 pos[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
-    gl_Position = vec4(pos[gl_VertexID], 0.0, 1.0);
-}";
+ void main() {
+     const vec2 pos[3] = vec2[3](vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0));
+     gl_Position = vec4(pos[gl_VertexID], 0.0, 1.0);
+ }";
                 fsSrc = @"#version 330 core
-out vec4 FragColor;
-void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
+ out vec4 FragColor;
+ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             }
             else
             {
                 vsSrc = @"#version 330 core
-layout(location=0) in vec3 aPos;
-uniform mat4 uMVP;
-void main() {
-    gl_Position = uMVP * vec4(aPos, 1.0);
-}";
+ layout(location=0) in vec3 aPos;
+ uniform mat4 uMVP;
+ void main() {
+     gl_Position = uMVP * vec4(aPos, 1.0);
+ }";
                 fsSrc = @"#version 330 core
-out vec4 FragColor;
-void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
+ out vec4 FragColor;
+ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             }
 
             var vs = CompileShader(ShaderType.VertexShader, vsSrc);
@@ -1026,63 +1376,118 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             return Matrix4.CreatePerspectiveFieldOfView(fovy, aspect, 0.1f, 100f);
         }
 
+        private static void TryGetFloat(JsonElement obj, string name, ref float value)
+        {
+            if (obj.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number)
+            {
+                if (p.TryGetSingle(out var f)) value = f;
+                else if (p.TryGetDouble(out var d)) value = (float)d;
+            }
+        }
+
+        private void PublishViewChanged()
+        {
+            try
+            {
+                var payload = new
+                {
+                    yaw = _cam.Yaw,
+                    pitch = _cam.Pitch,
+                    distance = _cam.Distance,
+                    target = new { x = _cam.Target.X, y = _cam.Target.Y, z = _cam.Target.Z }
+                };
+
+                EngineServices.EventBus.Publish(new Envelope
+                {
+                    V = "1.0",
+                    Id = Guid.NewGuid(),
+                    Ts = DateTimeOffset.UtcNow,
+                    Type = EnvelopeType.Event,
+                    Name = EventNames.ViewChanged,
+                    Payload = JsonSerializer.SerializeToElement(payload),
+                    CorrelationId = null
+                });
+            }
+            catch
+            {
+            }
+        }
+
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var pt = e.GetPosition(this);
             var props = e.GetCurrentPoint(this).Properties;
             var mods = e.KeyModifiers;
 
-            if (props.IsLeftButtonPressed)
+            if (props.IsRightButtonPressed || props.IsMiddleButtonPressed)
             {
-                _dragging = true;
+                _interactionMode = InteractionMode.Pan;
                 _lastPt = pt;
                 try
                 {
                     e.Pointer.Capture(this);
                 }
-                catch
-                {
-                }
+                catch { }
 
                 e.Handled = true;
                 Focus();
+                return;
             }
 
-            if (props.IsRightButtonPressed || props.IsMiddleButtonPressed ||
-                (mods.HasFlag(KeyModifiers.Shift) && props.IsLeftButtonPressed))
+            if (props.IsLeftButtonPressed)
             {
-                _panning = true;
+                Focus();
+                var clickedNodeId = HitTestProjectedNodeId(pt);
+                if (!string.IsNullOrWhiteSpace(clickedNodeId) &&
+                    (mods.HasFlag(KeyModifiers.Control) || e.ClickCount >= 2) &&
+                    TryLinkInteractionNode(clickedNodeId))
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                _leftPointerPending = true;
+                _pendingAdditiveSelection = mods.HasFlag(KeyModifiers.Shift);
+                _pointerMovedBeyondThreshold = false;
+                _pointerPressedPt = pt;
+                _pressedNodeId = clickedNodeId;
                 _lastPt = pt;
+                _interactionMode = InteractionMode.None;
                 try
                 {
                     e.Pointer.Capture(this);
                 }
-                catch
-                {
-                }
+                catch { }
 
                 e.Handled = true;
-                Focus();
             }
         }
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (_dragging || _panning)
+            if (!_leftPointerPending && _interactionMode == InteractionMode.None)
             {
-                _dragging = false;
-                _panning = false;
-
-                try
-                {
-                    e.Pointer.Capture(null);
-                }
-                catch
-                {
-                }
-
-                e.Handled = true;
+                return;
             }
+
+            if (_leftPointerPending && !_pointerMovedBeyondThreshold)
+            {
+                HandleNodeClick(_pressedNodeId, _pendingAdditiveSelection);
+            }
+
+            _leftPointerPending = false;
+            _pendingAdditiveSelection = false;
+            _pointerMovedBeyondThreshold = false;
+            _pressedNodeId = null;
+            _interactionMode = InteractionMode.None;
+
+            try
+            {
+                e.Pointer.Capture(null);
+            }
+            catch { }
+
+            e.Handled = true;
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -1090,8 +1495,23 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             var pt = e.GetPosition(this);
             var dx = pt.X - _lastPt.X;
             var dy = pt.Y - _lastPt.Y;
+            var cameraChanged = false;
 
-            if (_panning)
+            if (_leftPointerPending && !_pointerMovedBeyondThreshold)
+            {
+                var pressDx = pt.X - _pointerPressedPt.X;
+                var pressDy = pt.Y - _pointerPressedPt.Y;
+                var movementSquared = (pressDx * pressDx) + (pressDy * pressDy);
+                if (movementSquared >= ClickDragThreshold * ClickDragThreshold)
+                {
+                    _pointerMovedBeyondThreshold = true;
+                    _interactionMode = _pendingAdditiveSelection
+                        ? InteractionMode.Pan
+                        : InteractionMode.Orbit;
+                }
+            }
+
+            if (_interactionMode == InteractionMode.Pan)
             {
                 var cy = MathF.Cos(_cam.Yaw);
                 var sy = MathF.Sin(_cam.Yaw);
@@ -1107,8 +1527,9 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
                 var panScale = _cam.Distance * 0.002f;
                 _cam.Target -= right * (float)dx * panScale;
                 _cam.Target += up * (float)dy * panScale;
+                cameraChanged = true;
             }
-            else if (_dragging)
+            else if (_interactionMode == InteractionMode.Orbit)
             {
                 _cam.Yaw += (float)(dx * 0.01);
                 _cam.Pitch += (float)(-dy * 0.01);
@@ -1116,7 +1537,11 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             }
 
             _lastPt = pt;
-            e.Handled = true;
+            if (cameraChanged)
+            {
+                PublishViewChanged();
+                e.Handled = true;
+            }
         }
 
         private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -1125,6 +1550,7 @@ void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
             var factor = (float)Math.Pow(1.1, -delta);
             _cam.Distance *= factor;
             _cam.Clamp();
+            PublishViewChanged();
             e.Handled = true;
         }
 

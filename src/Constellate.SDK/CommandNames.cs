@@ -7,6 +7,8 @@ namespace Constellate.SDK
         public const string Delete = "Delete";
         public const string SetTransform = "SetTransform";
         public const string Connect = "Connect";
+        public const string ClearLinks = "ClearLinks";
+        public const string Undo = "Undo";
         public const string AttachPanel = "AttachPanel";
         public const string Focus = "Focus";
         public const string FocusPanel = "FocusPanel";

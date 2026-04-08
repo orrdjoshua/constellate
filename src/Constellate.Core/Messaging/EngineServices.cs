@@ -34,9 +34,25 @@ namespace Constellate.Core.Messaging
 
             SeedDefaultScene(Scene);
             RegisterCommandHandlers(CommandBus, Scene);
+            RegisterEventHandlers(EventBus, Scene);
             SeedCapabilities(Capabilities);
 
             _initialized = true;
+        }
+
+        private static void RegisterEventHandlers(IEventBus eventBus, EngineScene scene)
+        {
+            // Renderer publishes current camera on interaction; store for next BookmarkSave
+            eventBus.Subscribe(EventNames.ViewChanged, envelope =>
+            {
+                if (!TryDeserialize(envelope.Payload, out ViewChangedPayload? p) || p is null)
+                {
+                    return false;
+                }
+
+                scene.SetLastView(new ViewParams(p.Yaw, p.Pitch, p.Distance, p.Target));
+                return true;
+            });
         }
 
         private static void RegisterCommandHandlers(ICommandBus commandBus, EngineScene scene)
@@ -190,6 +206,40 @@ namespace Constellate.Core.Messaging
                 return true;
             });
 
+            commandBus.Subscribe(CommandNames.ClearLinks, _ =>
+            {
+                if (!scene.ClearLinks())
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "clear_links"
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.Undo, _ =>
+            {
+                if (!scene.TryUndo())
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "undo"
+                    });
+
+                return true;
+            });
+
             commandBus.Subscribe(CommandNames.Focus, command =>
             {
                 if (!TryDeserialize(command.Payload, out FocusEntityPayload? payload) || payload is null)
@@ -261,15 +311,7 @@ namespace Constellate.Core.Messaging
                     return false;
                 }
 
-                PublishEvent(
-                    EventNames.SelectionChanged,
-                    new
-                    {
-                        selectedNodeIds = scene.GetSnapshot().SelectedNodeIds?
-                            .Select(id => id.ToString())
-                            .ToArray() ?? []
-                    });
-
+                PublishSelectionChanged(scene);
                 return true;
             });
 
@@ -302,33 +344,14 @@ namespace Constellate.Core.Messaging
                     return false;
                 }
 
-                PublishEvent(
-                    EventNames.SelectionChanged,
-                    new
-                    {
-                        selectedNodeIds = scene.GetSnapshot().SelectedNodeIds?
-                            .Select(id => id.ToString())
-                            .ToArray() ?? [],
-                        selectedPanels = scene.GetSnapshot().SelectedPanels?
-                            .Select(panel => new { nodeId = panel.NodeId.ToString(), viewRef = panel.ViewRef })
-                            .ToArray() ?? []
-                    });
-
+                PublishSelectionChanged(scene);
                 return true;
             });
 
             commandBus.Subscribe(CommandNames.ClearSelection, _ =>
             {
                 scene.ClearSelection();
-
-                PublishEvent(
-                    EventNames.SelectionChanged,
-                    new
-                    {
-                        selectedNodeIds = Array.Empty<string>(),
-                        selectedPanels = Array.Empty<object>()
-                    });
-
+                PublishSelectionChanged(scene);
                 return true;
             });
 
@@ -388,6 +411,97 @@ namespace Constellate.Core.Messaging
 
                 return true;
             });
+
+            commandBus.Subscribe(CommandNames.BookmarkSave, command =>
+            {
+                if (!TryDeserialize(command.Payload, out BookmarkSavePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TrySaveBookmark(payload.Name, out var bookmark))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "bookmark_saved",
+                        bookmarkName = bookmark.Name
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.BookmarkRestore, command =>
+            {
+                if (!TryDeserialize(command.Payload, out BookmarkRestorePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TryRestoreBookmark(payload.Name, out var bookmark))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "bookmark_restored",
+                        bookmarkName = bookmark.Name
+                    });
+                PublishSelectionChanged(scene);
+
+                if (bookmark.FocusedPanel is { } focusedPanel)
+                {
+                    PublishEvent(
+                        EventNames.PanelFocusChanged,
+                        new { focusedNodeId = focusedPanel.NodeId.ToString(), viewRef = focusedPanel.ViewRef });
+                }
+                else if (bookmark.FocusedNodeId is { } focusedNodeId)
+                {
+                    PublishEvent(
+                        EventNames.FocusChanged,
+                        new { focusedNodeId = focusedNodeId.ToString() });
+                }
+
+                // If bookmark persisted a view, request renderer to set it
+                if (bookmark.View is { } v)
+                {
+                    PublishEvent(
+                        EventNames.ViewSetRequested,
+                        new
+                        {
+                            yaw = v.Yaw,
+                            pitch = v.Pitch,
+                            distance = v.Distance,
+                            target = new { x = v.Target.X, y = v.Target.Y, z = v.Target.Z }
+                        });
+                }
+
+                return true;
+            });
+        }
+
+        private static void PublishSelectionChanged(EngineScene scene)
+        {
+            var snapshot = scene.GetSnapshot();
+
+            PublishEvent(
+                EventNames.SelectionChanged,
+                new
+                {
+                    selectedNodeIds = snapshot.SelectedNodeIds?
+                        .Select(id => id.ToString())
+                        .ToArray() ?? [],
+                    selectedPanels = snapshot.SelectedPanels?
+                        .Select(panel => new { nodeId = panel.NodeId.ToString(), viewRef = panel.ViewRef })
+                        .ToArray() ?? []
+                });
         }
 
         private static void PublishEvent(string eventName, object payload)
@@ -502,6 +616,26 @@ namespace Constellate.Core.Messaging
                 Version: "0.1"));
         }
 
+        private static bool IsUndoableCommandName(string commandName)
+        {
+            return commandName is
+                CommandNames.CreateEntity or
+                CommandNames.UpdateEntity or
+                CommandNames.Delete or
+                CommandNames.SetTransform or
+                CommandNames.Connect or
+                CommandNames.ClearLinks or
+                CommandNames.Focus or
+                CommandNames.FocusPanel or
+                CommandNames.Select or
+                CommandNames.SelectPanel or
+                CommandNames.ClearSelection or
+                CommandNames.AttachPanel or
+                CommandNames.GroupSelection or
+                CommandNames.BookmarkSave or
+                CommandNames.BookmarkRestore;
+        }
+
         private sealed class SimpleInProcBus : ICommandBus, IEventBus, IDisposable
         {
             private readonly object _gate = new();
@@ -514,6 +648,13 @@ namespace Constellate.Core.Messaging
             public void Send(Envelope command)
             {
                 Subscription[] snapshot;
+                var shouldTrackUndo = IsUndoableCommandName(command.Name) &&
+                                      !string.Equals(command.Name, CommandNames.Undo, StringComparison.Ordinal) &&
+                                      Scene is not null;
+                SceneSnapshot? undoSnapshot = shouldTrackUndo
+                    ? Scene.GetSnapshot()
+                    : null;
+
                 lock (_gate) snapshot = _commandHandlers.ToArray();
 
                 var anySucceeded = false;
@@ -538,6 +679,11 @@ namespace Constellate.Core.Messaging
 
                 if (anySucceeded)
                 {
+                    if (undoSnapshot is not null)
+                    {
+                        Scene.PushUndoSnapshot(undoSnapshot);
+                    }
+
                     Publish(new Envelope
                     {
                         V = command.V,

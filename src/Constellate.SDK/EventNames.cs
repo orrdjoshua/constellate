@@ -13,5 +13,11 @@ namespace Constellate.SDK
         public const string SceneChanged = "SceneChanged";
         public const string GroupChanged = "GroupChanged";
         public const string Error = "Error";
+
+        // Renderer/Core view bridge:
+        // - ViewChanged: renderer publishes user-driven camera changes (yaw/pitch/distance/target)
+        // - ViewSetRequested: Core requests renderer to set a specific view (e.g., bookmark restore)
+        public const string ViewChanged = "ViewChanged";
+        public const string ViewSetRequested = "ViewSetRequested";
     }
 }

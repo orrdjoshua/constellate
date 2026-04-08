@@ -44,8 +44,12 @@ namespace Constellate.App
         private readonly RelayCommand _nudgeFocusedNodeCommand;
         private readonly RelayCommand _connectFocusedNodeCommand;
         private readonly RelayCommand _groupSelectionCommand;
+        private readonly RelayCommand _saveBookmarkCommand;
+        private readonly RelayCommand _restoreLatestBookmarkCommand;
+        private readonly RelayCommand _undoLastCommand;
         private readonly RelayCommand _deleteFocusedNodeCommand;
         private readonly RelayCommand _attachDemoPanelCommand;
+        private readonly RelayCommand _clearLinksCommand;
         private readonly RelayCommand _clearSelectionCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
@@ -61,8 +65,12 @@ namespace Constellate.App
         public ICommand NudgeFocusedNodeCommand => _nudgeFocusedNodeCommand;
         public ICommand ConnectFocusedNodeCommand => _connectFocusedNodeCommand;
         public ICommand GroupSelectionCommand => _groupSelectionCommand;
+        public ICommand SaveBookmarkCommand => _saveBookmarkCommand;
+        public ICommand RestoreLatestBookmarkCommand => _restoreLatestBookmarkCommand;
+        public ICommand UndoLastCommand => _undoLastCommand;
         public ICommand DeleteFocusedNodeCommand => _deleteFocusedNodeCommand;
         public ICommand AttachDemoPanelCommand => _attachDemoPanelCommand;
+        public ICommand ClearLinksCommand => _clearLinksCommand;
         public ICommand ClearSelectionCommand => _clearSelectionCommand;
 
         public MainWindowViewModel()
@@ -187,10 +195,10 @@ namespace Constellate.App
                         return;
                     }
 
-                    var targetNode = _shellScene.GetNodes()
-                        .FirstOrDefault(node => node.Id != focusedNode.Id);
+                    var sourceNodeId = _shellScene.GetSelectedNodeIds()
+                        .FirstOrDefault(nodeId => nodeId != focusedNode.Id);
 
-                    if (targetNode is null)
+                    if (sourceNodeId == default)
                     {
                         return;
                     }
@@ -198,9 +206,9 @@ namespace Constellate.App
                     SendCommand(
                         CommandNames.Connect,
                         new ConnectEntitiesPayload(
+                            sourceNodeId.ToString(),
                             focusedNode.Id.ToString(),
-                            targetNode.Id.ToString(),
-                            Kind: "demo",
+                            Kind: "directed",
                             Weight: 1.0f));
                 },
                 _ =>
@@ -211,7 +219,7 @@ namespace Constellate.App
                         return false;
                     }
 
-                    return _shellScene.GetNodes().Any(node => node.Id != focusedNode.Id);
+                    return _shellScene.GetSelectedNodeIds().Any(nodeId => nodeId != focusedNode.Id);
                 });
 
             _groupSelectionCommand = new RelayCommand(
@@ -223,6 +231,47 @@ namespace Constellate.App
                         new GroupSelectionPayload($"Group {(_shellScene.GetGroups().Count + 1)} ({selectedCount} nodes)"));
                 },
                 _ => _shellScene.GetSelectedNodeIds().Count >= 2);
+
+            _saveBookmarkCommand = new RelayCommand(
+                _ =>
+                {
+                    var index = _shellScene.GetBookmarks().Count + 1;
+                    SendCommand(
+                        CommandNames.BookmarkSave,
+                        new BookmarkSavePayload($"Bookmark {index}"));
+                },
+                _ =>
+                {
+                    return _shellScene.GetFocusedNode() is not null ||
+                           _shellScene.GetFocusedPanel() is not null ||
+                           _shellScene.GetSelectedNodeIds().Count > 0 ||
+                           _shellScene.GetSelectedPanels().Count > 0;
+                });
+
+            _restoreLatestBookmarkCommand = new RelayCommand(
+                _ =>
+                {
+                    var latest = _shellScene.GetBookmarks()
+                        .OrderBy(bookmark => bookmark.Name, StringComparer.Ordinal)
+                        .LastOrDefault();
+
+                    if (latest is null)
+                    {
+                        return;
+                    }
+
+                    SendCommand(
+                        CommandNames.BookmarkRestore,
+                        new BookmarkRestorePayload(latest.Name));
+                },
+                _ => _shellScene.GetBookmarks().Count > 0);
+
+            _undoLastCommand = new RelayCommand(
+                _ =>
+                {
+                    SendCommand<object?>(CommandNames.Undo, null);
+                },
+                _ => EngineServices.Scene.CanUndo);
 
             _deleteFocusedNodeCommand = new RelayCommand(
                 _ =>
@@ -263,6 +312,13 @@ namespace Constellate.App
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
+            _clearLinksCommand = new RelayCommand(
+                _ =>
+                {
+                    SendCommand<object?>(CommandNames.ClearLinks, null);
+                },
+                _ => _shellScene.GetLinks().Count > 0);
+
             _clearSelectionCommand = new RelayCommand(
                 _ =>
                 {
@@ -302,6 +358,45 @@ namespace Constellate.App
                 }
 
                 return $"Selection: nodes={nodeCount}, panels={panelCount}";
+            }
+        }
+
+        public string BookmarkSummary
+        {
+            get
+            {
+                var count = _shellScene.GetBookmarks().Count;
+                return count == 0
+                    ? "Bookmarks: none"
+                    : $"Bookmarks: {count}";
+            }
+        }
+
+        public string BookmarkDetails
+        {
+            get
+            {
+                var bookmarks = _shellScene.GetBookmarks();
+                if (bookmarks.Count == 0)
+                {
+                    return "No bookmarks yet.";
+                }
+
+                return string.Join(
+                    "\n",
+                    bookmarks.Select(bookmark =>
+                    {
+                        var focus = bookmark.FocusedPanel is { } focusedPanel
+                            ? $"focus=panel:{focusedPanel.ViewRef}@{focusedPanel.NodeId}"
+                            : bookmark.FocusedNodeId is { } focusedNodeId
+                                ? $"focus=node:{focusedNodeId}"
+                                : "focus=none";
+
+                        return
+                            $"{bookmark.Name} => {focus} " +
+                            $"selectedNodes={bookmark.SelectedNodeIds.Count} " +
+                            $"selectedPanels={bookmark.SelectedPanels.Count}";
+                    }));
             }
         }
 
@@ -372,6 +467,33 @@ namespace Constellate.App
             }
         }
 
+        public string InteractionSemanticsSummary
+        {
+            get
+            {
+                var focusedNode = _shellScene.GetFocusedNode();
+                var selectedNodeIds = _shellScene.GetSelectedNodeIds();
+                var selectedPanels = _shellScene.GetSelectedPanels();
+
+                var linkSource = selectedNodeIds
+                    .FirstOrDefault(nodeId => focusedNode is null || nodeId != focusedNode.Id);
+
+                var linkSourceText = linkSource != default
+                    ? linkSource.ToString()
+                    : focusedNode is not null
+                        ? focusedNode.Id.ToString()
+                        : "none";
+
+                var targetText = focusedNode is not null
+                    ? focusedNode.Id.ToString()
+                    : "clicked node";
+
+                return
+                    $"Interaction: click=focus/select • shift+click=add • ctrl+click/double-click=link {linkSourceText} -> {targetText} • ctrl+z=undo • clear-links=shell tool" +
+                    $"\nCurrent counts: selectedNodes={selectedNodeIds.Count}, selectedPanels={selectedPanels.Count}";
+            }
+        }
+
         public string ActionReadinessSummary
         {
             get
@@ -387,6 +509,10 @@ namespace Constellate.App
                         $"nudge={FormatReady(_nudgeFocusedNodeCommand.CanExecute(null))}",
                         $"connect={FormatReady(_connectFocusedNodeCommand.CanExecute(null))}",
                         $"group={FormatReady(_groupSelectionCommand.CanExecute(null))}",
+                        $"save-bookmark={FormatReady(_saveBookmarkCommand.CanExecute(null))}",
+                        $"restore-bookmark={FormatReady(_restoreLatestBookmarkCommand.CanExecute(null))}",
+                        $"undo={FormatReady(_undoLastCommand.CanExecute(null))}",
+                        $"clear-links={FormatReady(_clearLinksCommand.CanExecute(null))}",
                         $"delete={FormatReady(_deleteFocusedNodeCommand.CanExecute(null))}",
                         $"attach-panel={FormatReady(_attachDemoPanelCommand.CanExecute(null))}",
                         $"clear={FormatReady(_clearSelectionCommand.CanExecute(null))}"
@@ -529,6 +655,11 @@ namespace Constellate.App
                 return label;
             }
 
+            if (TryGetString(payload, "bookmarkName", out var bookmarkName))
+            {
+                return bookmarkName;
+            }
+
             if (TryGetString(payload, "focusedNodeId", out var focusedNodeId))
             {
                 return focusedNodeId;
@@ -568,9 +699,12 @@ namespace Constellate.App
         {
             OnPropertyChanged(nameof(FocusSummary));
             OnPropertyChanged(nameof(SelectionSummary));
+            OnPropertyChanged(nameof(BookmarkSummary));
+            OnPropertyChanged(nameof(BookmarkDetails));
             OnPropertyChanged(nameof(GroupSummary));
             OnPropertyChanged(nameof(GroupDetails));
             OnPropertyChanged(nameof(LinkSummary));
+            OnPropertyChanged(nameof(InteractionSemanticsSummary));
             OnPropertyChanged(nameof(LinkDetails));
             OnPropertyChanged(nameof(PanelSummary));
             OnPropertyChanged(nameof(ActionReadinessSummary));
@@ -588,8 +722,12 @@ namespace Constellate.App
             _nudgeFocusedNodeCommand.RaiseCanExecuteChanged();
             _connectFocusedNodeCommand.RaiseCanExecuteChanged();
             _groupSelectionCommand.RaiseCanExecuteChanged();
+            _saveBookmarkCommand.RaiseCanExecuteChanged();
+            _restoreLatestBookmarkCommand.RaiseCanExecuteChanged();
+            _undoLastCommand.RaiseCanExecuteChanged();
             _deleteFocusedNodeCommand.RaiseCanExecuteChanged();
             _attachDemoPanelCommand.RaiseCanExecuteChanged();
+            _clearLinksCommand.RaiseCanExecuteChanged();
             _clearSelectionCommand.RaiseCanExecuteChanged();
         }
 

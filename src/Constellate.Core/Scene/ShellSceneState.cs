@@ -62,5 +62,9 @@ namespace Constellate.Core.Scene
         public IReadOnlyList<SceneGroup> GetGroups() =>
             _scene.GetSnapshot().Groups
             ?? Array.Empty<SceneGroup>();
+
+        public IReadOnlyList<SceneBookmark> GetBookmarks() =>
+            _scene.GetSnapshot().Bookmarks
+            ?? Array.Empty<SceneBookmark>();
     }
 }

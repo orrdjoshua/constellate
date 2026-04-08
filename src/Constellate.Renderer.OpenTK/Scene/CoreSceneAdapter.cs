@@ -8,6 +8,9 @@ namespace Constellate.Renderer.OpenTK.Scene
     {
         public static RenderSceneSnapshot ToRenderSceneSnapshot(SceneSnapshot snapshot)
         {
+            var focusedNodeId = snapshot.FocusedNodeId;
+            var selectedNodeIds = snapshot.SelectedNodeIds?.ToHashSet() ?? [];
+
             var nodes = new RenderNode[snapshot.Nodes.Count];
 
             for (var i = 0; i < snapshot.Nodes.Count; i++)
@@ -35,7 +38,9 @@ namespace Constellate.Renderer.OpenTK.Scene
                         src.Transform.Scale.Y,
                         src.Transform.Scale.Z),
                     scale,
-                    src.Phase);
+                    src.Phase,
+                    focusedNodeId == src.Id,
+                    selectedNodeIds.Contains(src.Id));
             }
 
             var focusedPanel = snapshot.FocusedPanel;

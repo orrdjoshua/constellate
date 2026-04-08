@@ -10,5 +10,6 @@ namespace Constellate.Core.Scene
         PanelTarget? FocusedPanel = null,
         IReadOnlyList<PanelTarget>? SelectedPanels = null,
         IReadOnlyList<SceneLink>? Links = null,
-        IReadOnlyList<SceneGroup>? Groups = null);
+        IReadOnlyList<SceneGroup>? Groups = null,
+        IReadOnlyList<SceneBookmark>? Bookmarks = null);
 }

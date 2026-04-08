@@ -63,7 +63,26 @@ namespace Constellate.SDK
     public sealed record GroupSelectionPayload(
         string? Label = null);
 
+    public sealed record BookmarkSavePayload(
+        string Name);
+
+    public sealed record BookmarkRestorePayload(
+        string Name);
+
     public sealed record CommandInvokedPayload(
         string CommandName,
         Guid CommandId);
+
+    // View/camera bridge payloads
+    public sealed record ViewChangedPayload(
+        float Yaw,
+        float Pitch,
+        float Distance,
+        Vector3 Target);
+
+    public sealed record ViewSetRequestedPayload(
+        float Yaw,
+        float Pitch,
+        float Distance,
+        Vector3 Target);
 }
