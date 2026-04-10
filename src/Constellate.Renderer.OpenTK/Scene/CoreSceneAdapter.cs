@@ -16,6 +16,7 @@ namespace Constellate.Renderer.OpenTK.Scene
             for (var i = 0; i < snapshot.Nodes.Count; i++)
             {
                 var src = snapshot.Nodes[i];
+                var appearance = src.Appearance ?? NodeAppearance.Default;
                 var scale = src.VisualScale;
                 if (scale <= 0f)
                 {
@@ -40,7 +41,11 @@ namespace Constellate.Renderer.OpenTK.Scene
                     scale,
                     src.Phase,
                     focusedNodeId == src.Id,
-                    selectedNodeIds.Contains(src.Id));
+                    selectedNodeIds.Contains(src.Id),
+                    appearance.Primitive,
+                    appearance.FillColor,
+                    appearance.OutlineColor,
+                    appearance.Opacity);
             }
 
             var focusedPanel = snapshot.FocusedPanel;

@@ -11,7 +11,10 @@ namespace Constellate.Core.Messaging
 {
     public static class EngineServices
     {
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            IncludeFields = true
+        };
 
         public static ICommandBus CommandBus { get; private set; } = null!;
         public static IEventBus EventBus { get; private set; } = null!;
@@ -71,13 +74,15 @@ namespace Constellate.Core.Messaging
                 var label = string.IsNullOrWhiteSpace(payload.Label) ? "Node" : payload.Label!;
                 var visualScale = payload.VisualScale ?? MathF.Max(0.0001f, scale.X);
                 var phase = payload.Phase ?? 0f;
+                var appearance = NormalizeAppearance(payload.Appearance);
 
                 scene.Upsert(new SceneNode(
                     nodeId,
                     label,
                     new Transform(position, rotation, scale),
                     visualScale,
-                    phase));
+                    phase,
+                    appearance));
 
                 PublishEvent(
                     EventNames.SceneChanged,
@@ -210,7 +215,8 @@ namespace Constellate.Core.Messaging
                     Label = string.IsNullOrWhiteSpace(payload.Label) ? existing.Label : payload.Label!,
                     Transform = nextTransform,
                     VisualScale = payload.VisualScale ?? existing.VisualScale,
-                    Phase = payload.Phase ?? existing.Phase
+                    Phase = payload.Phase ?? existing.Phase,
+                    Appearance = payload.Appearance is null ? existing.Appearance : NormalizeAppearance(payload.Appearance, existing.Appearance)
                 };
 
                 scene.Upsert(updatedNode);
@@ -863,6 +869,38 @@ namespace Constellate.Core.Messaging
             return false;
         }
 
+        private static NodeAppearance NormalizeAppearance(NodeAppearancePayload? payload, NodeAppearance? fallback = null)
+        {
+            var baseline = fallback ?? NodeAppearance.Default;
+            var primitive = string.IsNullOrWhiteSpace(payload?.Primitive)
+                ? baseline.Primitive
+                : payload!.Primitive!.Trim().ToLowerInvariant();
+            var fillColor = NormalizeHexColor(payload?.FillColor, baseline.FillColor);
+            var outlineColor = NormalizeHexColor(payload?.OutlineColor, baseline.OutlineColor);
+            var opacity = payload?.Opacity is float opacityValue
+                ? Math.Clamp(opacityValue, 0.1f, 1.0f)
+                : baseline.Opacity;
+
+            return new NodeAppearance(
+                primitive,
+                fillColor,
+                outlineColor,
+                opacity);
+        }
+
+        private static string NormalizeHexColor(string? value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            var trimmed = value.Trim();
+            return trimmed.Length == 7 && trimmed[0] == '#' && trimmed.Skip(1).All(Uri.IsHexDigit)
+                ? trimmed.ToUpperInvariant()
+                : fallback;
+        }
+
         private static void SeedDefaultScene(EngineScene scene)
         {
             if (!scene.IsEmpty) return;
@@ -875,7 +913,8 @@ namespace Constellate.Core.Messaging
                     Vector3.Zero,
                     new Vector3(0.6f, 0.6f, 0.6f)),
                 VisualScale: 0.6f,
-                Phase: 0.0f);
+                Phase: 0.0f,
+                Appearance: new NodeAppearance("triangle", "#7DCBFF", "#EAF6FF", 1.0f));
 
             var nodeB = new SceneNode(
                 NodeId.New(),
@@ -885,7 +924,8 @@ namespace Constellate.Core.Messaging
                     Vector3.Zero,
                     new Vector3(0.5f, 0.5f, 0.5f)),
                 VisualScale: 0.5f,
-                Phase: 1.2f);
+                Phase: 1.2f,
+                Appearance: new NodeAppearance("triangle", "#B69CFF", "#F3EEFF", 1.0f));
 
             var nodeC = new SceneNode(
                 NodeId.New(),
@@ -895,7 +935,8 @@ namespace Constellate.Core.Messaging
                     Vector3.Zero,
                     new Vector3(0.7f, 0.7f, 0.7f)),
                 VisualScale: 0.7f,
-                Phase: 2.35f);
+                Phase: 2.35f,
+                Appearance: new NodeAppearance("triangle", "#86E0A5", "#ECFFF3", 1.0f));
 
             scene.Upsert(nodeA);
             scene.Upsert(nodeB);

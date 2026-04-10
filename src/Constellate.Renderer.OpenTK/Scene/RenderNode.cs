@@ -11,5 +11,9 @@ namespace Constellate.Renderer.OpenTK.Scene
         float VisualScale,
         float Phase,
         bool IsFocused,
-        bool IsSelected);
+        bool IsSelected,
+        string Primitive = "triangle",
+        string FillColor = "#FFFFFF",
+        string OutlineColor = "#D7E8FF",
+        float Opacity = 1.0f);
 }

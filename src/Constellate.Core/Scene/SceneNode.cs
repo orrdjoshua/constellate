@@ -5,5 +5,6 @@ namespace Constellate.Core.Scene
         string Label,
         Transform Transform,
         float VisualScale = 1.0f,
-        float Phase = 0.0f);
+        float Phase = 0.0f,
+        NodeAppearance? Appearance = null);
 }

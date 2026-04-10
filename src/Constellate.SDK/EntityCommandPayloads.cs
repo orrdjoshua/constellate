@@ -4,6 +4,12 @@ using System.Numerics;
 
 namespace Constellate.SDK
 {
+    public sealed record NodeAppearancePayload(
+        string? Primitive = null,
+        string? FillColor = null,
+        string? OutlineColor = null,
+        float? Opacity = null);
+
     public sealed record CreateEntityPayload(
         string Type,
         string? Id,
@@ -12,7 +18,8 @@ namespace Constellate.SDK
         Vector3? RotationEuler,
         Vector3? Scale,
         float? VisualScale,
-        float? Phase);
+        float? Phase,
+        NodeAppearancePayload? Appearance = null);
 
     public sealed record UpdateEntityPayload(
         string Id,
@@ -21,7 +28,8 @@ namespace Constellate.SDK
         Vector3? RotationEuler,
         Vector3? Scale,
         float? VisualScale,
-        float? Phase);
+        float? Phase,
+        NodeAppearancePayload? Appearance = null);
 
     public sealed record UpdateEntitiesPayload(
         IReadOnlyList<UpdateEntityPayload> Entities);

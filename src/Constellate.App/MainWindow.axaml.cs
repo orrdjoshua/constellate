@@ -32,7 +32,10 @@ namespace Constellate.App
 
     public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            IncludeFields = true
+        };
         private readonly IDisposable[] _eventSubscriptions;
         private readonly ShellSceneState _shellScene = EngineServices.ShellScene;
 
@@ -611,9 +614,10 @@ namespace Constellate.App
             get
             {
                 var focusedNode = _shellScene.GetFocusedNode();
+                var appearance = focusedNode?.Appearance ?? NodeAppearance.Default;
                 return focusedNode is null
                     ? "Focused Transform: none"
-                    : $"Focused Transform: pos={FormatVector3(focusedNode.Transform.Position)} scale={FormatVector3(focusedNode.Transform.Scale)} visual={focusedNode.VisualScale:0.##}";
+                    : $"Focused Transform: pos={FormatVector3(focusedNode.Transform.Position)} scale={FormatVector3(focusedNode.Transform.Scale)} visual={focusedNode.VisualScale:0.##} primitive={appearance.Primitive} fill={appearance.FillColor}";
             }
         }
 
@@ -758,12 +762,15 @@ namespace Constellate.App
                     return "No focused node transform to inspect.";
                 }
 
+                var appearance = focusedNode.Appearance ?? NodeAppearance.Default;
+
                 return
                     $"id={focusedNode.Id}\n" +
                     $"label={focusedNode.Label}\n" +
                     $"position={FormatVector3(focusedNode.Transform.Position)}\n" +
                     $"rotation={FormatVector3(focusedNode.Transform.RotationEuler)}\n" +
                     $"scale={FormatVector3(focusedNode.Transform.Scale)}\n" +
+                    $"appearance={appearance.Primitive} fill={appearance.FillColor} outline={appearance.OutlineColor} opacity={appearance.Opacity:0.##}\n" +
                     $"visualScale={focusedNode.VisualScale:0.###}\n" +
                     $"phase={focusedNode.Phase:0.###}";
             }

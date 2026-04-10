@@ -35,6 +35,11 @@ namespace Constellate.Renderer.OpenTK.Controls
     /// </summary>
     public class OpenTkViewportControl : Control
     {
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        {
+            IncludeFields = true
+        };
+
         private readonly DispatcherTimer _timer;
         private double _angleDeg;
 
@@ -89,6 +94,7 @@ namespace Constellate.Renderer.OpenTK.Controls
         private int _vao;
         private int _vbo;
         private int _locMvp;
+        private int _locColor = -1;
 
         private readonly Stopwatch _sw = Stopwatch.StartNew();
 
@@ -1054,7 +1060,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                 .ToArray();
 
         private static void SendCommand<TPayload>(string commandName, TPayload payload) =>
-            EngineServices.CommandBus.Send(new Envelope { V = "1.0", Id = Guid.NewGuid(), Ts = DateTimeOffset.UtcNow, Type = EnvelopeType.Command, Name = commandName, Payload = payload is null ? null : JsonSerializer.SerializeToElement(payload), CorrelationId = null });
+            EngineServices.CommandBus.Send(new Envelope { V = "1.0", Id = Guid.NewGuid(), Ts = DateTimeOffset.UtcNow, Type = EnvelopeType.Command, Name = commandName, Payload = payload is null ? null : JsonSerializer.SerializeToElement(payload, JsonOptions), CorrelationId = null });
 
         private void EnsureGl(int width, int height)
         {
@@ -1226,8 +1232,9 @@ namespace Constellate.Renderer.OpenTK.Controls
      gl_Position = uMVP * vec4(aPos, 1.0);
  }";
                 fsSrc = @"#version 330 core
+ uniform vec4 uColor;
  out vec4 FragColor;
- void main() { FragColor = vec4(1.0, 1.0, 1.0, 1.0); }";
+ void main() { FragColor = uColor; }";
             }
 
             var vs = CompileShader(ShaderType.VertexShader, vsSrc);
@@ -1277,6 +1284,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                 GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
 
                 _locMvp = GL.GetUniformLocation(_program, "uMVP");
+                _locColor = GL.GetUniformLocation(_program, "uColor");
 
                 GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
                 GL.BindVertexArray(0);
@@ -1331,6 +1339,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
 
             _locMvp = -1;
+            _locColor = -1;
         }
 
         private void TeardownGl()
@@ -1401,6 +1410,8 @@ namespace Constellate.Renderer.OpenTK.Controls
                 GL.Enable(EnableCap.DepthTest);
             }
 
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.DepthFunc(DepthFunction.Lequal);
             GL.DepthMask(true);
             GL.ClearDepth(1.0);
@@ -1486,6 +1497,12 @@ namespace Constellate.Renderer.OpenTK.Controls
                     if (_locMvp >= 0)
                     {
                         GL.UniformMatrix4(_locMvp, _transposeUniform, ref mvp);
+                    }
+
+                    if (_locColor >= 0)
+                    {
+                        var fillColor = ParseAppearanceColor(node.FillColor, node.Opacity);
+                        GL.Uniform4(_locColor, fillColor.X, fillColor.Y, fillColor.Z, fillColor.W);
                     }
 
                     if (_diagVerbose && i == 0)
@@ -1607,6 +1624,39 @@ namespace Constellate.Renderer.OpenTK.Controls
             return Matrix4.CreatePerspectiveFieldOfView(fovy, aspect, 0.1f, 100f);
         }
 
+        private static Vector4 ParseAppearanceColor(string? hexColor, float opacity)
+        {
+            var fallback = new Vector4(1f, 1f, 1f, Math.Clamp(opacity, 0.1f, 1.0f));
+            if (string.IsNullOrWhiteSpace(hexColor))
+            {
+                return fallback;
+            }
+
+            var trimmed = hexColor.Trim();
+            if (trimmed.Length != 7 || trimmed[0] != '#')
+            {
+                return fallback;
+            }
+
+            static float ParseChannel(string hex, int startIndex)
+            {
+                return Convert.ToInt32(hex.Substring(startIndex, 2), 16) / 255f;
+            }
+
+            try
+            {
+                return new Vector4(
+                    ParseChannel(trimmed, 1),
+                    ParseChannel(trimmed, 3),
+                    ParseChannel(trimmed, 5),
+                    Math.Clamp(opacity, 0.1f, 1.0f));
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
         private static void TryGetFloat(JsonElement obj, string name, ref float value)
         {
             if (obj.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number)
@@ -1635,7 +1685,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                     Ts = DateTimeOffset.UtcNow,
                     Type = EnvelopeType.Event,
                     Name = EventNames.ViewChanged,
-                    Payload = JsonSerializer.SerializeToElement(payload),
+                    Payload = JsonSerializer.SerializeToElement(payload, JsonOptions),
                     CorrelationId = null
                 });
             }
