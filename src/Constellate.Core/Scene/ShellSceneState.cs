@@ -63,8 +63,30 @@ namespace Constellate.Core.Scene
             _scene.GetSnapshot().Groups
             ?? Array.Empty<SceneGroup>();
 
+        public SceneGroup? GetActiveGroup()
+        {
+            var snapshot = _scene.GetSnapshot();
+            var groups = snapshot.Groups;
+            if (groups is null || groups.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(snapshot.ActiveGroupId))
+            {
+                return groups.FirstOrDefault(group =>
+                    string.Equals(group.Id, snapshot.ActiveGroupId, StringComparison.Ordinal));
+            }
+
+            return groups[0];
+        }
+
         public IReadOnlyList<SceneBookmark> GetBookmarks() =>
             _scene.GetSnapshot().Bookmarks
             ?? Array.Empty<SceneBookmark>();
+
+        public bool TryGetLastView(out ViewParams view) => _scene.TryGetLastView(out view);
+
+        public string GetInteractionMode() => _scene.GetSnapshot().InteractionMode;
     }
 }

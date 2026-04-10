@@ -11,5 +11,7 @@ namespace Constellate.Core.Scene
         IReadOnlyList<PanelTarget>? SelectedPanels = null,
         IReadOnlyList<SceneLink>? Links = null,
         IReadOnlyList<SceneGroup>? Groups = null,
-        IReadOnlyList<SceneBookmark>? Bookmarks = null);
+        IReadOnlyList<SceneBookmark>? Bookmarks = null,
+        string? ActiveGroupId = null,
+        string InteractionMode = "navigate");
 }

@@ -23,7 +23,13 @@ namespace Constellate.SDK
         float? VisualScale,
         float? Phase);
 
+    public sealed record UpdateEntitiesPayload(
+        IReadOnlyList<UpdateEntityPayload> Entities);
+
     public sealed record DeleteEntityPayload(string Id);
+
+    public sealed record DeleteEntitiesPayload(
+        IReadOnlyList<string> Ids);
 
     public sealed record SetTransformPayload(
         string Id,
@@ -60,11 +66,34 @@ namespace Constellate.SDK
         string? Kind = null,
         float? Weight = null);
 
+    public sealed record UnlinkEntitiesPayload(
+        string SourceId,
+        string TargetId,
+        string? Kind = null,
+        float? Weight = null);
+
     public sealed record GroupSelectionPayload(
         string? Label = null);
 
+    public sealed record GroupMembershipPayload(
+        string GroupId);
+
+    public sealed record DeleteGroupPayload(
+        string GroupId);
+
     public sealed record BookmarkSavePayload(
         string Name);
+
+    public sealed record CenterOnNodePayload(
+        string Id,
+        float? Distance = null);
+
+    public sealed record FrameSelectionPayload(
+        IReadOnlyList<string>? Ids = null,
+        float Padding = 1.35f);
+
+    public sealed record SetInteractionModePayload(
+        string Mode);
 
     public sealed record BookmarkRestorePayload(
         string Name);

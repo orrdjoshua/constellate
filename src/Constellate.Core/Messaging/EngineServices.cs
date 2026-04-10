@@ -93,34 +93,14 @@ namespace Constellate.Core.Messaging
                     return false;
                 }
 
-                if (!TryParseNodeId(payload.Id, out var nodeId))
+                if (!TryApplyUpdateEntity(scene, payload, out var updatedNode))
                 {
                     return false;
                 }
-
-                if (!scene.TryGet(nodeId, out var existing))
-                {
-                    return false;
-                }
-
-                var nextTransform = new Transform(
-                    payload.Position ?? existing.Transform.Position,
-                    payload.RotationEuler ?? existing.Transform.RotationEuler,
-                    payload.Scale ?? existing.Transform.Scale);
-
-                var nextNode = existing with
-                {
-                    Label = string.IsNullOrWhiteSpace(payload.Label) ? existing.Label : payload.Label!,
-                    Transform = nextTransform,
-                    VisualScale = payload.VisualScale ?? existing.VisualScale,
-                    Phase = payload.Phase ?? existing.Phase
-                };
-
-                scene.Upsert(nextNode);
 
                 PublishEvent(
                     EventNames.SceneChanged,
-                    new { reason = "update_entity", nodeId = nodeId.ToString(), label = nextNode.Label });
+                    new { reason = "update_entity", nodeId = updatedNode.Id.ToString(), label = updatedNode.Label });
 
                 return true;
             });
@@ -143,6 +123,99 @@ namespace Constellate.Core.Messaging
 
                 return true;
             });
+
+            commandBus.Subscribe(CommandNames.DeleteEntities, command =>
+            {
+                if (!TryDeserialize(command.Payload, out DeleteEntitiesPayload? payload) ||
+                    payload is null ||
+                    payload.Ids.Count == 0)
+                {
+                    return false;
+                }
+
+                var deletedNodeIds = new List<string>();
+
+                foreach (var rawId in payload.Ids.Distinct(StringComparer.Ordinal))
+                {
+                    if (TryParseNodeId(rawId, out var nodeId) && scene.Remove(nodeId))
+                    {
+                        deletedNodeIds.Add(nodeId.ToString());
+                    }
+                }
+
+                if (deletedNodeIds.Count == 0)
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new { reason = "delete_entities", count = deletedNodeIds.Count, nodeIds = deletedNodeIds.ToArray() });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.UpdateEntities, command =>
+            {
+                if (!TryDeserialize(command.Payload, out UpdateEntitiesPayload? payload) ||
+                    payload is null ||
+                    payload.Entities.Count == 0)
+                {
+                    return false;
+                }
+
+                var updatedNodeIds = new List<string>();
+
+                foreach (var entityUpdate in payload.Entities)
+                {
+                    if (TryApplyUpdateEntity(scene, entityUpdate, out var updatedNode))
+                    {
+                        updatedNodeIds.Add(updatedNode.Id.ToString());
+                    }
+                }
+
+                if (updatedNodeIds.Count == 0)
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "update_entities",
+                        count = updatedNodeIds.Count,
+                        nodeIds = updatedNodeIds.ToArray()
+                    });
+
+                return true;
+            });
+
+            static bool TryApplyUpdateEntity(EngineScene scene, UpdateEntityPayload payload, out SceneNode updatedNode)
+            {
+                updatedNode = default!;
+
+                if (!TryParseNodeId(payload.Id, out var nodeId) || !scene.TryGet(nodeId, out var existing))
+                {
+                    return false;
+                }
+
+                var nextTransform = new Transform(
+                    payload.Position ?? existing.Transform.Position,
+                    payload.RotationEuler ?? existing.Transform.RotationEuler,
+                    payload.Scale ?? existing.Transform.Scale);
+
+                updatedNode = existing with
+                {
+                    Label = string.IsNullOrWhiteSpace(payload.Label) ? existing.Label : payload.Label!,
+                    Transform = nextTransform,
+                    VisualScale = payload.VisualScale ?? existing.VisualScale,
+                    Phase = payload.Phase ?? existing.Phase
+                };
+
+                scene.Upsert(updatedNode);
+                return true;
+            }
 
             commandBus.Subscribe(CommandNames.SetTransform, command =>
             {
@@ -201,6 +274,33 @@ namespace Constellate.Core.Messaging
                         targetId = targetId.ToString(),
                         kind = string.IsNullOrWhiteSpace(payload.Kind) ? "related" : payload.Kind,
                         weight = payload.Weight ?? 1.0f
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.Unlink, command =>
+            {
+                if (!TryDeserialize(command.Payload, out UnlinkEntitiesPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!TryParseNodeId(payload.SourceId, out var sourceId) ||
+                    !TryParseNodeId(payload.TargetId, out var targetId) ||
+                    !scene.TryDisconnect(sourceId, targetId, payload.Kind))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.SceneChanged,
+                    new
+                    {
+                        reason = "unlink_entities",
+                        sourceId = sourceId.ToString(),
+                        targetId = targetId.ToString(),
+                        kind = string.IsNullOrWhiteSpace(payload.Kind) ? null : payload.Kind
                     });
 
                 return true;
@@ -409,6 +509,210 @@ namespace Constellate.Core.Messaging
                         nodeIds = group.NodeIds.Select(id => id.ToString()).ToArray()
                     });
 
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.AddSelectionToGroup, command =>
+            {
+                if (!TryDeserialize(command.Payload, out GroupMembershipPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TryAddSelectionToGroup(payload.GroupId, out var group))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.GroupChanged,
+                    new
+                    {
+                        reason = "add_selection_to_group",
+                        groupId = group.Id,
+                        label = group.Label,
+                        nodeIds = group.NodeIds.Select(id => id.ToString()).ToArray()
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.RemoveSelectionFromGroup, command =>
+            {
+                if (!TryDeserialize(command.Payload, out GroupMembershipPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TryRemoveSelectionFromGroup(payload.GroupId, out var group, out var deletedGroup))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.GroupChanged,
+                    new
+                    {
+                        reason = deletedGroup ? "remove_selection_from_group_deleted" : "remove_selection_from_group",
+                        groupId = payload.GroupId,
+                        label = group?.Label,
+                        deletedGroup,
+                        nodeIds = group?.NodeIds.Select(id => id.ToString()).ToArray() ?? []
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.DeleteGroup, command =>
+            {
+                if (!TryDeserialize(command.Payload, out DeleteGroupPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TryDeleteGroup(payload.GroupId, out var group))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.GroupChanged,
+                    new { reason = "delete_group", groupId = group.Id, label = group.Label });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.HomeView, _ =>
+            {
+                PublishEvent(
+                    EventNames.ViewSetRequested,
+                    new
+                    {
+                        yaw = MathF.PI / 2f,
+                        pitch = 0f,
+                        distance = 2f,
+                        target = new
+                        {
+                            x = 0f,
+                            y = 0f,
+                            z = 0f
+                        }
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.CenterOnNode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out CenterOnNodePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!TryParseNodeId(payload.Id, out var nodeId) || !scene.TryGet(nodeId, out var node))
+                {
+                    return false;
+                }
+
+                var view = scene.TryGetLastView(out var lastView)
+                    ? lastView
+                    : new ViewParams(MathF.PI / 2f, 0f, 2f, Vector3.Zero);
+
+                var distance = payload.Distance
+                    ?? MathF.Max(1.25f, MathF.Max(view.Distance * 0.75f, node.VisualScale * 4f));
+
+                PublishEvent(
+                    EventNames.ViewSetRequested,
+                    new
+                    {
+                        yaw = view.Yaw,
+                        pitch = view.Pitch,
+                        distance,
+                        target = new
+                        {
+                            x = node.Transform.Position.X,
+                            y = node.Transform.Position.Y,
+                            z = node.Transform.Position.Z
+                        }
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.FrameSelection, command =>
+            {
+                if (!TryDeserialize(command.Payload, out FrameSelectionPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                var snapshot = scene.GetSnapshot();
+                var selectedIds = (payload.Ids ?? [])
+                    .Select(id => TryParseNodeId(id, out var nodeId) ? nodeId : (NodeId?)null)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .ToHashSet();
+
+                var framedNodes = snapshot.Nodes
+                    .Where(node => selectedIds.Count == 0
+                        ? snapshot.SelectedNodeIds?.Contains(node.Id) == true
+                        : selectedIds.Contains(node.Id))
+                    .ToArray();
+
+                if (framedNodes.Length == 0 && snapshot.FocusedNodeId is { } focusedNodeId)
+                {
+                    framedNodes = snapshot.Nodes.Where(node => node.Id == focusedNodeId).ToArray();
+                }
+
+                if (framedNodes.Length == 0)
+                {
+                    return false;
+                }
+
+                var target = new Vector3(
+                    framedNodes.Average(node => node.Transform.Position.X),
+                    framedNodes.Average(node => node.Transform.Position.Y),
+                    framedNodes.Average(node => node.Transform.Position.Z));
+
+                var radius = framedNodes
+                    .Select(node => Vector3.Distance(node.Transform.Position, target) + MathF.Max(node.VisualScale, 0.2f))
+                    .DefaultIfEmpty(0.5f)
+                    .Max();
+
+                var padding = payload.Padding <= 0f ? 1.35f : payload.Padding;
+                var distance = MathF.Max(1.5f, radius * 3.25f * padding);
+                var view = scene.TryGetLastView(out var lastView)
+                    ? lastView
+                    : new ViewParams(MathF.PI / 2f, 0f, distance, target);
+
+                PublishEvent(
+                    EventNames.ViewSetRequested,
+                    new
+                    {
+                        yaw = view.Yaw,
+                        pitch = view.Pitch,
+                        distance,
+                        target = new { x = target.X, y = target.Y, z = target.Z }
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.SetInteractionMode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out SetInteractionModePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!scene.TrySetInteractionMode(payload.Mode))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.InteractionModeChanged,
+                    new { mode = scene.GetSnapshot().InteractionMode });
                 return true;
             });
 
@@ -621,9 +925,12 @@ namespace Constellate.Core.Messaging
             return commandName is
                 CommandNames.CreateEntity or
                 CommandNames.UpdateEntity or
+                CommandNames.UpdateEntities or
                 CommandNames.Delete or
+                CommandNames.DeleteEntities or
                 CommandNames.SetTransform or
                 CommandNames.Connect or
+                CommandNames.Unlink or
                 CommandNames.ClearLinks or
                 CommandNames.Focus or
                 CommandNames.FocusPanel or
@@ -631,6 +938,9 @@ namespace Constellate.Core.Messaging
                 CommandNames.SelectPanel or
                 CommandNames.ClearSelection or
                 CommandNames.AttachPanel or
+                CommandNames.AddSelectionToGroup or
+                CommandNames.RemoveSelectionFromGroup or
+                CommandNames.DeleteGroup or
                 CommandNames.GroupSelection or
                 CommandNames.BookmarkSave or
                 CommandNames.BookmarkRestore;
@@ -648,12 +958,20 @@ namespace Constellate.Core.Messaging
             public void Send(Envelope command)
             {
                 Subscription[] snapshot;
+                EngineScene? scene = Scene;
                 var shouldTrackUndo = IsUndoableCommandName(command.Name) &&
                                       !string.Equals(command.Name, CommandNames.Undo, StringComparison.Ordinal) &&
-                                      Scene is not null;
-                SceneSnapshot? undoSnapshot = shouldTrackUndo
-                    ? Scene.GetSnapshot()
-                    : null;
+                                      scene is not null;
+                SceneSnapshot? undoSnapshot = null;
+
+                if (shouldTrackUndo)
+                {
+                    if (scene is null)
+                    {
+                        return;
+                    }
+                    undoSnapshot = scene.GetSnapshot();
+                }
 
                 lock (_gate) snapshot = _commandHandlers.ToArray();
 
@@ -679,9 +997,9 @@ namespace Constellate.Core.Messaging
 
                 if (anySucceeded)
                 {
-                    if (undoSnapshot is not null)
+                    if (undoSnapshot is not null && scene is not null)
                     {
-                        Scene.PushUndoSnapshot(undoSnapshot);
+                        scene.PushUndoSnapshot(undoSnapshot);
                     }
 
                     Publish(new Envelope

@@ -22,12 +22,29 @@ namespace Constellate.Core.Scene
 
         public NodeId? FocusedNodeId { get; private set; }
         public PanelTarget? FocusedPanel { get; private set; }
+        public string? ActiveGroupId { get; private set; }
+        public string InteractionMode { get; private set; } = "navigate";
 
         public void SetLastView(ViewParams view)
         {
             lock (_gate)
             {
                 _lastView = view;
+            }
+        }
+
+        public bool TryGetLastView(out ViewParams view)
+        {
+            lock (_gate)
+            {
+                if (_lastView is null)
+                {
+                    view = default!;
+                    return false;
+                }
+
+                view = _lastView;
+                return true;
             }
         }
 
@@ -91,86 +108,93 @@ namespace Constellate.Core.Scene
             lock (_gate)
             {
                 var removed = _nodes.Remove(id);
-                if (removed)
+                if (!removed)
                 {
-                    _selectedNodeIds.Remove(id);
-                    _panelAttachments.Remove(id);
-                    _selectedPanels.RemoveWhere(x => x.NodeId == id);
-
-                    var linkIdsToRemove = _links.Values
-                        .Where(link => link.SourceId == id || link.TargetId == id)
-                        .Select(link => link.Id)
-                        .ToArray();
-
-                    foreach (var linkId in linkIdsToRemove)
-                    {
-                        _links.Remove(linkId);
-                    }
-
-                    var nextGroups = _groups.Values
-                        .Select(group =>
-                        {
-                            var remaining = group.NodeIds
-                                .Where(nodeId => nodeId != id)
-                                .ToArray();
-
-                            return remaining.Length == 0
-                                ? null
-                                : group with { NodeIds = remaining };
-                        })
-                        .Where(group => group is not null)
-                        .Cast<SceneGroup>()
-                        .ToArray();
-
-                    _groups.Clear();
-                    foreach (var group in nextGroups)
-                    {
-                        _groups[group.Id] = group;
-                    }
-
-                    var nextBookmarks = _bookmarks.Values
-                        .Select(bookmark =>
-                        {
-                            var focusedNodeId = bookmark.FocusedNodeId == id ? null : bookmark.FocusedNodeId;
-                            var selectedNodeIds = bookmark.SelectedNodeIds
-                                .Where(nodeId => nodeId != id)
-                                .ToArray();
-                            var focusedPanel = bookmark.FocusedPanel is { } focusedPanelBookmark &&
-                                              focusedPanelBookmark.NodeId == id
-                                ? null
-                                : bookmark.FocusedPanel;
-                            var selectedPanels = bookmark.SelectedPanels
-                                .Where(panel => panel.NodeId != id)
-                                .ToArray();
-
-                            return bookmark with
-                            {
-                                FocusedNodeId = focusedNodeId,
-                                SelectedNodeIds = selectedNodeIds,
-                                FocusedPanel = focusedPanel,
-                                SelectedPanels = selectedPanels
-                            };
-                        })
-                        .ToArray();
-
-                    _bookmarks.Clear();
-                    foreach (var bookmark in nextBookmarks)
-                    {
-                        _bookmarks[bookmark.Name] = bookmark;
-                    }
-
-                    if (FocusedNodeId == id)
-                    {
-                        FocusedNodeId = null;
-                    }
-
-                    if (FocusedPanel is { } focusedPanel && focusedPanel.NodeId == id)
-                    {
-                        FocusedPanel = null;
-                    }
+                    return false;
                 }
 
-                return removed;
+                _selectedNodeIds.Remove(id);
+                _panelAttachments.Remove(id);
+                _selectedPanels.RemoveWhere(x => x.NodeId == id);
+
+                var linkIdsToRemove = _links.Values
+                    .Where(link => link.SourceId == id || link.TargetId == id)
+                    .Select(link => link.Id)
+                    .ToArray();
+
+                foreach (var linkId in linkIdsToRemove)
+                {
+                    _links.Remove(linkId);
+                }
+
+                var nextGroups = _groups.Values
+                    .Select(group =>
+                    {
+                        var remaining = group.NodeIds
+                            .Where(nodeId => nodeId != id)
+                            .ToArray();
+
+                        return remaining.Length == 0
+                            ? null
+                            : group with { NodeIds = remaining };
+                    })
+                    .Where(group => group is not null)
+                    .Cast<SceneGroup>()
+                    .ToArray();
+
+                _groups.Clear();
+                foreach (var group in nextGroups)
+                {
+                    _groups[group.Id] = group;
+                }
+
+                if (ActiveGroupId is not null && !_groups.ContainsKey(ActiveGroupId))
+                {
+                    ActiveGroupId = _groups.Keys.LastOrDefault();
+                }
+
+                var nextBookmarks = _bookmarks.Values
+                    .Select(bookmark =>
+                    {
+                        var focusedNodeId = bookmark.FocusedNodeId == id ? null : bookmark.FocusedNodeId;
+                        var selectedNodeIds = bookmark.SelectedNodeIds
+                            .Where(nodeId => nodeId != id)
+                            .ToArray();
+                        var focusedPanel = bookmark.FocusedPanel is { } focusedPanelBookmark &&
+                                          focusedPanelBookmark.NodeId == id
+                            ? null
+                            : bookmark.FocusedPanel;
+                        var selectedPanels = bookmark.SelectedPanels
+                            .Where(panel => panel.NodeId != id)
+                            .ToArray();
+
+                        return bookmark with
+                        {
+                            FocusedNodeId = focusedNodeId,
+                            SelectedNodeIds = selectedNodeIds,
+                            FocusedPanel = focusedPanel,
+                            SelectedPanels = selectedPanels
+                        };
+                    })
+                    .ToArray();
+
+                _bookmarks.Clear();
+                foreach (var bookmark in nextBookmarks)
+                {
+                    _bookmarks[bookmark.Name] = bookmark;
+                }
+
+                if (FocusedNodeId == id)
+                {
+                    FocusedNodeId = null;
+                }
+
+                if (FocusedPanel is { } focusedPanel && focusedPanel.NodeId == id)
+                {
+                    FocusedPanel = null;
+                }
+
+                return true;
             }
         }
 
@@ -390,6 +414,43 @@ namespace Constellate.Core.Scene
             }
         }
 
+        public bool TryDisconnect(
+            NodeId sourceId,
+            NodeId targetId,
+            string? kind = null)
+        {
+            lock (_gate)
+            {
+                if (!_nodes.ContainsKey(sourceId) || !_nodes.ContainsKey(targetId))
+                {
+                    return false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(kind))
+                {
+                    var normalizedKind = kind.Trim();
+                    return _links.Remove(BuildLinkId(sourceId, targetId, normalizedKind));
+                }
+
+                var linkIds = _links.Values
+                    .Where(link => link.SourceId == sourceId && link.TargetId == targetId)
+                    .Select(link => link.Id)
+                    .ToArray();
+
+                if (linkIds.Length == 0)
+                {
+                    return false;
+                }
+
+                foreach (var linkId in linkIds)
+                {
+                    _links.Remove(linkId);
+                }
+
+                return true;
+            }
+        }
+
         public bool TryGroupSelection(string? label, out SceneGroup group)
         {
             lock (_gate)
@@ -412,6 +473,107 @@ namespace Constellate.Core.Scene
 
                 group = new SceneGroup(groupId, groupLabel, nodeIds);
                 _groups[groupId] = group;
+                ActiveGroupId = groupId;
+                return true;
+            }
+        }
+
+        public bool TryAddSelectionToGroup(string groupId, out SceneGroup group)
+        {
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(groupId) || !_groups.TryGetValue(groupId, out var existing))
+                {
+                    group = default!;
+                    return false;
+                }
+
+                var selectedNodeIds = _selectedNodeIds
+                    .Where(_nodes.ContainsKey)
+                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                    .ToArray();
+
+                if (selectedNodeIds.Length == 0)
+                {
+                    group = default!;
+                    return false;
+                }
+
+                var mergedNodeIds = existing.NodeIds
+                    .Concat(selectedNodeIds)
+                    .Distinct()
+                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                    .ToArray();
+
+                if (mergedNodeIds.Length == existing.NodeIds.Count)
+                {
+                    group = default!;
+                    return false;
+                }
+
+                group = existing with { NodeIds = mergedNodeIds };
+                _groups[groupId] = group;
+                ActiveGroupId = groupId;
+                return true;
+            }
+        }
+
+        public bool TryRemoveSelectionFromGroup(string groupId, out SceneGroup? group, out bool deletedGroup)
+        {
+            lock (_gate)
+            {
+                group = null;
+                deletedGroup = false;
+
+                if (string.IsNullOrWhiteSpace(groupId) || !_groups.TryGetValue(groupId, out var existing))
+                {
+                    return false;
+                }
+
+                var remainingNodeIds = existing.NodeIds
+                    .Where(nodeId => !_selectedNodeIds.Contains(nodeId))
+                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                    .ToArray();
+
+                if (remainingNodeIds.Length == existing.NodeIds.Count)
+                {
+                    return false;
+                }
+
+                if (remainingNodeIds.Length == 0)
+                {
+                    _groups.Remove(groupId);
+                    deletedGroup = true;
+                    ActiveGroupId = _groups.Keys.LastOrDefault();
+                    return true;
+                }
+
+                group = existing with { NodeIds = remainingNodeIds };
+                _groups[groupId] = group;
+                ActiveGroupId = groupId;
+                return true;
+            }
+        }
+
+        public bool TryDeleteGroup(string groupId, out SceneGroup group)
+        {
+            lock (_gate)
+            {
+                if (string.IsNullOrWhiteSpace(groupId) || !_groups.TryGetValue(groupId, out var existing))
+                {
+                    group = default!;
+                    return false;
+                }
+
+                group = existing;
+
+                _groups.Remove(groupId);
+
+                if (string.Equals(ActiveGroupId, groupId, StringComparison.Ordinal))
+                {
+                    ActiveGroupId = _groups.Keys.LastOrDefault();
+                }
+
                 return true;
             }
         }
@@ -505,6 +667,21 @@ namespace Constellate.Core.Scene
             }
         }
 
+        public bool TrySetInteractionMode(string? mode)
+        {
+            lock (_gate)
+            {
+                var normalizedMode = NormalizeInteractionMode(mode);
+                if (string.Equals(InteractionMode, normalizedMode, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                InteractionMode = normalizedMode;
+                return true;
+            }
+        }
+
         public SceneSnapshot GetSnapshot()
         {
             lock (_gate)
@@ -535,7 +712,9 @@ namespace Constellate.Core.Scene
                 _selectedPanels.ToArray(),
                 _links.Values.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray(),
                 _groups.Values.OrderBy(group => group.Label, StringComparer.Ordinal).ToArray(),
-                _bookmarks.Values.OrderBy(bookmark => bookmark.Name, StringComparer.Ordinal).ToArray());
+                _bookmarks.Values.OrderBy(bookmark => bookmark.Name, StringComparer.Ordinal).ToArray(),
+                ActiveGroupId,
+                InteractionMode);
         }
 
         private void RestoreSnapshotUnderLock(SceneSnapshot snapshot)
@@ -591,6 +770,10 @@ namespace Constellate.Core.Scene
                 }
             }
 
+            ActiveGroupId = snapshot.ActiveGroupId is not null && _groups.ContainsKey(snapshot.ActiveGroupId)
+                ? snapshot.ActiveGroupId
+                : _groups.Keys.LastOrDefault();
+
             FocusedNodeId = snapshot.FocusedNodeId is { } focusedNodeId && _nodes.ContainsKey(focusedNodeId)
                 ? focusedNodeId
                 : null;
@@ -610,6 +793,8 @@ namespace Constellate.Core.Scene
                     }
                 }
             }
+
+            InteractionMode = NormalizeInteractionMode(snapshot.InteractionMode);
         }
 
         private bool TryGetPanelTargetUnderLock(NodeId id, string viewRef, out PanelTarget panelTarget)
@@ -630,5 +815,20 @@ namespace Constellate.Core.Scene
 
         private static string BuildLinkId(NodeId sourceId, NodeId targetId, string kind) =>
             $"{sourceId}->{targetId}:{kind}";
+
+        private static string NormalizeInteractionMode(string? mode)
+        {
+            if (string.Equals(mode, "move", StringComparison.OrdinalIgnoreCase))
+            {
+                return "move";
+            }
+
+            if (string.Equals(mode, "marquee", StringComparison.OrdinalIgnoreCase))
+            {
+                return "marquee";
+            }
+
+            return "navigate";
+        }
     }
 }

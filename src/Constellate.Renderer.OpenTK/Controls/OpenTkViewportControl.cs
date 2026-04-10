@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -24,6 +25,7 @@ using AvaloniaPixelFormat = Avalonia.Platform.PixelFormat;
 using GLPixelFormat = global::OpenTK.Graphics.OpenGL4.PixelFormat;
 using GLPixelType = global::OpenTK.Graphics.OpenGL4.PixelType;
 using V2i = global::OpenTK.Mathematics.Vector2i;
+using NVec3 = System.Numerics.Vector3;
 
 namespace Constellate.Renderer.OpenTK.Controls
 {
@@ -94,7 +96,7 @@ namespace Constellate.Renderer.OpenTK.Controls
 
         private const double ClickDragThreshold = 4.0;
 
-        private enum InteractionMode
+        private enum PointerInteractionMode
         {
             None,
             Orbit,
@@ -133,13 +135,20 @@ namespace Constellate.Renderer.OpenTK.Controls
             Target = Vector3.Zero
         };
 
-        private InteractionMode _interactionMode;
+        private PointerInteractionMode _interactionMode;
         private bool _leftPointerPending;
         private bool _pendingAdditiveSelection;
         private bool _pointerMovedBeyondThreshold;
         private Point _lastPt;
         private Point _pointerPressedPt;
         private string? _pressedNodeId;
+        private bool _isMarqueeSelecting;
+        private Point _marqueeStartPt;
+        private Point _marqueeCurrentPt;
+        private bool _isMoveDragging;
+        private Point _moveDragStartPt;
+        private readonly Dictionary<string, Vector3> _moveDragStartPositions = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Vector3> _moveDragPreviewPositions = new(StringComparer.Ordinal);
 
         public OpenTkViewportControl()
         {
@@ -239,6 +248,11 @@ namespace Constellate.Renderer.OpenTK.Controls
                 DrawLinkPlaceholders(ctx, bounds);
                 DrawGroupPlaceholders(ctx, bounds);
                 DrawPanelPlaceholders(ctx, bounds);
+
+                if (_isMarqueeSelecting)
+                {
+                    DrawMarqueeOverlay(ctx);
+                }
             }
 
             if (_diagVerbose)
@@ -647,6 +661,13 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             if (e.Key == Key.Escape)
             {
+                if (_isMoveDragging)
+                {
+                    CancelMoveDrag();
+                    e.Handled = true;
+                    return;
+                }
+
                 SendCommand<object?>(CommandNames.ClearSelection, null);
                 e.Handled = true;
             }
@@ -705,6 +726,216 @@ namespace Constellate.Renderer.OpenTK.Controls
                 _ => new Point(-(width / 2.0), -(height / 2.0))
             };
         }
+
+        private void DrawMarqueeOverlay(DrawingContext ctx)
+        {
+            var rect = GetNormalizedRect(_marqueeStartPt, _marqueeCurrentPt);
+            if (rect.Width <= 0.5 || rect.Height <= 0.5)
+            {
+                return;
+            }
+
+            ctx.DrawRectangle(
+                new SolidColorBrush(Color.FromArgb(45, 125, 211, 252)),
+                new Pen(new SolidColorBrush(Color.FromArgb(220, 125, 211, 252)), 1.5),
+                rect);
+        }
+
+        private void BeginMoveDrag(string clickedNodeId)
+        {
+            var sceneSnapshot = EngineServices.ShellScene.GetSnapshot();
+            var selectedNodeIds = sceneSnapshot.SelectedNodeIds?
+                .Select(id => id.ToString())
+                .ToHashSet(StringComparer.Ordinal)
+                ?? new HashSet<string>(StringComparer.Ordinal);
+
+            var dragNodeIds = selectedNodeIds.Count > 0 && selectedNodeIds.Contains(clickedNodeId)
+                ? selectedNodeIds.OrderBy(id => id, StringComparer.Ordinal).ToArray()
+                : [clickedNodeId];
+
+            if (selectedNodeIds.Contains(clickedNodeId))
+            {
+                SendCommand(CommandNames.Focus, new FocusEntityPayload(clickedNodeId));
+            }
+            else
+            {
+                SendCommand(CommandNames.Focus, new FocusEntityPayload(clickedNodeId));
+                SendCommand(CommandNames.Select, new SelectEntitiesPayload([clickedNodeId], true));
+                dragNodeIds = [clickedNodeId];
+            }
+
+            _moveDragStartPositions.Clear();
+            _moveDragPreviewPositions.Clear();
+
+            foreach (var node in sceneSnapshot.Nodes.Where(node => dragNodeIds.Contains(node.Id.ToString(), StringComparer.Ordinal)))
+            {
+                var nodeId = node.Id.ToString();
+                var position = new Vector3(
+                    node.Transform.Position.X,
+                    node.Transform.Position.Y,
+                    node.Transform.Position.Z);
+
+                _moveDragStartPositions[nodeId] = position;
+                _moveDragPreviewPositions[nodeId] = position;
+            }
+
+            if (_moveDragStartPositions.Count == 0)
+            {
+                return;
+            }
+
+            _isMoveDragging = true;
+            _pointerMovedBeyondThreshold = false;
+            _pendingAdditiveSelection = false;
+            _pressedNodeId = clickedNodeId;
+            _moveDragStartPt = _lastPt;
+        }
+
+        private Vector3 ComputeMoveDragWorldDelta(Point currentPoint)
+        {
+            var dx = currentPoint.X - _moveDragStartPt.X;
+            var dy = currentPoint.Y - _moveDragStartPt.Y;
+            var cy = MathF.Cos(_cam.Yaw);
+            var sy = MathF.Sin(_cam.Yaw);
+            var cp = MathF.Cos(_cam.Pitch);
+            var sp = MathF.Sin(_cam.Pitch);
+            var cameraOutward = Vector3.Normalize(new Vector3(
+                cy * cp,
+                sp,
+                sy * cp));
+            var right = Vector3.Normalize(Vector3.Cross(cameraOutward, Vector3.UnitY));
+            var up = Vector3.Normalize(Vector3.Cross(right, cameraOutward));
+            var dragScale = _cam.Distance * 0.0025f;
+
+            return (-right * (float)dx * dragScale) - (up * (float)dy * dragScale);
+        }
+
+        private void UpdateMoveDragPreview(Point currentPoint)
+        {
+            var delta = ComputeMoveDragWorldDelta(currentPoint);
+            _moveDragPreviewPositions.Clear();
+
+            foreach (var entry in _moveDragStartPositions)
+            {
+                _moveDragPreviewPositions[entry.Key] = entry.Value + delta;
+            }
+        }
+
+        private void CompleteMoveDrag(Point releasePoint)
+        {
+            if (_pointerMovedBeyondThreshold)
+            {
+                UpdateMoveDragPreview(releasePoint);
+                var latestSnapshot = EngineServices.ShellScene.GetSnapshot();
+                var nodesById = latestSnapshot.Nodes.ToDictionary(node => node.Id.ToString(), StringComparer.Ordinal);
+                var updates = _moveDragPreviewPositions
+                    .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+                    .Where(entry => nodesById.ContainsKey(entry.Key))
+                    .Select(entry =>
+                    {
+                        var node = nodesById[entry.Key];
+                        return new UpdateEntityPayload(
+                            entry.Key,
+                            node.Label,
+                            new NVec3(entry.Value.X, entry.Value.Y, entry.Value.Z),
+                            node.Transform.RotationEuler,
+                            node.Transform.Scale,
+                            node.VisualScale,
+                            node.Phase);
+                    })
+                    .ToArray();
+
+                if (updates.Length > 0)
+                {
+                    SendCommand(
+                        CommandNames.UpdateEntities,
+                        new UpdateEntitiesPayload(updates));
+                }
+            }
+
+            ClearMoveDragState();
+            InvalidateVisual();
+        }
+
+        private void ClearMoveDragState()
+        {
+            _isMoveDragging = false;
+            _pointerMovedBeyondThreshold = false;
+            _pressedNodeId = null;
+            _moveDragStartPositions.Clear();
+            _moveDragPreviewPositions.Clear();
+        }
+
+        private void CancelMoveDrag()
+        {
+            ClearMoveDragState();
+            _leftPointerPending = false;
+            _pendingAdditiveSelection = false;
+            _interactionMode = PointerInteractionMode.None;
+            InvalidateVisual();
+        }
+
+        private void HandleMarqueeRelease(bool additiveSelection)
+        {
+            var selectionRect = GetNormalizedRect(_marqueeStartPt, _marqueeCurrentPt);
+            if (IsPointLikeSelectionRect(selectionRect))
+            {
+                HandleNodeClick(HitTestProjectedNodeId(_marqueeCurrentPt), additiveSelection);
+                return;
+            }
+
+            var nodeIds = HitTestProjectedNodeIds(selectionRect);
+            if (nodeIds.Length == 0)
+            {
+                if (!additiveSelection)
+                {
+                    SendCommand<object?>(CommandNames.ClearSelection, null);
+                }
+
+                return;
+            }
+
+            SendCommand(CommandNames.Focus, new FocusEntityPayload(nodeIds[0]));
+            SendCommand(CommandNames.Select, new SelectEntitiesPayload(nodeIds, !additiveSelection));
+        }
+
+        private string[] HitTestProjectedNodeIds(Rect selectionRect)
+        {
+            var renderSnapshot = GetRenderSceneSnapshot();
+            if (renderSnapshot.Nodes.Length == 0)
+            {
+                return [];
+            }
+
+            var view = ComputeView();
+            var proj = ComputeProjection();
+            var bounds = new Rect(Bounds.Size);
+
+            return renderSnapshot.Nodes
+                .Where(node => TryProjectWorldPoint(node.Position, view, proj, bounds, out var screenPoint) &&
+                               selectionRect.Contains(screenPoint))
+                .OrderBy(node => node.Label, StringComparer.Ordinal)
+                .ThenBy(node => node.Id, StringComparer.Ordinal)
+                .Select(node => node.Id)
+                .ToArray();
+        }
+
+        private static Rect GetNormalizedRect(Point a, Point b) =>
+            new(
+                Math.Min(a.X, b.X),
+                Math.Min(a.Y, b.Y),
+                Math.Abs(a.X - b.X),
+                Math.Abs(a.Y - b.Y));
+
+        private static bool IsPointLikeSelectionRect(Rect selectionRect) =>
+            selectionRect.Width < ClickDragThreshold &&
+            selectionRect.Height < ClickDragThreshold;
+
+        private static bool IsMarqueeModeActive() =>
+            string.Equals(EngineServices.ShellScene.GetInteractionMode(), "marquee", StringComparison.Ordinal);
+
+        private static bool IsMoveModeActive() =>
+            string.Equals(EngineServices.ShellScene.GetInteractionMode(), "move", StringComparison.Ordinal);
 
         private void HandleNodeClick(string? nodeId, bool additiveSelection)
         {
@@ -816,7 +1047,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             return bestNodeId;
         }
 
-        private static RenderNode[] GetOrderedRenderNodes() =>
+        private RenderNode[] GetOrderedRenderNodes() =>
             GetRenderSceneSnapshot().Nodes
                 .OrderBy(node => node.Label, StringComparer.Ordinal)
                 .ThenBy(node => node.Id, StringComparer.Ordinal)
@@ -1421,7 +1652,7 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             if (props.IsRightButtonPressed || props.IsMiddleButtonPressed)
             {
-                _interactionMode = InteractionMode.Pan;
+                _interactionMode = PointerInteractionMode.Pan;
                 _lastPt = pt;
                 try
                 {
@@ -1437,6 +1668,49 @@ namespace Constellate.Renderer.OpenTK.Controls
             if (props.IsLeftButtonPressed)
             {
                 Focus();
+
+                if (IsMoveModeActive())
+                {
+                    var moveTargetNodeId = HitTestProjectedNodeId(pt);
+                    if (string.IsNullOrWhiteSpace(moveTargetNodeId))
+                    {
+                        SendCommand<object?>(CommandNames.ClearSelection, null);
+                        e.Handled = true;
+                        return;
+                    }
+
+                    _leftPointerPending = false;
+                    _pendingAdditiveSelection = false;
+                    _lastPt = pt;
+                    BeginMoveDrag(moveTargetNodeId);
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+                    e.Handled = true;
+                    return;
+                }
+
+                if (IsMarqueeModeActive())
+                {
+                    _leftPointerPending = false;
+                    _pendingAdditiveSelection = mods.HasFlag(KeyModifiers.Shift);
+                    _pointerMovedBeyondThreshold = false;
+                    _pointerPressedPt = pt;
+                    _marqueeStartPt = pt;
+                    _marqueeCurrentPt = pt;
+                    _pressedNodeId = null;
+                    _interactionMode = PointerInteractionMode.None;
+                    _isMarqueeSelecting = true;
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+                    e.Handled = true;
+                    return;
+                }
                 var clickedNodeId = HitTestProjectedNodeId(pt);
                 if (!string.IsNullOrWhiteSpace(clickedNodeId) &&
                     (mods.HasFlag(KeyModifiers.Control) || e.ClickCount >= 2) &&
@@ -1452,7 +1726,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                 _pointerPressedPt = pt;
                 _pressedNodeId = clickedNodeId;
                 _lastPt = pt;
-                _interactionMode = InteractionMode.None;
+                _interactionMode = PointerInteractionMode.None;
                 try
                 {
                     e.Pointer.Capture(this);
@@ -1465,8 +1739,53 @@ namespace Constellate.Renderer.OpenTK.Controls
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (!_leftPointerPending && _interactionMode == InteractionMode.None)
+            if (_isMarqueeSelecting)
             {
+                HandleMarqueeRelease(_pendingAdditiveSelection);
+                _isMarqueeSelecting = false;
+                _pendingAdditiveSelection = false;
+                _pointerMovedBeyondThreshold = false;
+                _marqueeStartPt = default;
+                _marqueeCurrentPt = default;
+                _pressedNodeId = null;
+                _interactionMode = PointerInteractionMode.None;
+
+                try
+                {
+                    e.Pointer.Capture(null);
+                }
+                catch { }
+
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+
+            if (_isMoveDragging)
+            {
+                CompleteMoveDrag(e.GetPosition(this));
+                _interactionMode = PointerInteractionMode.None;
+
+                try
+                {
+                    e.Pointer.Capture(null);
+                }
+                catch { }
+
+                _pendingAdditiveSelection = false;
+                _leftPointerPending = false;
+                _pressedNodeId = null;
+                e.Handled = true;
+                return;
+            }
+
+            if (!_leftPointerPending && _interactionMode == PointerInteractionMode.None)
+            {
+                try
+                {
+                    e.Pointer.Capture(null);
+                }
+                catch { }
                 return;
             }
 
@@ -1479,7 +1798,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             _pendingAdditiveSelection = false;
             _pointerMovedBeyondThreshold = false;
             _pressedNodeId = null;
-            _interactionMode = InteractionMode.None;
+            _interactionMode = PointerInteractionMode.None;
 
             try
             {
@@ -1497,6 +1816,33 @@ namespace Constellate.Renderer.OpenTK.Controls
             var dy = pt.Y - _lastPt.Y;
             var cameraChanged = false;
 
+            if (_isMoveDragging)
+            {
+                var pressDx = pt.X - _moveDragStartPt.X;
+                var pressDy = pt.Y - _moveDragStartPt.Y;
+                var movementSquared = (pressDx * pressDx) + (pressDy * pressDy);
+                if (movementSquared >= ClickDragThreshold * ClickDragThreshold)
+                {
+                    _pointerMovedBeyondThreshold = true;
+                }
+
+                UpdateMoveDragPreview(pt);
+                _lastPt = pt;
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+
+            if (_isMarqueeSelecting)
+            {
+                _marqueeCurrentPt = pt;
+                _lastPt = pt;
+                _pointerMovedBeyondThreshold = true;
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+
             if (_leftPointerPending && !_pointerMovedBeyondThreshold)
             {
                 var pressDx = pt.X - _pointerPressedPt.X;
@@ -1506,12 +1852,12 @@ namespace Constellate.Renderer.OpenTK.Controls
                 {
                     _pointerMovedBeyondThreshold = true;
                     _interactionMode = _pendingAdditiveSelection
-                        ? InteractionMode.Pan
-                        : InteractionMode.Orbit;
+                        ? PointerInteractionMode.Pan
+                        : PointerInteractionMode.Orbit;
                 }
             }
 
-            if (_interactionMode == InteractionMode.Pan)
+            if (_interactionMode == PointerInteractionMode.Pan)
             {
                 var cy = MathF.Cos(_cam.Yaw);
                 var sy = MathF.Sin(_cam.Yaw);
@@ -1529,11 +1875,12 @@ namespace Constellate.Renderer.OpenTK.Controls
                 _cam.Target += up * (float)dy * panScale;
                 cameraChanged = true;
             }
-            else if (_interactionMode == InteractionMode.Orbit)
+            else if (_interactionMode == PointerInteractionMode.Orbit)
             {
                 _cam.Yaw += (float)(dx * 0.01);
                 _cam.Pitch += (float)(-dy * 0.01);
                 _cam.Clamp();
+                cameraChanged = true;
             }
 
             _lastPt = pt;
@@ -1541,6 +1888,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             {
                 PublishViewChanged();
                 e.Handled = true;
+                return;
             }
         }
 
@@ -1560,10 +1908,25 @@ namespace Constellate.Renderer.OpenTK.Controls
             return CoreSceneAdapter.ToRenderNodes(snapshot);
         }
 
-        private static RenderSceneSnapshot GetRenderSceneSnapshot()
+        private RenderSceneSnapshot GetRenderSceneSnapshot()
         {
-            var snapshot = EngineServices.Scene.GetSnapshot();
-            return CoreSceneAdapter.ToRenderSceneSnapshot(snapshot);
+            var snapshot = CoreSceneAdapter.ToRenderSceneSnapshot(EngineServices.Scene.GetSnapshot());
+            if (_moveDragPreviewPositions.Count == 0)
+            {
+                return snapshot;
+            }
+
+            var previewNodes = snapshot.Nodes
+                .Select(node =>
+                    _moveDragPreviewPositions.TryGetValue(node.Id, out var previewPosition)
+                        ? node with { Position = previewPosition }
+                        : node)
+                .ToArray();
+
+            return snapshot with
+            {
+                Nodes = previewNodes
+            };
         }
     }
 }

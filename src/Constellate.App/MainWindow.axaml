@@ -68,163 +68,382 @@
             Padding="14">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="10">
-          <TextBlock Text="Engine Capabilities"
+          <TextBlock Text="Constellate Shell"
                      FontSize="18"
                      FontWeight="SemiBold"
                      Foreground="#F4F7FB" />
-          <TextBlock Text="Core-owned registrations currently available to the shell."
+          <TextBlock Text="Viewport interaction remains primary. The left pane is now organized as collapsible sections so command tools stay compact and developer diagnostics remain available but secondary."
                      Foreground="#C7D2DE"
                      Opacity="0.95"
                      TextWrapping="Wrap" />
 
-          <Border Padding="10"
-                  Background="#1A2430"
-                  BorderBrush="#3A4D63"
-                  BorderThickness="1"
-                  CornerRadius="6">
-            <StackPanel Spacing="6">
-              <TextBlock Text="{Binding FocusSummary}"
-                         Foreground="#F4F7FB"
-                         FontWeight="SemiBold"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="{Binding SelectionSummary}"
-                         Foreground="#D9E2EC"
-                         TextWrapping="Wrap" />
-               <TextBox Classes="SidebarReadout"
-                        Text="{Binding InteractionSemanticsSummary}" />
-              <TextBox Classes="SidebarReadout readiness"
-                       Text="{Binding ActionReadinessSummary}" />
-              <TextBox Classes="SidebarReadout activity"
-                       Text="{Binding LastActivitySummary}" />
-              <TextBlock Text="{Binding BookmarkSummary}"
-                         Foreground="#D9E2EC"
-                         TextWrapping="Wrap" />
-              <TextBox Classes="SidebarReadout"
-                       Text="{Binding BookmarkDetails}" />
-              <TextBlock Text="{Binding GroupSummary}"
-                         Foreground="#D9E2EC"
-                         TextWrapping="Wrap" />
-              <TextBox Classes="SidebarReadout"
-                       Text="{Binding GroupDetails}" />
-              <TextBlock Text="{Binding LinkSummary}"
-                         Foreground="#D9E2EC"
-                         TextWrapping="Wrap" />
-              <TextBox Classes="SidebarReadout"
-                       Text="{Binding LinkDetails}" />
-              <TextBlock Text="{Binding PanelSummary}"
-                         Foreground="#D9E2EC"
-                         TextWrapping="Wrap" />
-              <TextBox Classes="SidebarReadout"
-                       Text="{Binding PanelDetails}" />
-            </StackPanel>
-          </Border>
+          <Expander IsExpanded="{Binding IsCurrentStateSectionExpanded, Mode=TwoWay}">
+            <Expander.Header>
+              <StackPanel Spacing="2">
+                <TextBlock Text="Current State"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="High-signal summaries stay easy to inspect during testing."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander.Header>
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#1A2430"
+                    BorderBrush="#3A4D63"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding FocusSummary}"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding SelectionSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding FocusedTransformSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding InteractionModeSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding GroupSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding LinkSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding PanelSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding BookmarkSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding ViewSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding PaneStructureSummary}"
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout activity"
+                         Text="{Binding LastActivitySummary}" />
+              </StackPanel>
+            </Border>
+          </Expander>
 
-          <Border Padding="10"
-                  Background="#16202A"
-                  BorderBrush="#35506A"
-                  BorderThickness="1"
-                  CornerRadius="6">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Interaction Aids"
-                         Foreground="#F4F7FB"
-                         FontWeight="SemiBold" />
-              <TextBlock Text="Viewport interaction is primary. These shell controls stay as a compact fallback command aid while the fuller toolbar model is phased in."
-                         Foreground="#C7D2DE"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="Selection &amp; Focus"
-                         Foreground="#9FD3FF"
-                         FontWeight="SemiBold" />
-              <Button Classes="SidebarActionButton"
-                      Content="Focus Node"
-                      Command="{Binding FocusFirstNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Select Node"
-                      Command="{Binding SelectFirstNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Clear Selection"
-                      Command="{Binding ClearSelectionCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Focus Panel"
-                      Command="{Binding FocusFirstPanelCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Select Panel"
-                      Command="{Binding SelectFirstPanelCommand}" />
-              <TextBlock Text="Links &amp; Groups"
-                         Foreground="#9FD3FF"
-                         FontWeight="SemiBold" />
-              <Button Classes="SidebarActionButton"
-                      Content="Link Selected → Focused"
-                      Command="{Binding ConnectFocusedNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Clear Links"
-                      Command="{Binding ClearLinksCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Group Selection"
-                      Command="{Binding GroupSelectionCommand}" />
-              <TextBlock Text="History &amp; View"
-                         Foreground="#9FD3FF"
-                         FontWeight="SemiBold" />
-              <Button Classes="SidebarActionButton"
-                      Content="Undo"
-                      Command="{Binding UndoLastCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Save Bookmark"
-                      Command="{Binding SaveBookmarkCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Restore Bookmark"
-                      Command="{Binding RestoreLatestBookmarkCommand}" />
-              <TextBlock Text="Mutation"
-                         Foreground="#9FD3FF"
-                         FontWeight="SemiBold" />
-              <Button Classes="SidebarActionButton"
-                      Content="Create Node"
-                      Command="{Binding CreateDemoNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Nudge Focused"
-                      Command="{Binding NudgeFocusedNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Delete Focused"
-                      Command="{Binding DeleteFocusedNodeCommand}" />
-              <Button Classes="SidebarActionButton"
-                      Content="Attach Panel"
-                      Command="{Binding AttachDemoPanelCommand}" />
-            </StackPanel>
-          </Border>
-
-          <ItemsControl ItemsSource="{Binding Capabilities}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="cap:EngineCapability">
-                <Border Margin="0,6,0,0"
-                        Padding="10"
-                        Background="#18222D"
-                        BorderBrush="#33485E"
-                        BorderThickness="1"
-                        CornerRadius="6">
-                  <StackPanel Spacing="4">
-                    <TextBlock Text="{Binding DisplayName}"
-                               Foreground="#F4F7FB"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Category}"
-                               Foreground="#7DD3FC" />
-                    <TextBlock Text="{Binding Key}"
-                               Foreground="#C7D2DE"
-                               FontFamily="Cascadia Code, Consolas, monospace"
-                               FontSize="11"
-                               Opacity="1.0"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Provider, StringFormat=Provider: {0}}"
-                               Foreground="#D9E2EC"
-                               Opacity="1.0"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding Version, StringFormat=Version: {0}}"
-                               Foreground="#D9E2EC"
-                               Opacity="1.0" />
+          <Expander IsExpanded="{Binding IsCommandSurfaceSectionExpanded, Mode=TwoWay}">
+            <Expander.Header>
+              <StackPanel Spacing="2">
+                <TextBlock Text="Command Surface"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Compact fallback tools grouped around real interaction tasks while viewport editing matures."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander.Header>
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#16202A"
+                    BorderBrush="#35506A"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <StackPanel Spacing="8">
+                <Expander IsExpanded="{Binding IsSelectionFocusGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Selection &amp; Focus"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Focus Node"
+                            Command="{Binding FocusFirstNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Select Node"
+                            Command="{Binding SelectFirstNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Clear Selection"
+                            Command="{Binding ClearSelectionCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Focus Panel"
+                            Command="{Binding FocusFirstPanelCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Select Panel"
+                            Command="{Binding SelectFirstPanelCommand}" />
                   </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsLinksGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Links"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Link Selected → Focused"
+                            Command="{Binding ConnectFocusedNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Unlink Selected → Focused"
+                            Command="{Binding UnlinkFocusedNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Clear Links"
+                            Command="{Binding ClearLinksCommand}" />
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsGroupsGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Groups"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Group Selection"
+                            Command="{Binding GroupSelectionCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Add To Active Group"
+                            Command="{Binding AddSelectionToActiveGroupCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Remove From Active Group"
+                            Command="{Binding RemoveSelectionFromActiveGroupCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Delete Active Group"
+                            Command="{Binding DeleteActiveGroupCommand}" />
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsHistoryGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="History"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Undo"
+                            Command="{Binding UndoLastCommand}" />
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsViewGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="View"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Home View"
+                            Command="{Binding HomeViewCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Center Focused Node"
+                            Command="{Binding CenterFocusedNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Frame Selection"
+                             Command="{Binding FrameSelectionCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Save Bookmark"
+                            Command="{Binding SaveBookmarkCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Restore Bookmark"
+                            Command="{Binding RestoreLatestBookmarkCommand}" />
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsEditModesGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Edit Modes"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <TextBlock Text="{Binding InteractionModeSummary}"
+                               Foreground="#8FA8BE"
+                               FontSize="11"
+                               TextWrapping="Wrap" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Navigate Mode"
+                            Command="{Binding ActivateNavigateModeCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Move Mode"
+                             Command="{Binding ActivateMoveModeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Marquee Mode"
+                            Command="{Binding ActivateMarqueeModeCommand}" />
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="{Binding IsMutationGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Mutation"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Create Node"
+                            Command="{Binding CreateDemoNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Left"
+                             Command="{Binding NudgeFocusedLeftCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Right"
+                             Command="{Binding NudgeFocusedRightCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Up"
+                             Command="{Binding NudgeFocusedUpCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Down"
+                             Command="{Binding NudgeFocusedDownCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Forward"
+                             Command="{Binding NudgeFocusedForwardCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Nudge Targets Back"
+                             Command="{Binding NudgeFocusedBackCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Grow Targets"
+                             Command="{Binding GrowFocusedNodeCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Shrink Targets"
+                             Command="{Binding ShrinkFocusedNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Delete Targets"
+                            Command="{Binding DeleteFocusedNodeCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Attach Panel"
+                            Command="{Binding AttachDemoPanelCommand}" />
+                  </StackPanel>
+                </Expander>
+              </StackPanel>
+            </Border>
+          </Expander>
+
+          <Expander IsExpanded="{Binding IsDeveloperReadoutsSectionExpanded, Mode=TwoWay}">
+            <Expander.Header>
+              <StackPanel Spacing="2">
+                <TextBlock Text="Developer Readouts"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Detailed inspection data stays available for debugging and future feature work, but no longer dominates the default shell surface."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander.Header>
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#1A2430"
+                    BorderBrush="#3A4D63"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <StackPanel Spacing="6">
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding InteractionSemanticsSummary}" />
+                <TextBox Classes="SidebarReadout readiness"
+                         Text="{Binding ActionReadinessSummary}" />
+                <TextBlock Text="{Binding FocusedTransformSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding FocusedTransformDetails}" />
+                <TextBlock Text="{Binding ViewSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding ViewDetails}" />
+                <TextBlock Text="{Binding BookmarkSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding BookmarkDetails}" />
+                <TextBlock Text="{Binding GroupSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding GroupDetails}" />
+                <TextBlock Text="{Binding LinkSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding LinkDetails}" />
+                <TextBlock Text="{Binding PanelSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding PanelDetails}" />
+              </StackPanel>
+            </Border>
+          </Expander>
+
+          <Expander IsExpanded="{Binding IsCapabilitiesSectionExpanded, Mode=TwoWay}">
+            <Expander.Header>
+              <StackPanel Spacing="2">
+                <TextBlock Text="Engine Capabilities"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Core-owned registrations remain accessible for development and future plugin/panel work."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander.Header>
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#18222D"
+                    BorderBrush="#33485E"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <ItemsControl ItemsSource="{Binding Capabilities}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="cap:EngineCapability">
+                    <Border Margin="0,6,0,0"
+                            Padding="10"
+                            Background="#18222D"
+                            BorderBrush="#33485E"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                      <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   Foreground="#F4F7FB"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Category}"
+                                   Foreground="#7DD3FC" />
+                        <TextBlock Text="{Binding Key}"
+                                   Foreground="#C7D2DE"
+                                   FontFamily="Cascadia Code, Consolas, monospace"
+                                   FontSize="11"
+                                   Opacity="1.0"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Provider, StringFormat=Provider: {0}}"
+                                   Foreground="#D9E2EC"
+                                   Opacity="1.0"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Version, StringFormat=Version: {0}}"
+                                   Foreground="#D9E2EC"
+                                   Opacity="1.0" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+          </Expander>
         </StackPanel>
       </ScrollViewer>
     </Border>
@@ -235,7 +454,7 @@
         <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
                    FontSize="16"
                    FontWeight="SemiBold" />
-        <TextBlock Text="Viewport: Click node = focus/select • Shift+Click = add • Ctrl+Click or Double-Click other node = link • Tab / Shift+Tab = cycle • Enter or Space = select • Ctrl+Z = undo • Esc = clear"
+        <TextBlock Text="Viewport: Navigate mode = click/select + left-drag orbit • Move mode = left-drag repositions focused/selected nodes with release-commit through the command path • Marquee mode = left-drag box select • Shift preserves additive selection where applicable • Ctrl+Click or Double-Click other node = link in navigate mode • shell unlink = remove selected → focused directed link • shell transform tools target the current selection when present, otherwise the focused node • shell delete follows the same target rule • Tab / Shift+Tab = cycle • Enter or Space = select • Ctrl+Z = undo • Esc = clear • sidebar sections and command groups are collapsible"
                    FontSize="12"
                    Foreground="#8FA8BE"
                    TextWrapping="Wrap" />
