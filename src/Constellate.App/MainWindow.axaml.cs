@@ -55,6 +55,18 @@ namespace Constellate.App
         private readonly RelayCommand _nudgeFocusedBackCommand;
         private readonly RelayCommand _growFocusedNodeCommand;
         private readonly RelayCommand _shrinkFocusedNodeCommand;
+        private readonly RelayCommand _applyTrianglePrimitiveCommand;
+        private readonly RelayCommand _applySquarePrimitiveCommand;
+        private readonly RelayCommand _applyDiamondPrimitiveCommand;
+        private readonly RelayCommand _applyPentagonPrimitiveCommand;
+        private readonly RelayCommand _applyHexagonPrimitiveCommand;
+        private readonly RelayCommand _applyCubePrimitiveCommand;
+        private readonly RelayCommand _applyTetrahedronPrimitiveCommand;
+        private readonly RelayCommand _applyBlueAppearanceCommand;
+        private readonly RelayCommand _applyVioletAppearanceCommand;
+        private readonly RelayCommand _applyGreenAppearanceCommand;
+        private readonly RelayCommand _increaseOpacityCommand;
+        private readonly RelayCommand _decreaseOpacityCommand;
         private readonly RelayCommand _connectFocusedNodeCommand;
         private readonly RelayCommand _groupSelectionCommand;
         private readonly RelayCommand _unlinkFocusedNodeCommand;
@@ -82,6 +94,7 @@ namespace Constellate.App
         private bool _isViewGroupExpanded;
         private bool _isEditModesGroupExpanded;
         private bool _isMutationGroupExpanded;
+        private bool _isAppearanceGroupExpanded;
         private bool _isDeveloperReadoutsSectionExpanded;
         private bool _isCapabilitiesSectionExpanded;
 
@@ -104,6 +117,18 @@ namespace Constellate.App
         public ICommand NudgeFocusedBackCommand => _nudgeFocusedBackCommand;
         public ICommand GrowFocusedNodeCommand => _growFocusedNodeCommand;
         public ICommand ShrinkFocusedNodeCommand => _shrinkFocusedNodeCommand;
+        public ICommand ApplyTrianglePrimitiveCommand => _applyTrianglePrimitiveCommand;
+        public ICommand ApplySquarePrimitiveCommand => _applySquarePrimitiveCommand;
+        public ICommand ApplyDiamondPrimitiveCommand => _applyDiamondPrimitiveCommand;
+        public ICommand ApplyPentagonPrimitiveCommand => _applyPentagonPrimitiveCommand;
+        public ICommand ApplyHexagonPrimitiveCommand => _applyHexagonPrimitiveCommand;
+        public ICommand ApplyCubePrimitiveCommand => _applyCubePrimitiveCommand;
+        public ICommand ApplyTetrahedronPrimitiveCommand => _applyTetrahedronPrimitiveCommand;
+        public ICommand ApplyBlueAppearanceCommand => _applyBlueAppearanceCommand;
+        public ICommand ApplyVioletAppearanceCommand => _applyVioletAppearanceCommand;
+        public ICommand ApplyGreenAppearanceCommand => _applyGreenAppearanceCommand;
+        public ICommand IncreaseOpacityCommand => _increaseOpacityCommand;
+        public ICommand DecreaseOpacityCommand => _decreaseOpacityCommand;
         public ICommand ConnectFocusedNodeCommand => _connectFocusedNodeCommand;
         public ICommand GroupSelectionCommand => _groupSelectionCommand;
         public ICommand UnlinkFocusedNodeCommand => _unlinkFocusedNodeCommand;
@@ -173,6 +198,12 @@ namespace Constellate.App
         {
             get => _isMutationGroupExpanded;
             set => SetExpansionState(ref _isMutationGroupExpanded, value);
+        }
+
+        public bool IsAppearanceGroupExpanded
+        {
+            get => _isAppearanceGroupExpanded;
+            set => SetExpansionState(ref _isAppearanceGroupExpanded, value);
         }
 
         public bool IsDeveloperReadoutsSectionExpanded
@@ -298,6 +329,18 @@ namespace Constellate.App
             _nudgeFocusedBackCommand = CreateSelectionOrFocusTransformCommand(new Vector3(0f, 0f, 0.12f), 1f);
             _growFocusedNodeCommand = CreateSelectionOrFocusTransformCommand(Vector3.Zero, 1.15f);
             _shrinkFocusedNodeCommand = CreateSelectionOrFocusTransformCommand(Vector3.Zero, 1f / 1.15f);
+            _applyTrianglePrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "triangle");
+            _applySquarePrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "square");
+            _applyDiamondPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "diamond");
+            _applyPentagonPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "pentagon");
+            _applyHexagonPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "hexagon");
+            _applyCubePrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "cube");
+            _applyTetrahedronPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "tetrahedron");
+            _applyBlueAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#7DCBFF");
+            _applyVioletAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#B69CFF");
+            _applyGreenAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#86E0A5");
+            _increaseOpacityCommand = CreateSelectionOrFocusAppearanceCommand(opacityDelta: 0.15f);
+            _decreaseOpacityCommand = CreateSelectionOrFocusAppearanceCommand(opacityDelta: -0.15f);
 
             _connectFocusedNodeCommand = new RelayCommand(
                 _ =>
@@ -831,6 +874,18 @@ namespace Constellate.App
                         $"nudge-back={FormatReady(_nudgeFocusedBackCommand.CanExecute(null))}",
                         $"grow={FormatReady(_growFocusedNodeCommand.CanExecute(null))}",
                         $"shrink={FormatReady(_shrinkFocusedNodeCommand.CanExecute(null))}",
+                        $"primitive-triangle={FormatReady(_applyTrianglePrimitiveCommand.CanExecute(null))}",
+                        $"primitive-square={FormatReady(_applySquarePrimitiveCommand.CanExecute(null))}",
+                        $"primitive-diamond={FormatReady(_applyDiamondPrimitiveCommand.CanExecute(null))}",
+                        $"primitive-pentagon={FormatReady(_applyPentagonPrimitiveCommand.CanExecute(null))}",
+                        $"primitive-hexagon={FormatReady(_applyHexagonPrimitiveCommand.CanExecute(null))}",
+                        $"primitive-cube={FormatReady(_applyCubePrimitiveCommand.CanExecute(null))}",
+                        $"primitive-tetrahedron={FormatReady(_applyTetrahedronPrimitiveCommand.CanExecute(null))}",
+                        $"appearance-blue={FormatReady(_applyBlueAppearanceCommand.CanExecute(null))}",
+                        $"appearance-violet={FormatReady(_applyVioletAppearanceCommand.CanExecute(null))}",
+                        $"appearance-green={FormatReady(_applyGreenAppearanceCommand.CanExecute(null))}",
+                        $"opacity-up={FormatReady(_increaseOpacityCommand.CanExecute(null))}",
+                        $"opacity-down={FormatReady(_decreaseOpacityCommand.CanExecute(null))}",
                         $"connect={FormatReady(_connectFocusedNodeCommand.CanExecute(null))}",
                         $"unlink={FormatReady(_unlinkFocusedNodeCommand.CanExecute(null))}",
                         $"group={FormatReady(_groupSelectionCommand.CanExecute(null))}",
@@ -864,7 +919,8 @@ namespace Constellate.App
             $"history={FormatExpanded(IsHistoryGroupExpanded)} • " +
             $"view={FormatExpanded(IsViewGroupExpanded)} • " +
             $"editModes={FormatExpanded(IsEditModesGroupExpanded)} • " +
-            $"mutation={FormatExpanded(IsMutationGroupExpanded)}";
+            $"mutation={FormatExpanded(IsMutationGroupExpanded)} • " +
+            $"appearance={FormatExpanded(IsAppearanceGroupExpanded)}";
 
         public string LastActivitySummary => _lastActivitySummary;
 
@@ -979,6 +1035,44 @@ namespace Constellate.App
                                         nextScale,
                                         nextVisualScale,
                                         node.Phase);
+                                })
+                                .ToArray()));
+                },
+                _ => GetSelectionOrFocusTargetNodes().Length > 0);
+        }
+
+        private RelayCommand CreateSelectionOrFocusAppearanceCommand(string? fillColor = null, float opacityDelta = 0f, string? primitive = null)
+        {
+            return new RelayCommand(
+                _ =>
+                {
+                    var targetNodes = GetSelectionOrFocusTargetNodes();
+                    if (targetNodes.Length == 0)
+                    {
+                        return;
+                    }
+
+                    SendCommand(
+                        CommandNames.UpdateEntities,
+                        new UpdateEntitiesPayload(
+                            targetNodes
+                                .Select(node =>
+                                {
+                                    var currentAppearance = node.Appearance ?? NodeAppearance.Default;
+                                    var nextOpacity = Math.Clamp(currentAppearance.Opacity + opacityDelta, 0.15f, 1.0f);
+
+                                    return new UpdateEntityPayload(
+                                        node.Id.ToString(),
+                                        node.Label,
+                                        node.Transform.Position,
+                                        node.Transform.RotationEuler,
+                                        node.Transform.Scale,
+                                        node.VisualScale,
+                                        node.Phase,
+                                        new NodeAppearancePayload(
+                                            Primitive: string.IsNullOrWhiteSpace(primitive) ? null : primitive,
+                                            FillColor: string.IsNullOrWhiteSpace(fillColor) ? null : fillColor,
+                                            Opacity: MathF.Abs(nextOpacity - currentAppearance.Opacity) > 0.0001f ? nextOpacity : null));
                                 })
                                 .ToArray()));
                 },
@@ -1146,6 +1240,18 @@ namespace Constellate.App
             _nudgeFocusedBackCommand.RaiseCanExecuteChanged();
             _growFocusedNodeCommand.RaiseCanExecuteChanged();
             _shrinkFocusedNodeCommand.RaiseCanExecuteChanged();
+            _applyTrianglePrimitiveCommand.RaiseCanExecuteChanged();
+            _applySquarePrimitiveCommand.RaiseCanExecuteChanged();
+            _applyDiamondPrimitiveCommand.RaiseCanExecuteChanged();
+            _applyPentagonPrimitiveCommand.RaiseCanExecuteChanged();
+            _applyHexagonPrimitiveCommand.RaiseCanExecuteChanged();
+            _applyCubePrimitiveCommand.RaiseCanExecuteChanged();
+            _applyTetrahedronPrimitiveCommand.RaiseCanExecuteChanged();
+            _applyBlueAppearanceCommand.RaiseCanExecuteChanged();
+            _applyVioletAppearanceCommand.RaiseCanExecuteChanged();
+            _applyGreenAppearanceCommand.RaiseCanExecuteChanged();
+            _increaseOpacityCommand.RaiseCanExecuteChanged();
+            _decreaseOpacityCommand.RaiseCanExecuteChanged();
             _connectFocusedNodeCommand.RaiseCanExecuteChanged();
             _unlinkFocusedNodeCommand.RaiseCanExecuteChanged();
             _groupSelectionCommand.RaiseCanExecuteChanged();

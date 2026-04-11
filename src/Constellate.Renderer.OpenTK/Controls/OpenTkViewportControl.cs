@@ -1457,6 +1457,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
             else
             {
+                GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
                 for (var i = 0; i < renderNodes.Length; i++)
                 {
                     ref readonly var node = ref renderNodes[i];
@@ -1468,8 +1469,9 @@ namespace Constellate.Renderer.OpenTK.Controls
                     }
                     else
                     {
+                        var renderScale = ComputeRenderScale(node);
                         var model =
-                            Matrix4.CreateScale(node.VisualScale) *
+                            Matrix4.CreateScale(renderScale) *
                             Matrix4.CreateRotationX(node.RotationEuler.X) *
                             Matrix4.CreateRotationY(node.RotationEuler.Y + time + node.Phase) *
                             Matrix4.CreateRotationZ(node.RotationEuler.Z) *
@@ -1510,8 +1512,22 @@ namespace Constellate.Renderer.OpenTK.Controls
                         Debug.WriteLine($"[GLDiag] uMVP loc={_locMvp}, transpose={_transposeUniform}, order={(_forcePvmOrder ? "P*V*M" : "M*V*P")}");
                     }
 
-                    GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+                    var primitiveVertices = GetPrimitiveVertices(node.Primitive);
+                    GL.BufferData(BufferTarget.ArrayBuffer, primitiveVertices.Length * sizeof(float), primitiveVertices, BufferUsageHint.DynamicDraw);
+                    GL.DrawArrays(PrimitiveType.Triangles, 0, primitiveVertices.Length / 3);
+
+                    var edgeVertices = GetPrimitiveEdgeVertices(node.Primitive);
+                    if (edgeVertices.Length > 0 && _locColor >= 0)
+                    {
+                        var outlineColor = ParseAppearanceColor(node.OutlineColor, Math.Clamp(node.Opacity * 0.95f, 0.35f, 1.0f));
+                        GL.Uniform4(_locColor, outlineColor.X, outlineColor.Y, outlineColor.Z, outlineColor.W);
+                        GL.LineWidth(node.IsFocused ? 2.4f : node.IsSelected ? 2.0f : 1.35f);
+                        GL.BufferData(BufferTarget.ArrayBuffer, edgeVertices.Length * sizeof(float), edgeVertices, BufferUsageHint.DynamicDraw);
+                        GL.DrawArrays(PrimitiveType.Lines, 0, edgeVertices.Length / 3);
+                    }
                 }
+
+                GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             }
 
             if (_scissorMark)
@@ -1622,6 +1638,224 @@ namespace Constellate.Renderer.OpenTK.Controls
             var fovy = MathHelper.DegreesToRadians(60f);
             var aspect = Math.Max(0.001f, (float)_texW / Math.Max(1f, _texH));
             return Matrix4.CreatePerspectiveFieldOfView(fovy, aspect, 0.1f, 100f);
+        }
+
+        private static Vector3 ComputeRenderScale(RenderNode node)
+        {
+            var sourceScale = new Vector3(
+                MathF.Abs(node.Scale.X),
+                MathF.Abs(node.Scale.Y),
+                MathF.Abs(node.Scale.Z));
+            var maxAxis = MathF.Max(sourceScale.X, MathF.Max(sourceScale.Y, sourceScale.Z));
+            if (maxAxis <= 0.0001f)
+            {
+                maxAxis = 1f;
+            }
+
+            var baseScale = MathF.Max(node.VisualScale, 0.0001f);
+            return new Vector3(
+                (sourceScale.X / maxAxis) * baseScale,
+                (sourceScale.Y / maxAxis) * baseScale,
+                (sourceScale.Z / maxAxis) * baseScale);
+        }
+
+        private static float[] GetPrimitiveVertices(string? primitive)
+        {
+            var normalized = string.IsNullOrWhiteSpace(primitive)
+                ? "triangle"
+                : primitive.Trim().ToLowerInvariant();
+
+            return normalized switch
+            {
+                "square" or "quad" => BuildRegularPolygonPrismVertices(4, 0.68f, 0.42f, MathF.PI / 4f),
+                "diamond" => BuildRegularPolygonPrismVertices(4, 0.7f, 0.42f, 0f),
+                "pentagon" => BuildRegularPolygonPrismVertices(5, 0.72f, 0.44f, -MathF.PI / 2f),
+                "hexagon" => BuildRegularPolygonPrismVertices(6, 0.68f, 0.44f, MathF.PI / 6f),
+                "cube" => BuildBoxVertices(0.58f),
+                "tetrahedron" => BuildTetrahedronVertices(0.82f),
+                _ => BuildRegularPolygonPrismVertices(3, 0.74f, 0.44f, -MathF.PI / 2f)
+            };
+        }
+
+        private static float[] GetPrimitiveEdgeVertices(string? primitive)
+        {
+            var normalized = string.IsNullOrWhiteSpace(primitive)
+                ? "triangle"
+                : primitive.Trim().ToLowerInvariant();
+
+            return normalized switch
+            {
+                "square" or "quad" => BuildRegularPolygonPrismEdges(4, 0.68f, 0.42f, MathF.PI / 4f),
+                "diamond" => BuildRegularPolygonPrismEdges(4, 0.7f, 0.42f, 0f),
+                "pentagon" => BuildRegularPolygonPrismEdges(5, 0.72f, 0.44f, -MathF.PI / 2f),
+                "hexagon" => BuildRegularPolygonPrismEdges(6, 0.68f, 0.44f, MathF.PI / 6f),
+                "cube" => BuildBoxEdges(0.58f),
+                "tetrahedron" => BuildTetrahedronEdges(0.82f),
+                _ => BuildRegularPolygonPrismEdges(3, 0.74f, 0.44f, -MathF.PI / 2f)
+            };
+        }
+
+        private static float[] BuildRegularPolygonPrismVertices(int sides, float radius, float depth, float angleOffset)
+        {
+            if (sides < 3)
+            {
+                sides = 3;
+            }
+
+            var halfDepth = depth * 0.5f;
+            var step = (MathF.PI * 2f) / sides;
+            var vertices = new List<float>(sides * 36);
+
+            for (var i = 0; i < sides; i++)
+            {
+                var currentAngle = angleOffset + (i * step);
+                var nextAngle = angleOffset + ((i + 1) * step);
+                var currentFront = new Vector3(MathF.Cos(currentAngle) * radius, MathF.Sin(currentAngle) * radius, halfDepth);
+                var nextFront = new Vector3(MathF.Cos(nextAngle) * radius, MathF.Sin(nextAngle) * radius, halfDepth);
+                var currentBack = new Vector3(currentFront.X, currentFront.Y, -halfDepth);
+                var nextBack = new Vector3(nextFront.X, nextFront.Y, -halfDepth);
+
+                AddTriangle(vertices, new Vector3(0f, 0f, halfDepth), currentFront, nextFront);
+                AddTriangle(vertices, new Vector3(0f, 0f, -halfDepth), nextBack, currentBack);
+                AddTriangle(vertices, currentFront, currentBack, nextBack);
+                AddTriangle(vertices, currentFront, nextBack, nextFront);
+            }
+
+            return vertices.ToArray();
+        }
+
+        private static float[] BuildRegularPolygonPrismEdges(int sides, float radius, float depth, float angleOffset)
+        {
+            if (sides < 3)
+            {
+                sides = 3;
+            }
+
+            var halfDepth = depth * 0.5f;
+            var step = (MathF.PI * 2f) / sides;
+            var vertices = new List<float>(sides * 18);
+
+            for (var i = 0; i < sides; i++)
+            {
+                var currentAngle = angleOffset + (i * step);
+                var nextAngle = angleOffset + ((i + 1) * step);
+                var currentFront = new Vector3(MathF.Cos(currentAngle) * radius, MathF.Sin(currentAngle) * radius, halfDepth);
+                var nextFront = new Vector3(MathF.Cos(nextAngle) * radius, MathF.Sin(nextAngle) * radius, halfDepth);
+                var currentBack = new Vector3(currentFront.X, currentFront.Y, -halfDepth);
+                var nextBack = new Vector3(nextFront.X, nextFront.Y, -halfDepth);
+
+                AddLine(vertices, currentFront, nextFront);
+                AddLine(vertices, currentBack, nextBack);
+                AddLine(vertices, currentFront, currentBack);
+            }
+
+            return vertices.ToArray();
+        }
+
+        private static float[] BuildBoxVertices(float halfExtent)
+        {
+            var h = halfExtent;
+            var p000 = new Vector3(-h, -h, -h);
+            var p001 = new Vector3(-h, -h, h);
+            var p010 = new Vector3(-h, h, -h);
+            var p011 = new Vector3(-h, h, h);
+            var p100 = new Vector3(h, -h, -h);
+            var p101 = new Vector3(h, -h, h);
+            var p110 = new Vector3(h, h, -h);
+            var p111 = new Vector3(h, h, h);
+
+            var vertices = new List<float>(108);
+            AddTriangle(vertices, p001, p101, p111);
+            AddTriangle(vertices, p001, p111, p011);
+            AddTriangle(vertices, p100, p000, p010);
+            AddTriangle(vertices, p100, p010, p110);
+            AddTriangle(vertices, p000, p001, p011);
+            AddTriangle(vertices, p000, p011, p010);
+            AddTriangle(vertices, p101, p100, p110);
+            AddTriangle(vertices, p101, p110, p111);
+            AddTriangle(vertices, p010, p011, p111);
+            AddTriangle(vertices, p010, p111, p110);
+            AddTriangle(vertices, p000, p100, p101);
+            AddTriangle(vertices, p000, p101, p001);
+            return vertices.ToArray();
+        }
+
+        private static float[] BuildBoxEdges(float halfExtent)
+        {
+            var h = halfExtent;
+            var p000 = new Vector3(-h, -h, -h);
+            var p001 = new Vector3(-h, -h, h);
+            var p010 = new Vector3(-h, h, -h);
+            var p011 = new Vector3(-h, h, h);
+            var p100 = new Vector3(h, -h, -h);
+            var p101 = new Vector3(h, -h, h);
+            var p110 = new Vector3(h, h, -h);
+            var p111 = new Vector3(h, h, h);
+
+            var vertices = new List<float>(72);
+            AddLine(vertices, p000, p001);
+            AddLine(vertices, p001, p011);
+            AddLine(vertices, p011, p010);
+            AddLine(vertices, p010, p000);
+            AddLine(vertices, p100, p101);
+            AddLine(vertices, p101, p111);
+            AddLine(vertices, p111, p110);
+            AddLine(vertices, p110, p100);
+            AddLine(vertices, p000, p100);
+            AddLine(vertices, p001, p101);
+            AddLine(vertices, p011, p111);
+            AddLine(vertices, p010, p110);
+            return vertices.ToArray();
+        }
+
+        private static float[] BuildTetrahedronVertices(float radius)
+        {
+            var vertices = new List<float>(36);
+            var points = new[]
+            {
+                Vector3.Normalize(new Vector3(1f, 1f, 1f)) * radius,
+                Vector3.Normalize(new Vector3(-1f, -1f, 1f)) * radius,
+                Vector3.Normalize(new Vector3(-1f, 1f, -1f)) * radius,
+                Vector3.Normalize(new Vector3(1f, -1f, -1f)) * radius
+            };
+
+            AddTriangle(vertices, points[0], points[1], points[2]);
+            AddTriangle(vertices, points[0], points[3], points[1]);
+            AddTriangle(vertices, points[0], points[2], points[3]);
+            AddTriangle(vertices, points[1], points[3], points[2]);
+
+            return vertices.ToArray();
+        }
+
+        private static float[] BuildTetrahedronEdges(float radius)
+        {
+            var vertices = new List<float>(36);
+            var points = new[]
+            {
+                Vector3.Normalize(new Vector3(1f, 1f, 1f)) * radius,
+                Vector3.Normalize(new Vector3(-1f, -1f, 1f)) * radius,
+                Vector3.Normalize(new Vector3(-1f, 1f, -1f)) * radius,
+                Vector3.Normalize(new Vector3(1f, -1f, -1f)) * radius
+            };
+
+            AddLine(vertices, points[0], points[1]);
+            AddLine(vertices, points[0], points[2]);
+            AddLine(vertices, points[0], points[3]);
+            AddLine(vertices, points[1], points[2]);
+            AddLine(vertices, points[1], points[3]);
+            AddLine(vertices, points[2], points[3]);
+
+            return vertices.ToArray();
+        }
+
+        private static void AddTriangle(List<float> vertices, Vector3 a, Vector3 b, Vector3 c)
+        {
+            vertices.AddRange([a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z]);
+        }
+
+        private static void AddLine(List<float> vertices, Vector3 a, Vector3 b)
+        {
+            vertices.AddRange([a.X, a.Y, a.Z, b.X, b.Y, b.Z]);
         }
 
         private static Vector4 ParseAppearanceColor(string? hexColor, float opacity)

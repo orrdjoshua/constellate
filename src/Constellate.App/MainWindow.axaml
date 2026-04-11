@@ -329,6 +329,53 @@
                             Command="{Binding AttachDemoPanelCommand}" />
                   </StackPanel>
                 </Expander>
+
+                <Expander IsExpanded="{Binding IsAppearanceGroupExpanded, Mode=TwoWay}">
+                  <Expander.Header>
+                    <TextBlock Text="Appearance"
+                               Foreground="#9FD3FF"
+                               FontWeight="SemiBold" />
+                  </Expander.Header>
+                  <StackPanel Margin="12,6,0,0"
+                              Spacing="6">
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Triangle"
+                             Command="{Binding ApplyTrianglePrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Square"
+                             Command="{Binding ApplySquarePrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Diamond"
+                             Command="{Binding ApplyDiamondPrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Pentagon"
+                             Command="{Binding ApplyPentagonPrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Hexagon"
+                             Command="{Binding ApplyHexagonPrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Cube"
+                             Command="{Binding ApplyCubePrimitiveCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Primitive Tetrahedron"
+                             Command="{Binding ApplyTetrahedronPrimitiveCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Fill Blue"
+                            Command="{Binding ApplyBlueAppearanceCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Fill Violet"
+                            Command="{Binding ApplyVioletAppearanceCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Fill Green"
+                            Command="{Binding ApplyGreenAppearanceCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Increase Opacity"
+                            Command="{Binding IncreaseOpacityCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Decrease Opacity"
+                            Command="{Binding DecreaseOpacityCommand}" />
+                  </StackPanel>
+                </Expander>
               </StackPanel>
             </Border>
           </Expander>
@@ -454,7 +501,7 @@
         <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
                    FontSize="16"
                    FontWeight="SemiBold" />
-        <TextBlock Text="Viewport: Navigate mode = click/select + left-drag orbit • Move mode = left-drag repositions focused/selected nodes with release-commit through the command path • Marquee mode = left-drag box select • Shift preserves additive selection where applicable • Ctrl+Click or Double-Click other node = link in navigate mode • shell unlink = remove selected → focused directed link • shell transform tools target the current selection when present, otherwise the focused node • shell delete follows the same target rule • Tab / Shift+Tab = cycle • Enter or Space = select • Ctrl+Z = undo • Esc = clear • sidebar sections and command groups are collapsible"
+        <TextBlock Text="Viewport: Navigate mode = click/select + left-drag orbit • Move mode = left-drag repositions focused/selected nodes with release-commit through the command path • Marquee mode = left-drag box select • Shift preserves additive selection where applicable • Ctrl+Click or Double-Click other node = link in navigate mode • shell unlink = remove selected → focused directed link • shell transform tools and shell appearance tools target the current selection when present, otherwise the focused node • shell delete follows the same target rule • Tab / Shift+Tab = cycle • Enter or Space = select • Ctrl+Z = undo • Esc = clear • sidebar sections and command groups are collapsible"
                    FontSize="12"
                    Foreground="#8FA8BE"
                    TextWrapping="Wrap" />
