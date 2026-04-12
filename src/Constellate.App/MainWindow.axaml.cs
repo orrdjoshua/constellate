@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -62,6 +63,8 @@ namespace Constellate.App
         private readonly RelayCommand _applyHexagonPrimitiveCommand;
         private readonly RelayCommand _applyCubePrimitiveCommand;
         private readonly RelayCommand _applyTetrahedronPrimitiveCommand;
+        private readonly RelayCommand _applySpherePrimitiveCommand;
+        private readonly RelayCommand _applyBoxPrimitiveCommand;
         private readonly RelayCommand _applyBlueAppearanceCommand;
         private readonly RelayCommand _applyVioletAppearanceCommand;
         private readonly RelayCommand _applyGreenAppearanceCommand;
@@ -78,13 +81,18 @@ namespace Constellate.App
         private readonly RelayCommand _undoLastCommand;
         private readonly RelayCommand _deleteFocusedNodeCommand;
         private readonly RelayCommand _attachDemoPanelCommand;
+        private readonly RelayCommand _attachLabelPaneletteCommand;
         private readonly RelayCommand _homeViewCommand;
         private readonly RelayCommand _centerFocusedNodeCommand;
         private readonly RelayCommand _frameSelectionCommand;
         private readonly RelayCommand _clearLinksCommand;
         private readonly RelayCommand _clearSelectionCommand;
+        private readonly RelayCommand _applyBackgroundDeepSpaceCommand;
+        private readonly RelayCommand _applyBackgroundDuskCommand;
+        private readonly RelayCommand _applyBackgroundPaperCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
+        private readonly Queue<string> _commandHistory = new();
         private bool _isCurrentStateSectionExpanded = true;
         private bool _isCommandSurfaceSectionExpanded = true;
         private bool _isSelectionFocusGroupExpanded = true;
@@ -97,9 +105,25 @@ namespace Constellate.App
         private bool _isAppearanceGroupExpanded;
         private bool _isDeveloperReadoutsSectionExpanded;
         private bool _isCapabilitiesSectionExpanded;
+        private bool _isSettingsSectionExpanded;
+        private bool _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
+        private float _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
+        private float _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
+        private float _nodeFocusHaloRadiusMultiplier = EngineServices.Settings.NodeFocusHaloRadiusMultiplier;
+        private float _nodeSelectionHaloRadiusMultiplier = EngineServices.Settings.NodeSelectionHaloRadiusMultiplier;
+        private string _nodeHaloMode = EngineServices.Settings.NodeHaloMode;
+        private string _nodeHaloOcclusionMode = EngineServices.Settings.NodeHaloOcclusionMode;
+        private float _backgroundAnimationSpeed = EngineServices.Settings.BackgroundAnimationSpeed;
+        private float _linkStrokeThickness = EngineServices.Settings.LinkStrokeThickness;
+        private float _linkOpacity = EngineServices.Settings.LinkOpacity;
+        private float _paneletteBackgroundIntensity = EngineServices.Settings.PaneletteBackgroundIntensity;
+        private float _commandSurfaceOverlayOpacity = EngineServices.Settings.CommandSurfaceOverlayOpacity;
 
         public ObservableCollection<EngineCapability> Capabilities { get; } =
             new(EngineServices.Capabilities.GetAll());
+
+        public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
+        public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
 
         public ICommand FocusFirstNodeCommand => _focusFirstNodeCommand;
         public ICommand SelectFirstNodeCommand => _selectFirstNodeCommand;
@@ -124,6 +148,8 @@ namespace Constellate.App
         public ICommand ApplyHexagonPrimitiveCommand => _applyHexagonPrimitiveCommand;
         public ICommand ApplyCubePrimitiveCommand => _applyCubePrimitiveCommand;
         public ICommand ApplyTetrahedronPrimitiveCommand => _applyTetrahedronPrimitiveCommand;
+        public ICommand ApplySpherePrimitiveCommand => _applySpherePrimitiveCommand;
+        public ICommand ApplyBoxPrimitiveCommand => _applyBoxPrimitiveCommand;
         public ICommand ApplyBlueAppearanceCommand => _applyBlueAppearanceCommand;
         public ICommand ApplyVioletAppearanceCommand => _applyVioletAppearanceCommand;
         public ICommand ApplyGreenAppearanceCommand => _applyGreenAppearanceCommand;
@@ -140,11 +166,15 @@ namespace Constellate.App
         public ICommand UndoLastCommand => _undoLastCommand;
         public ICommand DeleteFocusedNodeCommand => _deleteFocusedNodeCommand;
         public ICommand AttachDemoPanelCommand => _attachDemoPanelCommand;
+        public ICommand AttachLabelPaneletteCommand => _attachLabelPaneletteCommand;
         public ICommand HomeViewCommand => _homeViewCommand;
         public ICommand CenterFocusedNodeCommand => _centerFocusedNodeCommand;
         public ICommand FrameSelectionCommand => _frameSelectionCommand;
         public ICommand ClearLinksCommand => _clearLinksCommand;
         public ICommand ClearSelectionCommand => _clearSelectionCommand;
+        public ICommand ApplyBackgroundDeepSpaceCommand => _applyBackgroundDeepSpaceCommand;
+        public ICommand ApplyBackgroundDuskCommand => _applyBackgroundDuskCommand;
+        public ICommand ApplyBackgroundPaperCommand => _applyBackgroundPaperCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -156,6 +186,12 @@ namespace Constellate.App
         {
             get => _isCommandSurfaceSectionExpanded;
             set => SetExpansionState(ref _isCommandSurfaceSectionExpanded, value);
+        }
+
+        public bool IsSettingsSectionExpanded
+        {
+            get => _isSettingsSectionExpanded;
+            set => SetExpansionState(ref _isSettingsSectionExpanded, value);
         }
 
         public bool IsSelectionFocusGroupExpanded
@@ -229,7 +265,8 @@ namespace Constellate.App
                 SubscribeRefresh(EventNames.SelectionChanged, "selection changed"),
                 SubscribeRefresh(EventNames.PanelAttachmentsChanged, "panel attachments changed"),
                 SubscribeRefresh(EventNames.InteractionModeChanged, "interaction mode changed"),
-                SubscribeRefresh(EventNames.GroupChanged, "group changed")
+                SubscribeRefresh(EventNames.GroupChanged, "group changed"),
+                SubscribeRefresh(EventNames.FocusOriginChanged, "focus origin changed")
             ];
 
             _focusFirstNodeCommand = new RelayCommand(
@@ -238,6 +275,7 @@ namespace Constellate.App
                     var firstNode = _shellScene.GetNodes().FirstOrDefault();
                     if (firstNode is not null)
                     {
+                        PublishFocusOrigin("command");
                         SendCommand(
                             CommandNames.Focus,
                             new FocusEntityPayload(firstNode.Id.ToString()));
@@ -263,6 +301,7 @@ namespace Constellate.App
                 {
                     if (_shellScene.GetFirstPanelTarget() is { } panelTarget)
                     {
+                        PublishFocusOrigin("command");
                         SendCommand(
                             CommandNames.FocusPanel,
                             new FocusPanelPayload(
@@ -336,6 +375,8 @@ namespace Constellate.App
             _applyHexagonPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "hexagon");
             _applyCubePrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "cube");
             _applyTetrahedronPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "tetrahedron");
+            _applySpherePrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "sphere");
+            _applyBoxPrimitiveCommand = CreateSelectionOrFocusAppearanceCommand(primitive: "box");
             _applyBlueAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#7DCBFF");
             _applyVioletAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#B69CFF");
             _applyGreenAppearanceCommand = CreateSelectionOrFocusAppearanceCommand(fillColor: "#86E0A5");
@@ -576,7 +617,7 @@ namespace Constellate.App
                     }
 
                     var attachmentCount = _shellScene.GetPanelAttachments().Count;
-                    var viewRef = $"demo.panel.{attachmentCount + 1}";
+                    var viewRef = $"panelette.meta.{attachmentCount + 1}";
 
                     SendCommand(
                         CommandNames.AttachPanel,
@@ -586,7 +627,41 @@ namespace Constellate.App
                             LocalOffset: new Vector3(0f, 0.18f, 0.15f),
                             Size: new Vector2(1.05f, 0.62f),
                             Anchor: "top",
-                            IsVisible: true));
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "metadata",
+                            PaneletteTier: 1,
+                            CommandSurface: new PanelCommandSurfaceMetadataPayload(
+                                SurfaceName: "node.quick",
+                                SurfaceGroup: "primary",
+                                CommandIds: [CommandNames.Focus, CommandNames.Select, CommandNames.CenterOnNode])));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+
+            _attachLabelPaneletteCommand = new RelayCommand(
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return;
+                    }
+
+                    var attachmentCount = _shellScene.GetPanelAttachments().Count;
+                    var viewRef = $"panelette.label.{attachmentCount + 1}";
+
+                    SendCommand(
+                        CommandNames.AttachPanel,
+                        new AttachPanelPayload(
+                            focusedNode.Id.ToString(),
+                            viewRef,
+                            LocalOffset: new Vector3(0f, -0.18f, 0.1f),
+                            Size: new Vector2(0.92f, 0.28f),
+                            Anchor: "bottom",
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "label",
+                            PaneletteTier: 1));
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
@@ -604,6 +679,13 @@ namespace Constellate.App
                 },
                 _ => _shellScene.GetSelectedNodeIds().Count > 0 || _shellScene.GetSelectedPanels().Count > 0);
 
+            _applyBackgroundDeepSpaceCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("DeepSpace"));
+            _applyBackgroundDuskCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("Dusk"));
+            _applyBackgroundPaperCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("Paper"));
+
             RefreshFromEngineState();
         }
 
@@ -620,6 +702,15 @@ namespace Constellate.App
                 return focusedNode is not null
                     ? $"Focused Node: {focusedNode.Id}"
                     : "Focused Node: none";
+            }
+        }
+
+        public string FocusOriginSummary
+        {
+            get
+            {
+                var origin = _shellScene.GetFocusOrigin();
+                return $"Focus Origin: {FormatFocusOrigin(origin)}";
             }
         }
 
@@ -760,9 +851,20 @@ namespace Constellate.App
         {
             get
             {
-                var count = _shellScene.GetPanelAttachments().Count;
-                return count == 0
-                    ? "Attached Panels: none"
+                var attachments = _shellScene.GetPanelAttachments();
+                var count = attachments.Count;
+                var paneletteCount = attachments.Values.Count(attachment => (attachment.Semantics ?? PanelSurfaceSemantics.FromViewRef(attachment.ViewRef)).IsPanelette);
+                var metadataCount = attachments.Values.Count(attachment => (attachment.Semantics ?? PanelSurfaceSemantics.FromViewRef(attachment.ViewRef)).IsMetadataPanelette);
+                var labelCount = attachments.Values.Count(attachment => (attachment.Semantics ?? PanelSurfaceSemantics.FromViewRef(attachment.ViewRef)).IsLabelPanelette);
+                var commandSurfaceCount = attachments.Values.Count(attachment => attachment.CommandSurface is { HasCommands: true });
+
+                if (count == 0)
+                {
+                    return "Attached Panels: none";
+                }
+
+                return paneletteCount > 0
+                    ? $"Attached Panels: {count} • panelettes={paneletteCount} • metadata={metadataCount} • labels={labelCount} • command-surfaces={commandSurfaceCount}"
                     : $"Attached Panels: {count}";
             }
         }
@@ -846,7 +948,7 @@ namespace Constellate.App
                     : $"{activeGroup.Label} ({activeGroup.NodeIds.Count} nodes)";
 
                 return
-                    $"Interaction: navigate-mode click=focus/select + left-drag=orbit • move-mode left-drag repositions the focused/selected node set with transient viewport preview and release-time `UpdateEntity` commit, while Escape cancels an active drag preview without committing • marquee-mode left-drag=box-select • shift preserves additive selection in selection flows • ctrl+click/double-click=link {linkSourceText} -> {targetText} in navigate mode • shell unlink removes the matching directed link • ctrl+z=undo • center/frame are explicit navigation tools over the view bridge • clear-links=shell tool • shell mutation group now includes first transform helpers (directional nudge across X/Y/Z + grow/shrink) over the existing update-entity path, and focused transform state is now surfaced in-shell for inspection • shell surface now reflects first-pass toolbar categories with collapsible session-local groups + secondary developer readouts" +
+                    $"Interaction: navigate-mode click=focus/select + left-drag=orbit • move-mode left-drag repositions the focused/selected node set with transient viewport preview and release-time `UpdateEntity` commit, while Escape cancels an active drag preview without committing • marquee-mode left-drag=box-select • shift preserves additive selection in selection flows • ctrl+click/double-click=link {linkSourceText} -> {targetText} in navigate mode • shell unlink removes the matching directed link • ctrl+z=undo • center/frame are explicit navigation tools over the view bridge • clear-links=shell tool • shell mutation group now includes first transform helpers (directional nudge across X/Y/Z + grow/shrink) over the existing update-entity path, and focused transform state is now surfaced in-shell for inspection • attached `panelette.*` surfaces now expose the first explicit Tier 1 content classes: metadata cards and compact label surfaces • shell surface now reflects first-pass toolbar categories with collapsible session-local groups + secondary developer readouts" +
                     $"\nCurrent counts: selectedNodes={selectedNodeIds.Count}, selectedPanels={selectedPanels.Count} • activeGroup={activeGroupText} • viewCommands={(selectedNodeIds.Count > 0 || _shellScene.GetFocusedNode() is not null ? "ready" : "blocked")}";
             }
         }
@@ -881,6 +983,8 @@ namespace Constellate.App
                         $"primitive-hexagon={FormatReady(_applyHexagonPrimitiveCommand.CanExecute(null))}",
                         $"primitive-cube={FormatReady(_applyCubePrimitiveCommand.CanExecute(null))}",
                         $"primitive-tetrahedron={FormatReady(_applyTetrahedronPrimitiveCommand.CanExecute(null))}",
+                        $"primitive-sphere={FormatReady(_applySpherePrimitiveCommand.CanExecute(null))}",
+                        $"primitive-box={FormatReady(_applyBoxPrimitiveCommand.CanExecute(null))}",
                         $"appearance-blue={FormatReady(_applyBlueAppearanceCommand.CanExecute(null))}",
                         $"appearance-violet={FormatReady(_applyVioletAppearanceCommand.CanExecute(null))}",
                         $"appearance-green={FormatReady(_applyGreenAppearanceCommand.CanExecute(null))}",
@@ -901,6 +1005,7 @@ namespace Constellate.App
                         $"clear-links={FormatReady(_clearLinksCommand.CanExecute(null))}",
                         $"delete={FormatReady(_deleteFocusedNodeCommand.CanExecute(null))}",
                         $"attach-panel={FormatReady(_attachDemoPanelCommand.CanExecute(null))}",
+                        $"attach-label={FormatReady(_attachLabelPaneletteCommand.CanExecute(null))}",
                         $"clear={FormatReady(_clearSelectionCommand.CanExecute(null))}"
                     ]);
             }
@@ -910,6 +1015,7 @@ namespace Constellate.App
             "2D Pane Layout: " +
             $"current={FormatExpanded(IsCurrentStateSectionExpanded)} • " +
             $"commands={FormatExpanded(IsCommandSurfaceSectionExpanded)} • " +
+            $"settings={FormatExpanded(IsSettingsSectionExpanded)} • " +
             $"developer={FormatExpanded(IsDeveloperReadoutsSectionExpanded)} • " +
             $"capabilities={FormatExpanded(IsCapabilitiesSectionExpanded)}" +
             "\nCommand Groups: " +
@@ -923,6 +1029,251 @@ namespace Constellate.App
             $"appearance={FormatExpanded(IsAppearanceGroupExpanded)}";
 
         public string LastActivitySummary => _lastActivitySummary;
+
+        public string CommandHistorySummary =>
+            _commandHistory.Count == 0
+                ? "No recent command history."
+                : string.Join("\n", _commandHistory);
+
+        public string NavigationHistorySummary
+        {
+            get
+            {
+                var views = _shellScene.GetViewHistory();
+                if (views.Count == 0)
+                {
+                    return "Navigation history: none";
+                }
+
+                var lines = views
+                    .Select((v, index) =>
+                        $"{index + 1}: yaw={v.Yaw:0.##}, pitch={v.Pitch:0.##}, dist={v.Distance:0.##}, target={FormatVector3(v.Target)}");
+
+                return "Navigation history (oldest → newest):\n" + string.Join("\n", lines);
+            }
+        }
+
+        public bool MouseLeaveClearsFocus
+        {
+            get => _mouseLeaveClearsFocus;
+            set
+            {
+                if (_mouseLeaveClearsFocus == value)
+                {
+                    return;
+                }
+
+                _mouseLeaveClearsFocus = value;
+                EngineServices.Settings.MouseLeaveClearsFocus = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public float GroupOverlayOpacity
+        {
+            get => _groupOverlayOpacity;
+            set
+            {
+                var clamped = Math.Clamp(value, 0f, 1f);
+                if (Math.Abs(_groupOverlayOpacity - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _groupOverlayOpacity = clamped;
+                EngineServices.Settings.GroupOverlayOpacity = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float NodeHighlightOpacity
+        {
+            get => _nodeHighlightOpacity;
+            set
+            {
+                var clamped = Math.Clamp(value, 0f, 1f);
+                if (Math.Abs(_nodeHighlightOpacity - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _nodeHighlightOpacity = clamped;
+                EngineServices.Settings.NodeHighlightOpacity = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float NodeFocusHaloRadiusMultiplier
+        {
+            get => _nodeFocusHaloRadiusMultiplier;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.5f, 3f);
+                if (Math.Abs(_nodeFocusHaloRadiusMultiplier - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _nodeFocusHaloRadiusMultiplier = clamped;
+                EngineServices.Settings.NodeFocusHaloRadiusMultiplier = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float NodeSelectionHaloRadiusMultiplier
+        {
+            get => _nodeSelectionHaloRadiusMultiplier;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.5f, 3f);
+                if (Math.Abs(_nodeSelectionHaloRadiusMultiplier - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _nodeSelectionHaloRadiusMultiplier = clamped;
+                EngineServices.Settings.NodeSelectionHaloRadiusMultiplier = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public string NodeHaloMode
+        {
+            get => _nodeHaloMode;
+            set
+            {
+                var normalized = string.IsNullOrWhiteSpace(value)
+                    ? "2d"
+                    : value.Trim().ToLowerInvariant();
+
+                if (!string.Equals(normalized, "2d", StringComparison.Ordinal) &&
+                    !string.Equals(normalized, "3d", StringComparison.Ordinal) &&
+                    !string.Equals(normalized, "both", StringComparison.Ordinal))
+                {
+                    normalized = "2d";
+                }
+
+                if (string.Equals(_nodeHaloMode, normalized, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _nodeHaloMode = normalized;
+                EngineServices.Settings.NodeHaloMode = normalized;
+                OnPropertyChanged();
+            }
+        }
+
+        public string NodeHaloOcclusionMode
+        {
+            get => _nodeHaloOcclusionMode;
+            set
+            {
+                var normalized = string.IsNullOrWhiteSpace(value)
+                    ? "hollow"
+                    : value.Trim().ToLowerInvariant();
+
+                if (!string.Equals(normalized, "hollow", StringComparison.Ordinal) &&
+                    !string.Equals(normalized, "occluding", StringComparison.Ordinal))
+                {
+                    normalized = "hollow";
+                }
+
+                if (string.Equals(_nodeHaloOcclusionMode, normalized, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _nodeHaloOcclusionMode = normalized;
+                EngineServices.Settings.NodeHaloOcclusionMode = normalized;
+                OnPropertyChanged();
+            }
+        }
+
+        public float BackgroundAnimationSpeed
+        {
+            get => _backgroundAnimationSpeed;
+            set
+            {
+                var clamped = Math.Clamp(value, 0f, 2f);
+                if (Math.Abs(_backgroundAnimationSpeed - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _backgroundAnimationSpeed = clamped;
+                EngineServices.Settings.BackgroundAnimationSpeed = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float LinkStrokeThickness
+        {
+            get => _linkStrokeThickness;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.5f, 4f);
+                if (Math.Abs(_linkStrokeThickness - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _linkStrokeThickness = clamped;
+                EngineServices.Settings.LinkStrokeThickness = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float LinkOpacity
+        {
+            get => _linkOpacity;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.1f, 1f);
+                if (Math.Abs(_linkOpacity - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _linkOpacity = clamped;
+                EngineServices.Settings.LinkOpacity = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float PaneletteBackgroundIntensity
+        {
+            get => _paneletteBackgroundIntensity;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.25f, 2f);
+                if (Math.Abs(_paneletteBackgroundIntensity - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _paneletteBackgroundIntensity = clamped;
+                EngineServices.Settings.PaneletteBackgroundIntensity = clamped;
+                OnPropertyChanged();
+            }
+        }
+
+        public float CommandSurfaceOverlayOpacity
+        {
+            get => _commandSurfaceOverlayOpacity;
+            set
+            {
+                var clamped = Math.Clamp(value, 0.25f, 2f);
+                if (Math.Abs(_commandSurfaceOverlayOpacity - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                _commandSurfaceOverlayOpacity = clamped;
+                EngineServices.Settings.CommandSurfaceOverlayOpacity = clamped;
+                OnPropertyChanged();
+            }
+        }
 
         public string PanelDetails
         {
@@ -944,19 +1295,26 @@ namespace Constellate.App
                         .OrderBy(x => x.Key.ToString(), StringComparer.Ordinal)
                         .Select(x =>
                         {
+                            var semantics = x.Value.Semantics ?? PanelSurfaceSemantics.FromViewRef(x.Value.ViewRef);
                             var isFocused = snapshot.FocusedPanel is { } focusedPanel &&
                                             focusedPanel.NodeId == x.Key &&
                                             string.Equals(focusedPanel.ViewRef, x.Value.ViewRef, StringComparison.Ordinal);
                             var isSelected = selectedPanels.Contains(new PanelTarget(x.Key, x.Value.ViewRef));
+                            var commandSurfaceSummary = x.Value.CommandSurface is { } commandSurface
+                                ? $" commandSurface={commandSurface.DescribeSummary()}"
+                                : string.Empty;
 
                             return
                                 $"{x.Key} → {x.Value.ViewRef} " +
+                                $"kind={semantics.DescribeKind()} " +
+                                $"tier={semantics.PaneletteTier} " +
                                 $"anchor={x.Value.Anchor} " +
                                 $"offset=({x.Value.LocalOffset.X:0.##},{x.Value.LocalOffset.Y:0.##},{x.Value.LocalOffset.Z:0.##}) " +
                                 $"size=({x.Value.Size.X:0.##},{x.Value.Size.Y:0.##}) " +
                                 $"visible={x.Value.IsVisible} " +
                                 $"focused={isFocused} " +
-                                $"selected={isSelected}";
+                                $"selected={isSelected}" +
+                                commandSurfaceSummary;
                         }));
             }
         }
@@ -1001,6 +1359,28 @@ namespace Constellate.App
             };
 
             EngineServices.CommandBus.Send(envelope);
+        }
+
+        private static void PublishFocusOrigin(string origin)
+        {
+            try
+            {
+                var envelope = new Envelope
+                {
+                    V = "1.0",
+                    Id = Guid.NewGuid(),
+                    Ts = DateTimeOffset.UtcNow,
+                    Type = EnvelopeType.Event,
+                    Name = EventNames.FocusOriginChanged,
+                    Payload = JsonSerializer.SerializeToElement(new { origin }, JsonOptions),
+                    CorrelationId = null
+                };
+
+                EngineServices.EventBus.Publish(envelope);
+            }
+            catch
+            {
+            }
         }
 
         private RelayCommand CreateSelectionOrFocusTransformCommand(Vector3 positionDelta, float scaleMultiplier)
@@ -1104,6 +1484,30 @@ namespace Constellate.App
         private void RefreshFromEngineState()
         {
             RefreshCapabilities();
+            _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
+            OnPropertyChanged(nameof(MouseLeaveClearsFocus));
+            _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
+            OnPropertyChanged(nameof(GroupOverlayOpacity));
+            _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
+            OnPropertyChanged(nameof(NodeHighlightOpacity));
+            _nodeFocusHaloRadiusMultiplier = EngineServices.Settings.NodeFocusHaloRadiusMultiplier;
+            OnPropertyChanged(nameof(NodeFocusHaloRadiusMultiplier));
+            _nodeSelectionHaloRadiusMultiplier = EngineServices.Settings.NodeSelectionHaloRadiusMultiplier;
+            OnPropertyChanged(nameof(NodeSelectionHaloRadiusMultiplier));
+            _nodeHaloMode = EngineServices.Settings.NodeHaloMode;
+            OnPropertyChanged(nameof(NodeHaloMode));
+            _nodeHaloOcclusionMode = EngineServices.Settings.NodeHaloOcclusionMode;
+            OnPropertyChanged(nameof(NodeHaloOcclusionMode));
+            _backgroundAnimationSpeed = EngineServices.Settings.BackgroundAnimationSpeed;
+            OnPropertyChanged(nameof(BackgroundAnimationSpeed));
+            _linkStrokeThickness = EngineServices.Settings.LinkStrokeThickness;
+            OnPropertyChanged(nameof(LinkStrokeThickness));
+            _linkOpacity = EngineServices.Settings.LinkOpacity;
+            OnPropertyChanged(nameof(LinkOpacity));
+            _paneletteBackgroundIntensity = EngineServices.Settings.PaneletteBackgroundIntensity;
+            OnPropertyChanged(nameof(PaneletteBackgroundIntensity));
+            _commandSurfaceOverlayOpacity = EngineServices.Settings.CommandSurfaceOverlayOpacity;
+            OnPropertyChanged(nameof(CommandSurfaceOverlayOpacity));
             RaiseSceneStateChanged();
             RaiseCommandCanExecuteChanged();
         }
@@ -1121,11 +1525,91 @@ namespace Constellate.App
 
         private void UpdateLastActivity(string eventName, string activityLabel, Envelope envelope)
         {
+            AddHistoryEntry(eventName, envelope);
             var detail = TryDescribeActivity(envelope);
             _lastActivitySummary = string.IsNullOrWhiteSpace(detail)
                 ? $"Last Activity: {activityLabel} ({eventName}) @ {envelope.Ts:HH:mm:ss}"
                 : $"Last Activity: {activityLabel} ({eventName}: {detail}) @ {envelope.Ts:HH:mm:ss}";
             OnPropertyChanged(nameof(LastActivitySummary));
+        }
+
+        private void AddHistoryEntry(string eventName, Envelope envelope)
+        {
+            if (!string.Equals(eventName, EventNames.CommandInvoked, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            if (!TryGetString(payload, "commandName", out var commandName))
+            {
+                return;
+            }
+
+            var domain = ClassifyCommandDomain(commandName);
+            var label = $"{domain}: {commandName}";
+
+            const int maxHistoryEntries = 10;
+            if (_commandHistory.Count >= maxHistoryEntries)
+            {
+                _commandHistory.Dequeue();
+            }
+
+            _commandHistory.Enqueue(label);
+            OnPropertyChanged(nameof(CommandHistorySummary));
+        }
+
+        private static string ClassifyCommandDomain(string commandName)
+        {
+            if (commandName is
+                CommandNames.CreateEntity or
+                CommandNames.UpdateEntity or
+                CommandNames.UpdateEntities or
+                CommandNames.Delete or
+                CommandNames.DeleteEntities or
+                CommandNames.SetTransform or
+                CommandNames.Connect or
+                CommandNames.Unlink or
+                CommandNames.ClearLinks or
+                CommandNames.GroupSelection or
+                CommandNames.AddSelectionToGroup or
+                CommandNames.RemoveSelectionFromGroup or
+                CommandNames.DeleteGroup or
+                CommandNames.AttachPanel or
+                CommandNames.ClearPanelAttachment or
+                CommandNames.Focus or
+                CommandNames.FocusPanel or
+                CommandNames.Select or
+                CommandNames.SelectPanel or
+                CommandNames.ClearSelection)
+            {
+                return "world";
+            }
+
+            if (commandName is
+                CommandNames.HomeView or
+                CommandNames.CenterOnNode or
+                CommandNames.FrameSelection or
+                CommandNames.BookmarkSave or
+                CommandNames.BookmarkRestore or
+                CommandNames.SetInteractionMode)
+            {
+                return "navigation";
+            }
+
+            if (commandName is
+                CommandNames.SemanticsIndex or
+                CommandNames.SemanticsQuerySimilar or
+                CommandNames.SemanticsExplain)
+            {
+                return "semantics";
+            }
+
+            return "other";
         }
 
         private static string? TryDescribeActivity(Envelope envelope)
@@ -1203,6 +1687,7 @@ namespace Constellate.App
         private void RaiseSceneStateChanged()
         {
             OnPropertyChanged(nameof(FocusSummary));
+            OnPropertyChanged(nameof(FocusOriginSummary));
             OnPropertyChanged(nameof(SelectionSummary));
             OnPropertyChanged(nameof(BookmarkSummary));
             OnPropertyChanged(nameof(ViewSummary));
@@ -1219,6 +1704,7 @@ namespace Constellate.App
             OnPropertyChanged(nameof(PanelSummary));
             OnPropertyChanged(nameof(ActionReadinessSummary));
             OnPropertyChanged(nameof(LastActivitySummary));
+            OnPropertyChanged(nameof(NavigationHistorySummary));
             OnPropertyChanged(nameof(PanelDetails));
         }
 
@@ -1247,6 +1733,8 @@ namespace Constellate.App
             _applyHexagonPrimitiveCommand.RaiseCanExecuteChanged();
             _applyCubePrimitiveCommand.RaiseCanExecuteChanged();
             _applyTetrahedronPrimitiveCommand.RaiseCanExecuteChanged();
+            _applySpherePrimitiveCommand.RaiseCanExecuteChanged();
+            _applyBoxPrimitiveCommand.RaiseCanExecuteChanged();
             _applyBlueAppearanceCommand.RaiseCanExecuteChanged();
             _applyVioletAppearanceCommand.RaiseCanExecuteChanged();
             _applyGreenAppearanceCommand.RaiseCanExecuteChanged();
@@ -1266,6 +1754,7 @@ namespace Constellate.App
             _frameSelectionCommand.RaiseCanExecuteChanged();
             _deleteFocusedNodeCommand.RaiseCanExecuteChanged();
             _attachDemoPanelCommand.RaiseCanExecuteChanged();
+            _attachLabelPaneletteCommand.RaiseCanExecuteChanged();
             _clearLinksCommand.RaiseCanExecuteChanged();
             _clearSelectionCommand.RaiseCanExecuteChanged();
         }
@@ -1286,11 +1775,58 @@ namespace Constellate.App
             OnPropertyChanged(nameof(PaneStructureSummary));
         }
 
+        private void ApplyBackgroundPreset(string preset)
+        {
+            switch (preset)
+            {
+                case "DeepSpace":
+                    EngineServices.Settings.BackgroundMode = "gradient";
+                    EngineServices.Settings.BackgroundBaseColor = "#050911";
+                    EngineServices.Settings.BackgroundTopColor = "#0B1623";
+                    EngineServices.Settings.BackgroundBottomColor = "#050911";
+                    EngineServices.Settings.BackgroundAnimationMode = "slowlerp";
+                    EngineServices.Settings.BackgroundAnimationSpeed = 0.25f;
+                    break;
+                case "Dusk":
+                    EngineServices.Settings.BackgroundMode = "gradient";
+                    EngineServices.Settings.BackgroundBaseColor = "#1A1024";
+                    EngineServices.Settings.BackgroundTopColor = "#302046";
+                    EngineServices.Settings.BackgroundBottomColor = "#080611";
+                    EngineServices.Settings.BackgroundAnimationMode = "slowlerp";
+                    EngineServices.Settings.BackgroundAnimationSpeed = 0.35f;
+                    break;
+                case "Paper":
+                    EngineServices.Settings.BackgroundMode = "solid";
+                    EngineServices.Settings.BackgroundBaseColor = "#F5F5F2";
+                    EngineServices.Settings.BackgroundTopColor = "#F5F5F2";
+                    EngineServices.Settings.BackgroundBottomColor = "#F5F5F2";
+                    EngineServices.Settings.BackgroundAnimationMode = "off";
+                    EngineServices.Settings.BackgroundAnimationSpeed = 0.0f;
+                    break;
+                default:
+                    return;
+            }
+
+            RefreshFromEngineState();
+        }
+
         private static string FormatReady(bool ready) => ready ? "ready" : "blocked";
         private static string FormatVector3(Vector3 value) =>
             $"({value.X:0.##}, {value.Y:0.##}, {value.Z:0.##})";
 
         private static string FormatExpanded(bool expanded) => expanded ? "open" : "collapsed";
+
+        private static string FormatFocusOrigin(string origin) =>
+            string.IsNullOrWhiteSpace(origin)
+                ? "unknown"
+                : origin.Trim().ToLowerInvariant() switch
+                {
+                    "mouse" => "mouse (viewport)",
+                    "keyboard" => "keyboard",
+                    "command" => "shell command",
+                    "programmatic" => "programmatic (engine/bookmark)",
+                    _ => origin.Trim()
+                };
 
         private bool IsInteractionMode(string mode) =>
             string.Equals(

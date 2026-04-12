@@ -7,6 +7,8 @@ namespace Constellate.Core.Scene
     public sealed class ShellSceneState
     {
         private readonly EngineScene _scene;
+        private string _lastFocusOrigin = "unknown";
+        private readonly Queue<ViewParams> _viewHistory = new();
 
         public ShellSceneState(EngineScene scene)
         {
@@ -87,6 +89,74 @@ namespace Constellate.Core.Scene
 
         public bool TryGetLastView(out ViewParams view) => _scene.TryGetLastView(out view);
 
+        /// <summary>
+        /// Returns a snapshot of the recent navigation/view history as recorded from
+        /// ViewChanged events. Most recent entries appear last in the returned list.
+        /// This is an observability surface for the shell; it does not participate
+        /// in Core undo/history semantics.
+        /// </summary>
+        public IReadOnlyList<ViewParams> GetViewHistory(int maxEntries = 10)
+        {
+            if (maxEntries <= 0 || _viewHistory.Count == 0)
+            {
+                return _viewHistory.ToArray();
+            }
+
+            // Queue preserves order from oldest -> newest; return a trimmed tail if needed.
+            var all = _viewHistory.ToArray();
+            if (all.Length <= maxEntries)
+            {
+                return all;
+            }
+
+            var start = all.Length - maxEntries;
+            var result = new ViewParams[maxEntries];
+            Array.Copy(all, start, result, 0, maxEntries);
+            return result;
+        }
+
         public string GetInteractionMode() => _scene.GetSnapshot().InteractionMode;
+
+        /// <summary>
+        /// Returns the last reported focus-origin label observed from the engine event bus
+        /// (for example "mouse", "keyboard", "command", or "programmatic").
+        /// This is an observability hint only; it does not currently drive behavior.
+        /// </summary>
+        public string GetFocusOrigin() => _lastFocusOrigin;
+
+        /// <summary>
+        /// Updates the cached focus-origin label based on published FocusOriginChanged events.
+        /// Callers should pass simple, lowercased origin hints such as "mouse", "keyboard",
+        /// "command", or "programmatic".
+        /// </summary>
+        internal void SetFocusOrigin(string origin)
+        {
+            if (string.IsNullOrWhiteSpace(origin))
+            {
+                return;
+            }
+
+            _lastFocusOrigin = origin.Trim().ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Append a new view sample into the navigation/view history queue. This is
+        /// invoked from EngineServices when ViewChanged events are observed. History
+        /// is kept as a small fixed-size tail (default 10) for shell/readout use.
+        /// </summary>
+        internal void AppendViewHistory(ViewParams view, int maxEntries = 10)
+        {
+            if (maxEntries <= 0)
+            {
+                maxEntries = 1;
+            }
+
+            _viewHistory.Enqueue(view);
+
+            while (_viewHistory.Count > maxEntries)
+            {
+                _viewHistory.Dequeue();
+            }
+        }
     }
 }

@@ -72,7 +72,7 @@
                      FontSize="18"
                      FontWeight="SemiBold"
                      Foreground="#F4F7FB" />
-          <TextBlock Text="Viewport interaction remains primary. The left pane is now organized as collapsible sections so command tools stay compact and developer diagnostics remain available but secondary."
+          <TextBlock Text="Viewport interaction remains primary. Right-click context surfaces in the 3D world (background, node, link, group) are the first way to access commands; the left pane is an organized, collapsible secondary surface so tools stay compact and developer diagnostics remain available but secondary."
                      Foreground="#C7D2DE"
                      Opacity="0.95"
                      TextWrapping="Wrap" />
@@ -100,6 +100,9 @@
                            Foreground="#F4F7FB"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap" />
+                 <TextBlock Text="{Binding FocusOriginSummary}"
+                            Foreground="#D9E2EC"
+                            TextWrapping="Wrap" />
                 <TextBlock Text="{Binding SelectionSummary}"
                            Foreground="#D9E2EC"
                            TextWrapping="Wrap" />
@@ -140,7 +143,7 @@
                 <TextBlock Text="Command Surface"
                            Foreground="#F4F7FB"
                            FontWeight="SemiBold" />
-                <TextBlock Text="Compact fallback tools grouped around real interaction tasks while viewport editing matures."
+                <TextBlock Text="Compact fallback tools grouped around real interaction tasks; mirrors what right-click context surfaces expose in the 3D world."
                            Foreground="#8FA8BE"
                            FontSize="11"
                            TextWrapping="Wrap" />
@@ -153,6 +156,10 @@
                     BorderThickness="1"
                     CornerRadius="6">
               <StackPanel Spacing="8">
+                <TextBlock Text="Right-click context surfaces in the 3D viewport (background, node, link, group) are the primary way to invoke these commands in place; this toolbar is a secondary, always-visible command surface for the same interaction tasks."
+                           Foreground="#A9C4DC"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
                 <Expander IsExpanded="{Binding IsSelectionFocusGroupExpanded, Mode=TwoWay}">
                   <Expander.Header>
                     <TextBlock Text="Selection &amp; Focus"
@@ -325,8 +332,11 @@
                             Content="Delete Targets"
                             Command="{Binding DeleteFocusedNodeCommand}" />
                     <Button Classes="SidebarActionButton"
-                            Content="Attach Panel"
+                             Content="Attach Metadata Panelette"
                             Command="{Binding AttachDemoPanelCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Attach Label Panelette"
+                             Command="{Binding AttachLabelPaneletteCommand}" />
                   </StackPanel>
                 </Expander>
 
@@ -359,6 +369,12 @@
                      <Button Classes="SidebarActionButton"
                              Content="Primitive Tetrahedron"
                              Command="{Binding ApplyTetrahedronPrimitiveCommand}" />
+                      <Button Classes="SidebarActionButton"
+                              Content="Primitive Sphere"
+                              Command="{Binding ApplySpherePrimitiveCommand}" />
+                      <Button Classes="SidebarActionButton"
+                              Content="Primitive Box"
+                              Command="{Binding ApplyBoxPrimitiveCommand}" />
                     <Button Classes="SidebarActionButton"
                             Content="Fill Blue"
                             Command="{Binding ApplyBlueAppearanceCommand}" />
@@ -376,6 +392,220 @@
                             Command="{Binding DecreaseOpacityCommand}" />
                   </StackPanel>
                 </Expander>
+              </StackPanel>
+            </Border>
+          </Expander>
+
+          <Expander IsExpanded="{Binding IsSettingsSectionExpanded, Mode=TwoWay}">
+            <Expander.Header>
+              <StackPanel Spacing="2">
+                <TextBlock Text="Settings"
+                           Foreground="#F4F7FB"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="Runtime-tunable engine UI settings for focus behavior, node/group halos, background, and link appearance."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander.Header>
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#151E28"
+                    BorderBrush="#304055"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <StackPanel Spacing="6">
+                <CheckBox Content="Mouse leave clears focus to background"
+                          IsChecked="{Binding MouseLeaveClearsFocus, Mode=TwoWay}"
+                          Foreground="#F4F7FB" />
+                <TextBlock Text="When enabled, moving the mouse off all viewport entities clears focus back to null/background. When disabled, the last focused node or panelette remains focused until changed via keyboard or explicit commands."
+                           Foreground="#8FA8BE"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+                 <TextBlock Text="Groups"
+                            Foreground="#C7D2DE"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Margin="0,8,0,0"
+                            TextWrapping="Wrap" />
+                <StackPanel Margin="0,8,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding GroupOverlayOpacity, StringFormat=Group overlay opacity: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0"
+                          Maximum="1"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.1"
+                          Value="{Binding GroupOverlayOpacity, Mode=TwoWay}" />
+                </StackPanel>
+                 <TextBlock Text="Node focus and halo settings"
+                            Foreground="#C7D2DE"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Margin="0,8,0,0"
+                            TextWrapping="Wrap" />
+                <StackPanel Margin="0,6,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding NodeHighlightOpacity, StringFormat=Node highlight opacity: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0"
+                          Maximum="1"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.1"
+                          Value="{Binding NodeHighlightOpacity, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,4,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding NodeFocusHaloRadiusMultiplier, StringFormat=Focus halo radius x: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0.5"
+                          Maximum="3"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.25"
+                          Value="{Binding NodeFocusHaloRadiusMultiplier, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,4,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding NodeSelectionHaloRadiusMultiplier, StringFormat=Selection halo radius x: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0.5"
+                          Maximum="3"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.25"
+                          Value="{Binding NodeSelectionHaloRadiusMultiplier, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,4,0,0"
+                            Spacing="4">
+                  <TextBlock Text="Halo mode (2D / 3D / Both)"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <ComboBox ItemsSource="{Binding NodeHaloModeOptions}"
+                            SelectedItem="{Binding NodeHaloMode, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,4,0,0"
+                            Spacing="4">
+                  <TextBlock Text="3D halo volume mode"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <ComboBox ItemsSource="{Binding NodeHaloOcclusionModeOptions}"
+                            SelectedItem="{Binding NodeHaloOcclusionMode, Mode=TwoWay}" />
+                </StackPanel>
+                 <TextBlock Text="Background"
+                            Foreground="#C7D2DE"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Margin="0,8,0,0"
+                            TextWrapping="Wrap" />
+                <StackPanel Margin="0,8,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding BackgroundAnimationSpeed, StringFormat=Background animation speed: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0"
+                          Maximum="2"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.1"
+                          Value="{Binding BackgroundAnimationSpeed, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,8,0,0"
+                            Spacing="4">
+                  <TextBlock Text="Background presets"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal"
+                              Spacing="6">
+                    <Button Classes="SidebarActionButton"
+                            Content="Deep Space"
+                            Command="{Binding ApplyBackgroundDeepSpaceCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Dusk"
+                            Command="{Binding ApplyBackgroundDuskCommand}" />
+                    <Button Classes="SidebarActionButton"
+                            Content="Paper"
+                            Command="{Binding ApplyBackgroundPaperCommand}" />
+                  </StackPanel>
+                </StackPanel>
+                 <TextBlock Text="Links"
+                            Foreground="#C7D2DE"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Margin="0,8,0,0"
+                            TextWrapping="Wrap" />
+                <StackPanel Margin="0,8,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding LinkStrokeThickness, StringFormat=Link stroke thickness: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0.5"
+                          Maximum="4"
+                          SmallChange="0.1"
+                          LargeChange="0.25"
+                          TickFrequency="0.25"
+                          Value="{Binding LinkStrokeThickness, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,4,0,0"
+                            Spacing="4">
+                  <TextBlock Text="{Binding LinkOpacity, StringFormat=Link opacity: {0:0.00}}"
+                             Foreground="#C7D2DE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                  <Slider Minimum="0.1"
+                          Maximum="1"
+                          SmallChange="0.05"
+                          LargeChange="0.1"
+                          TickFrequency="0.1"
+                          Value="{Binding LinkOpacity, Mode=TwoWay}" />
+                </StackPanel>
+                 <TextBlock Text="In-world 2D surfaces (panelettes, context surfaces)"
+                            Foreground="#C7D2DE"
+                            FontSize="11"
+                            FontWeight="SemiBold"
+                            Margin="0,8,0,0"
+                            TextWrapping="Wrap" />
+                 <StackPanel Margin="0,8,0,0"
+                             Spacing="4">
+                   <TextBlock Text="{Binding PaneletteBackgroundIntensity, StringFormat=Panelette intensity: {0:0.00}}"
+                              Foreground="#C7D2DE"
+                              FontSize="11"
+                              TextWrapping="Wrap" />
+                   <Slider Minimum="0.25"
+                           Maximum="2"
+                           SmallChange="0.05"
+                           LargeChange="0.1"
+                           TickFrequency="0.1"
+                           Value="{Binding PaneletteBackgroundIntensity, Mode=TwoWay}" />
+                 </StackPanel>
+                 <StackPanel Margin="0,4,0,0"
+                             Spacing="4">
+                   <TextBlock Text="{Binding CommandSurfaceOverlayOpacity, StringFormat=Context-surface opacity: {0:0.00}}"
+                              Foreground="#C7D2DE"
+                              FontSize="11"
+                              TextWrapping="Wrap" />
+                   <Slider Minimum="0.25"
+                           Maximum="2"
+                           SmallChange="0.05"
+                           LargeChange="0.1"
+                           TickFrequency="0.1"
+                           Value="{Binding CommandSurfaceOverlayOpacity, Mode=TwoWay}" />
+                 </StackPanel>
               </StackPanel>
             </Border>
           </Expander>
@@ -403,6 +633,11 @@
                          Text="{Binding InteractionSemanticsSummary}" />
                 <TextBox Classes="SidebarReadout readiness"
                          Text="{Binding ActionReadinessSummary}" />
+                <TextBlock Text="Recent command history"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding CommandHistorySummary}" />
                 <TextBlock Text="{Binding FocusedTransformSummary}"
                            Foreground="#D9E2EC"
                            TextWrapping="Wrap" />
@@ -413,6 +648,11 @@
                            TextWrapping="Wrap" />
                 <TextBox Classes="SidebarReadout"
                          Text="{Binding ViewDetails}" />
+                <TextBlock Text="Navigation history"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding NavigationHistorySummary}" />
                 <TextBlock Text="{Binding BookmarkSummary}"
                            Foreground="#D9E2EC"
                            TextWrapping="Wrap" />
@@ -501,7 +741,7 @@
         <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
                    FontSize="16"
                    FontWeight="SemiBold" />
-        <TextBlock Text="Viewport: Navigate mode = click/select + left-drag orbit • Move mode = left-drag repositions focused/selected nodes with release-commit through the command path • Marquee mode = left-drag box select • Shift preserves additive selection where applicable • Ctrl+Click or Double-Click other node = link in navigate mode • shell unlink = remove selected → focused directed link • shell transform tools and shell appearance tools target the current selection when present, otherwise the focused node • shell delete follows the same target rule • Tab / Shift+Tab = cycle • Enter or Space = select • Ctrl+Z = undo • Esc = clear • sidebar sections and command groups are collapsible"
+        <TextBlock Text="Viewport: Right-click background/node/link/group opens context surfaces for create/clear/view/mode/link/group actions • Navigate mode = click/select + left-drag orbit; Shift+Left-drag or Right/Middle-drag = pan • Move mode = left-drag repositions the focused/selected node set with transient preview and release-time commit; Esc cancels a live drag without committing • Marquee mode = left-drag box select (Shift additive) • In Navigate mode, Alt+Left-drag = planar move and Space+Left-drag = depth move using the same move-commit path • Ctrl+Click or Double-Click other node = directed link from selected/focused source to clicked target in Navigate mode • Tab / Shift+Tab = cycle focus • Enter or Space = select (Shift additive) • Ctrl+Z = undo • Esc backs out of overlays/drags then clears selection • sidebar command groups mirror these actions and are collapsible"
                    FontSize="12"
                    Foreground="#8FA8BE"
                    TextWrapping="Wrap" />

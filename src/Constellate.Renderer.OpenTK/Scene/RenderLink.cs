@@ -1,3 +1,5 @@
+using Constellate.Core.Scene;
+
 namespace Constellate.Renderer.OpenTK.Scene
 {
     public readonly record struct RenderLink(
@@ -5,5 +7,6 @@ namespace Constellate.Renderer.OpenTK.Scene
         string SourceId,
         string TargetId,
         string Kind,
-        float Weight);
+        float Weight,
+        LinkAppearance? Appearance);
 }

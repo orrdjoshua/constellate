@@ -13,7 +13,9 @@ namespace Constellate.SDK
         public const string ClearLinks = "ClearLinks";
         public const string Undo = "Undo";
         public const string AttachPanel = "AttachPanel";
+        public const string ClearPanelAttachment = "ClearPanelAttachment";
         public const string Focus = "Focus";
+        public const string ClearFocus = "ClearFocus";
         public const string FocusPanel = "FocusPanel";
         public const string Select = "Select";
         public const string SelectPanel = "SelectPanel";

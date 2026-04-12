@@ -5,5 +5,6 @@ namespace Constellate.Core.Scene
     public sealed record SceneGroup(
         string Id,
         string Label,
-        IReadOnlyList<NodeId> NodeIds);
+        IReadOnlyList<NodeId> NodeIds,
+        GroupAppearance? Appearance = null);
 }

@@ -1,4 +1,5 @@
 using OpenTK.Mathematics;
+using Constellate.Core.Scene;
 
 namespace Constellate.Renderer.OpenTK.Scene
 {
@@ -10,5 +11,7 @@ namespace Constellate.Renderer.OpenTK.Scene
         string Anchor,
         bool IsVisible,
         bool IsFocused,
-        bool IsSelected);
+        bool IsSelected,
+        PanelSurfaceSemantics? Semantics = null,
+        PanelCommandSurfaceMetadata? CommandSurface = null);
 }

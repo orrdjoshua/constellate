@@ -5,5 +5,6 @@ namespace Constellate.Core.Scene
         NodeId SourceId,
         NodeId TargetId,
         string Kind,
-        float Weight = 1.0f);
+        float Weight = 1.0f,
+        LinkAppearance? Appearance = null);
 }

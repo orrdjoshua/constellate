@@ -8,7 +8,9 @@ namespace Constellate.Core.Scene
         Vector3 LocalOffset,
         Vector2 Size,
         string Anchor,
-        bool IsVisible = true);
+        bool IsVisible = true,
+        PanelSurfaceSemantics? Semantics = null,
+        PanelCommandSurfaceMetadata? CommandSurface = null);
 
     public readonly record struct PanelTarget(
         NodeId NodeId,

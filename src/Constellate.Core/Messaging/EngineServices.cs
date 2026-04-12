@@ -21,6 +21,7 @@ namespace Constellate.Core.Messaging
         public static EngineScene Scene { get; private set; } = null!;
         public static ShellSceneState ShellScene { get; private set; } = null!;
         public static ICapabilityRegistry Capabilities { get; private set; } = null!;
+        public static EngineSettings Settings { get; private set; } = null!;
 
         private static bool _initialized;
 
@@ -34,6 +35,7 @@ namespace Constellate.Core.Messaging
             Scene = new EngineScene();
             ShellScene = new ShellSceneState(Scene);
             Capabilities = new CapabilityRegistry();
+            Settings = new EngineSettings();
 
             SeedDefaultScene(Scene);
             RegisterCommandHandlers(CommandBus, Scene);
@@ -53,7 +55,35 @@ namespace Constellate.Core.Messaging
                     return false;
                 }
 
-                scene.SetLastView(new ViewParams(p.Yaw, p.Pitch, p.Distance, p.Target));
+                var view = new ViewParams(p.Yaw, p.Pitch, p.Distance, p.Target);
+                scene.SetLastView(view);
+
+                // ShellScene tracks a short view-history tail for navigation observability.
+                ShellScene?.AppendViewHistory(view);
+                return true;
+            });
+
+            // Viewport/shell publish focus-origin hints; keep last origin in ShellSceneState for observability.
+            eventBus.Subscribe(EventNames.FocusOriginChanged, envelope =>
+            {
+                if (ShellScene is null || envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                if (!payload.TryGetProperty("origin", out var originElement) ||
+                    originElement.ValueKind != JsonValueKind.String)
+                {
+                    return false;
+                }
+
+                var origin = originElement.GetString();
+                if (string.IsNullOrWhiteSpace(origin))
+                {
+                    return false;
+                }
+
+                ShellScene.SetFocusOrigin(origin);
                 return true;
             });
         }
@@ -195,6 +225,39 @@ namespace Constellate.Core.Messaging
 
                 return true;
             });
+
+             commandBus.Subscribe(CommandNames.ClearPanelAttachment, command =>
+             {
+                 if (!TryDeserialize(command.Payload, out ClearPanelAttachmentPayload? payload) || payload is null)
+                 {
+                     return false;
+                 }
+
+                 if (!TryParseNodeId(payload.Id, out var nodeId) ||
+                     !scene.RemovePanelAttachment(nodeId))
+                 {
+                     return false;
+                 }
+
+                 PublishEvent(
+                     EventNames.PanelAttachmentsChanged,
+                     new
+                     {
+                         nodeId = nodeId.ToString(),
+                         viewRef = (string?)null,
+                         anchor = (string?)null,
+                         isVisible = false,
+                         surfaceKind = (string?)null,
+                         paneletteKind = (string?)null,
+                         paneletteTier = (int?)null,
+                         commandSurfaceName = (string?)null,
+                         commandSurfaceGroup = (string?)null,
+                         commandSurfaceSource = (string?)null,
+                         commandCount = 0
+                     });
+
+                 return true;
+             });
 
             static bool TryApplyUpdateEntity(EngineScene scene, UpdateEntityPayload payload, out SceneNode updatedNode)
             {
@@ -365,6 +428,21 @@ namespace Constellate.Core.Messaging
                 return true;
             });
 
+            commandBus.Subscribe(CommandNames.ClearFocus, _ =>
+            {
+                var snapshot = scene.GetSnapshot();
+                if (snapshot.FocusedNodeId is null && snapshot.FocusedPanel is null)
+                {
+                    return false;
+                }
+
+                scene.ClearFocus();
+                PublishEvent(EventNames.FocusChanged, new { focusedNodeId = (string?)null });
+                PublishEvent(EventNames.PanelFocusChanged, new { focusedNodeId = (string?)null, viewRef = (string?)null });
+
+                return true;
+            });
+
             commandBus.Subscribe(CommandNames.FocusPanel, command =>
             {
                 if (!TryDeserialize(command.Payload, out FocusPanelPayload? payload) || payload is null)
@@ -468,6 +546,21 @@ namespace Constellate.Core.Messaging
                     return false;
                 }
 
+                var commandDescriptors = payload.CommandSurface?.Commands?
+                    .Select(command => PanelCommandDescriptor.Create(command.CommandId, command.DisplayLabel))
+                    .Where(command => command is not null)
+                    .Select(command => command!)
+                    .ToArray();
+
+                var commandSurface = payload.CommandSurface is null
+                    ? null
+                    : PanelCommandSurfaceMetadata.FromPayload(
+                        payload.CommandSurface.SurfaceName,
+                        payload.CommandSurface.SurfaceGroup,
+                        payload.CommandSurface.CommandIds,
+                        payload.CommandSurface.SurfaceSource,
+                        commandDescriptors);
+
                 if (!TryParseNodeId(payload.Id, out var nodeId) ||
                     !scene.TryAttachPanel(
                         nodeId,
@@ -475,7 +568,11 @@ namespace Constellate.Core.Messaging
                         payload.LocalOffset,
                         payload.Size,
                         payload.Anchor,
-                        payload.IsVisible))
+                        payload.IsVisible,
+                        payload.SurfaceKind,
+                        payload.PaneletteKind,
+                        payload.PaneletteTier,
+                        commandSurface))
                 {
                     return false;
                 }
@@ -487,7 +584,14 @@ namespace Constellate.Core.Messaging
                         nodeId = nodeId.ToString(),
                         viewRef = payload.ViewRef,
                         anchor = payload.Anchor,
-                        isVisible = payload.IsVisible
+                        isVisible = payload.IsVisible,
+                        surfaceKind = payload.SurfaceKind,
+                        paneletteKind = payload.PaneletteKind,
+                        paneletteTier = payload.PaneletteTier,
+                        commandSurfaceName = commandSurface?.SurfaceName,
+                        commandSurfaceGroup = commandSurface?.SurfaceGroup,
+                        commandSurfaceSource = commandSurface?.SurfaceSource,
+                        commandCount = commandSurface?.Commands.Count ?? 0
                     });
 
                 return true;
@@ -793,6 +897,12 @@ namespace Constellate.Core.Messaging
                         });
                 }
 
+                 PublishEvent(
+                     EventNames.FocusOriginChanged,
+                     new
+                     {
+                         origin = "programmatic"
+                     });
                 return true;
             });
         }
@@ -942,6 +1052,28 @@ namespace Constellate.Core.Messaging
             scene.Upsert(nodeB);
             scene.Upsert(nodeC);
             scene.TryConnect(nodeA.Id, nodeB.Id, "baseline", 1.0f);
+            scene.TryAttachPanel(
+                nodeA.Id,
+                "panelette.label.seed",
+                new Vector3(0f, -0.18f, 0.1f),
+                new Vector2(0.92f, 0.28f),
+                "bottom",
+                true);
+            scene.TryAttachPanel(
+                nodeC.Id,
+                "panelette.meta.seed",
+                new Vector3(0f, 0.22f, 0.14f),
+                new Vector2(1.25f, 0.72f),
+                "top",
+                true,
+                "panelette",
+                "metadata",
+                1,
+                new PanelCommandSurfaceMetadata(
+                    "node.quick",
+                    "primary",
+                    [new PanelCommandDescriptor(CommandNames.CenterOnNode, "Center On Node"), new PanelCommandDescriptor(CommandNames.Select, "Select Node"), new PanelCommandDescriptor(CommandNames.Focus, "Focus Node")],
+                    "engine"));
         }
 
         private static void SeedCapabilities(ICapabilityRegistry registry)
@@ -974,11 +1106,13 @@ namespace Constellate.Core.Messaging
                 CommandNames.Unlink or
                 CommandNames.ClearLinks or
                 CommandNames.Focus or
+                CommandNames.ClearFocus or
                 CommandNames.FocusPanel or
                 CommandNames.Select or
                 CommandNames.SelectPanel or
                 CommandNames.ClearSelection or
                 CommandNames.AttachPanel or
+                 CommandNames.ClearPanelAttachment or
                 CommandNames.AddSelectionToGroup or
                 CommandNames.RemoveSelectionFromGroup or
                 CommandNames.DeleteGroup or

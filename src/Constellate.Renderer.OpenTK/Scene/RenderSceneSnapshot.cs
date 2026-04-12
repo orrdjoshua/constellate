@@ -4,5 +4,6 @@ namespace Constellate.Renderer.OpenTK.Scene
         RenderNode[] Nodes,
         PanelSurfaceNode[] PanelSurfaces,
         RenderLink[] Links,
-        RenderGroup[] Groups);
+        RenderGroup[] Groups,
+        string? ActiveGroupId);
 }

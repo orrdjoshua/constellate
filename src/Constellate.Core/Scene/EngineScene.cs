@@ -286,6 +286,7 @@ namespace Constellate.Core.Scene
             lock (_gate)
             {
                 _selectedNodeIds.Clear();
+                _selectedPanels.Clear();
 
                 foreach (var id in ids)
                 {
@@ -320,6 +321,7 @@ namespace Constellate.Core.Scene
             lock (_gate)
             {
                 _selectedPanels.Clear();
+                _selectedNodeIds.Clear();
 
                 foreach (var panelTarget in panelTargets)
                 {
@@ -337,7 +339,11 @@ namespace Constellate.Core.Scene
             Vector3? localOffset = null,
             Vector2? size = null,
             string? anchor = null,
-            bool? isVisible = null)
+            bool? isVisible = null,
+            string? surfaceKind = null,
+            string? paneletteKind = null,
+            int? paneletteTier = null,
+            PanelCommandSurfaceMetadata? commandSurface = null)
         {
             lock (_gate)
             {
@@ -354,6 +360,11 @@ namespace Constellate.Core.Scene
                 }
 
                 var normalizedOffset = localOffset ?? new Vector3(0f, 0f, 0.15f);
+                var semantics = PanelSurfaceSemantics.FromExplicitOrViewRef(
+                    surfaceKind,
+                    paneletteKind,
+                    paneletteTier,
+                    viewRef);
 
                 _panelAttachments[id] = new PanelAttachment(
                     id,
@@ -361,7 +372,9 @@ namespace Constellate.Core.Scene
                     normalizedOffset,
                     normalizedSize,
                     normalizedAnchor,
-                    isVisible ?? true);
+                    isVisible ?? true,
+                    semantics,
+                    commandSurface);
 
                 return true;
             }

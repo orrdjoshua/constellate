@@ -60,13 +60,31 @@ namespace Constellate.SDK
         string ViewRef,
         bool Replace = true);
 
+    public sealed record PanelCommandEntryPayload(
+        string CommandId,
+        string? DisplayLabel = null);
+
+    public sealed record PanelCommandSurfaceMetadataPayload(
+        string? SurfaceName = null,
+        string? SurfaceGroup = null,
+        string? SurfaceSource = null,
+        IReadOnlyList<string>? CommandIds = null,
+        IReadOnlyList<PanelCommandEntryPayload>? Commands = null);
+
     public sealed record AttachPanelPayload(
         string Id,
         string ViewRef,
         Vector3? LocalOffset = null,
         Vector2? Size = null,
         string? Anchor = null,
-        bool? IsVisible = null);
+        bool? IsVisible = null,
+        string? SurfaceKind = null,
+        string? PaneletteKind = null,
+        int? PaneletteTier = null,
+        PanelCommandSurfaceMetadataPayload? CommandSurface = null);
+
+     public sealed record ClearPanelAttachmentPayload(
+         string Id);
 
     public sealed record ConnectEntitiesPayload(
         string SourceId,

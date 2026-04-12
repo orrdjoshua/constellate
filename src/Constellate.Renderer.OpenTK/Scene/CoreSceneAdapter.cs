@@ -55,6 +55,7 @@ namespace Constellate.Renderer.OpenTK.Scene
                 .Values
                 .Select(attachment =>
                 {
+                    var semantics = attachment.Semantics ?? PanelSurfaceSemantics.FromViewRef(attachment.ViewRef);
                     var panelTarget = new PanelTarget(attachment.NodeId, attachment.ViewRef);
                     var isFocused = focusedPanel is { } currentFocused &&
                                     currentFocused.NodeId == attachment.NodeId &&
@@ -74,7 +75,9 @@ namespace Constellate.Renderer.OpenTK.Scene
                         attachment.Anchor,
                         attachment.IsVisible,
                         isFocused,
-                        isSelected);
+                        isSelected,
+                        semantics,
+                        attachment.CommandSurface);
                 })
                 .ToArray()
                 ?? [];
@@ -85,7 +88,8 @@ namespace Constellate.Renderer.OpenTK.Scene
                     link.SourceId.ToString(),
                     link.TargetId.ToString(),
                     link.Kind,
-                    link.Weight))
+                    link.Weight,
+                    link.Appearance ?? LinkAppearance.Default))
                 .ToArray()
                 ?? [];
 
@@ -93,11 +97,12 @@ namespace Constellate.Renderer.OpenTK.Scene
                 .Select(group => new RenderGroup(
                     group.Id,
                     group.Label,
-                    group.NodeIds.Select(id => id.ToString()).ToArray()))
+                    group.NodeIds.Select(id => id.ToString()).ToArray(),
+                    group.Appearance ?? GroupAppearance.Default))
                 .ToArray()
                 ?? [];
 
-            return new RenderSceneSnapshot(nodes, panelSurfaces, links, groups);
+            return new RenderSceneSnapshot(nodes, panelSurfaces, links, groups, snapshot.ActiveGroupId);
         }
 
         public static RenderNode[] ToRenderNodes(SceneSnapshot snapshot)
