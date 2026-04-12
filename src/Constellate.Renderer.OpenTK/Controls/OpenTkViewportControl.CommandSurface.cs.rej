@@ -1,0 +1,22 @@
+diff a/src/Constellate.Renderer.OpenTK/Controls/OpenTkViewportControl.CommandSurface.cs b/src/Constellate.Renderer.OpenTK/Controls/OpenTkViewportControl.CommandSurface.cs	(rejected hunks)
+@@ -721,3 +721,20 @@
+                 SendCommand(CommandNames.AttachPanel, payload);
+             }
+         }
++
++        private void AttachDetailMetadataPaneletteForNode(string nodeId)
++        {
++            var payload = CreateDetailMetadataPanelettePayloadForNode(nodeId);
++            SendCommand(CommandNames.AttachPanel, payload);
++        }
++
++        private void AttachDetailMetadataPanelettesForAllNodes()
++        {
++            var snapshot = GetRenderSceneSnapshot();
++
++            foreach (var node in snapshot.Nodes)
++            {
++                var payload = CreateDetailMetadataPanelettePayloadForNode(node.Id);
++                SendCommand(CommandNames.AttachPanel, payload);
++            }
++        }

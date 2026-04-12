@@ -16,6 +16,8 @@ namespace Constellate.Core.Scene
         private readonly Dictionary<string, SceneGroup> _groups = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SceneBookmark> _bookmarks = new(StringComparer.Ordinal);
         private readonly Stack<SceneSnapshot> _undoStack = new();
+        private NodeId? _enteredNodeId;
+        private readonly HashSet<NodeId> _expandedNodeIds = new();
 
         // Last-known renderer-neutral view (yaw/pitch/distance/target), updated by EngineServices on ViewChanged
         private ViewParams? _lastView;
@@ -45,6 +47,17 @@ namespace Constellate.Core.Scene
 
                 view = _lastView;
                 return true;
+            }
+        }
+
+        public NodeId? EnteredNodeId
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _enteredNodeId;
+                }
             }
         }
 
@@ -193,6 +206,13 @@ namespace Constellate.Core.Scene
                 {
                     FocusedPanel = null;
                 }
+
+                if (_enteredNodeId == id)
+                {
+                    _enteredNodeId = null;
+                }
+
+                _expandedNodeIds.Remove(id);
 
                 return true;
             }
@@ -461,6 +481,74 @@ namespace Constellate.Core.Scene
                 }
 
                 return true;
+            }
+        }
+
+        public bool TryEnterNode(NodeId id)
+        {
+            lock (_gate)
+            {
+                if (!_nodes.ContainsKey(id))
+                {
+                    return false;
+                }
+
+                _enteredNodeId = id;
+                return true;
+            }
+        }
+
+        public bool TryExitNode(NodeId? expectedId, out NodeId? previousId)
+        {
+            lock (_gate)
+            {
+                previousId = _enteredNodeId;
+                if (_enteredNodeId is null)
+                {
+                    return false;
+                }
+
+                if (expectedId is { } id && _enteredNodeId.Value != id)
+                {
+                    return false;
+                }
+
+                _enteredNodeId = null;
+                return previousId is not null;
+            }
+        }
+
+        public bool TryExpandNode(NodeId id)
+        {
+            lock (_gate)
+            {
+                if (!_nodes.ContainsKey(id))
+                {
+                    return false;
+                }
+
+                return _expandedNodeIds.Add(id);
+            }
+        }
+
+        public bool TryCollapseNode(NodeId id)
+        {
+            lock (_gate)
+            {
+                if (!_nodes.ContainsKey(id))
+                {
+                    return false;
+                }
+
+                return _expandedNodeIds.Remove(id);
+            }
+        }
+
+        public bool IsNodeExpanded(NodeId id)
+        {
+            lock (_gate)
+            {
+                return _expandedNodeIds.Contains(id);
             }
         }
 

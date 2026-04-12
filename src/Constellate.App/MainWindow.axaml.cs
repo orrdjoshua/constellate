@@ -82,9 +82,12 @@ namespace Constellate.App
         private readonly RelayCommand _deleteFocusedNodeCommand;
         private readonly RelayCommand _attachDemoPanelCommand;
         private readonly RelayCommand _attachLabelPaneletteCommand;
+        private readonly RelayCommand _attachDetailMetadataPaneletteCommand;
         private readonly RelayCommand _homeViewCommand;
         private readonly RelayCommand _centerFocusedNodeCommand;
         private readonly RelayCommand _frameSelectionCommand;
+        private readonly RelayCommand _enterFocusedNodeCommand;
+        private readonly RelayCommand _exitNodeCommand;
         private readonly RelayCommand _clearLinksCommand;
         private readonly RelayCommand _clearSelectionCommand;
         private readonly RelayCommand _applyBackgroundDeepSpaceCommand;
@@ -167,9 +170,12 @@ namespace Constellate.App
         public ICommand DeleteFocusedNodeCommand => _deleteFocusedNodeCommand;
         public ICommand AttachDemoPanelCommand => _attachDemoPanelCommand;
         public ICommand AttachLabelPaneletteCommand => _attachLabelPaneletteCommand;
+        public ICommand AttachDetailMetadataPaneletteCommand => _attachDetailMetadataPaneletteCommand;
         public ICommand HomeViewCommand => _homeViewCommand;
         public ICommand CenterFocusedNodeCommand => _centerFocusedNodeCommand;
         public ICommand FrameSelectionCommand => _frameSelectionCommand;
+        public ICommand EnterFocusedNodeCommand => _enterFocusedNodeCommand;
+        public ICommand ExitNodeCommand => _exitNodeCommand;
         public ICommand ClearLinksCommand => _clearLinksCommand;
         public ICommand ClearSelectionCommand => _clearSelectionCommand;
         public ICommand ApplyBackgroundDeepSpaceCommand => _applyBackgroundDeepSpaceCommand;
@@ -589,6 +595,36 @@ namespace Constellate.App
                 },
                 _ => _shellScene.GetSelectedNodeIds().Count > 0 || _shellScene.GetFocusedNode() is not null);
 
+            _enterFocusedNodeCommand = new RelayCommand(
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return;
+                    }
+
+                    SendCommand(
+                        CommandNames.EnterNode,
+                        new EnterNodePayload(focusedNode.Id.ToString()));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+
+            _exitNodeCommand = new RelayCommand(
+                _ =>
+                {
+                    var enteredId = _shellScene.GetEnteredNodeId();
+                    if (enteredId is null)
+                    {
+                        return;
+                    }
+
+                    SendCommand(
+                        CommandNames.ExitNode,
+                        new ExitNodePayload(enteredId.Value.ToString()));
+                },
+                _ => _shellScene.GetEnteredNodeId() is not null);
+
             _deleteFocusedNodeCommand = new RelayCommand(
                 _ =>
                 {
@@ -665,6 +701,33 @@ namespace Constellate.App
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
+            _attachDetailMetadataPaneletteCommand = new RelayCommand(
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return;
+                    }
+
+                    var attachmentCount = _shellScene.GetPanelAttachments().Count;
+                    var viewRef = $"panelette.meta.detail.{attachmentCount + 1}";
+
+                    SendCommand(
+                        CommandNames.AttachPanel,
+                        new AttachPanelPayload(
+                            focusedNode.Id.ToString(),
+                            viewRef,
+                            LocalOffset: new Vector3(0f, 0.26f, 0.16f),
+                            Size: new Vector2(1.35f, 0.82f),
+                            Anchor: "top",
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "metadata",
+                            PaneletteTier: 2));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+
             _clearLinksCommand = new RelayCommand(
                 _ =>
                 {
@@ -711,6 +774,17 @@ namespace Constellate.App
             {
                 var origin = _shellScene.GetFocusOrigin();
                 return $"Focus Origin: {FormatFocusOrigin(origin)}";
+            }
+        }
+
+        public string EnteredNodeSummary
+        {
+            get
+            {
+                var enteredId = _shellScene.GetEnteredNodeId();
+                return enteredId is null
+                    ? "Entered Node: none"
+                    : $"Entered Node: {enteredId}";
             }
         }
 
@@ -1688,6 +1762,7 @@ namespace Constellate.App
         {
             OnPropertyChanged(nameof(FocusSummary));
             OnPropertyChanged(nameof(FocusOriginSummary));
+            OnPropertyChanged(nameof(EnteredNodeSummary));
             OnPropertyChanged(nameof(SelectionSummary));
             OnPropertyChanged(nameof(BookmarkSummary));
             OnPropertyChanged(nameof(ViewSummary));
@@ -1755,6 +1830,7 @@ namespace Constellate.App
             _deleteFocusedNodeCommand.RaiseCanExecuteChanged();
             _attachDemoPanelCommand.RaiseCanExecuteChanged();
             _attachLabelPaneletteCommand.RaiseCanExecuteChanged();
+            _attachDetailMetadataPaneletteCommand.RaiseCanExecuteChanged();
             _clearLinksCommand.RaiseCanExecuteChanged();
             _clearSelectionCommand.RaiseCanExecuteChanged();
         }

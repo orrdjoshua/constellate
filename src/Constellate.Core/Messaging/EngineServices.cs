@@ -897,12 +897,156 @@ namespace Constellate.Core.Messaging
                         });
                 }
 
-                 PublishEvent(
-                     EventNames.FocusOriginChanged,
-                     new
-                     {
-                         origin = "programmatic"
-                     });
+                PublishEvent(
+                    EventNames.FocusOriginChanged,
+                    new
+                    {
+                        origin = "programmatic"
+                    });
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.EnterNode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out EnterNodePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!TryParseNodeId(payload.Id, out var nodeId) || !scene.TryEnterNode(nodeId))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.NodeEntered,
+                    new
+                    {
+                        nodeId = nodeId.ToString(),
+                        mode = string.IsNullOrWhiteSpace(payload.Mode)
+                            ? "default"
+                            : payload.Mode.Trim().ToLowerInvariant()
+                    });
+
+                // v0.1 view behavior: treat EnterNode as a view macro that centers and zooms on the node,
+                // using the same basic heuristic as CenterOnNode.
+                if (scene.TryGet(nodeId, out var node))
+                {
+                    var view = scene.TryGetLastView(out var lastView)
+                        ? lastView
+                        : new ViewParams(MathF.PI / 2f, 0f, 2f, Vector3.Zero);
+
+                    var distance = MathF.Max(1.25f, MathF.Max(view.Distance * 0.75f, node.VisualScale * 4f));
+
+                    PublishEvent(
+                        EventNames.ViewSetRequested,
+                        new
+                        {
+                            yaw = view.Yaw,
+                            pitch = view.Pitch,
+                            distance,
+                            target = new
+                            {
+                                x = node.Transform.Position.X,
+                                y = node.Transform.Position.Y,
+                                z = node.Transform.Position.Z
+                            }
+                        });
+                }
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.ExitNode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out ExitNodePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                NodeId? expectedId = null;
+                if (!string.IsNullOrWhiteSpace(payload.Id))
+                {
+                    if (!TryParseNodeId(payload.Id, out var parsedId))
+                    {
+                        return false;
+                    }
+
+                    expectedId = parsedId;
+                }
+
+                if (!scene.TryExitNode(expectedId, out var previousId) || previousId is null)
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.NodeExited,
+                    new
+                    {
+                        previousNodeId = previousId.Value.ToString()
+                    });
+
+                // v0.1 view behavior: treat ExitNode as returning to a simple Home View posture.
+                PublishEvent(
+                    EventNames.ViewSetRequested,
+                    new
+                    {
+                        yaw = MathF.PI / 2f,
+                        pitch = 0f,
+                        distance = 2f,
+                        target = new
+                        {
+                            x = 0f,
+                            y = 0f,
+                            z = 0f
+                        }
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.ExpandNode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out ExpandNodePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!TryParseNodeId(payload.Id, out var nodeId) || !scene.TryExpandNode(nodeId))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.NodeExpanded,
+                    new
+                    {
+                        nodeId = nodeId.ToString()
+                    });
+
+                return true;
+            });
+
+            commandBus.Subscribe(CommandNames.CollapseNode, command =>
+            {
+                if (!TryDeserialize(command.Payload, out CollapseNodePayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                if (!TryParseNodeId(payload.Id, out var nodeId) || !scene.TryCollapseNode(nodeId))
+                {
+                    return false;
+                }
+
+                PublishEvent(
+                    EventNames.NodeCollapsed,
+                    new
+                    {
+                        nodeId = nodeId.ToString()
+                    });
+
                 return true;
             });
         }

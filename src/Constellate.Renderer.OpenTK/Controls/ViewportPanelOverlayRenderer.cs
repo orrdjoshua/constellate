@@ -31,7 +31,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             {
                 return;
             }
-
+ 
                 var byId = renderSnapshot.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
 
             foreach (var panel in renderSnapshot.PanelSurfaces)
@@ -51,10 +51,21 @@ namespace Constellate.Renderer.OpenTK.Controls
                     continue;
                 }
 
+                var linkCount = renderSnapshot.Links.Length == 0
+                    ? 0
+                    : renderSnapshot.Links.Count(link => string.Equals(link.SourceId, node.Id, StringComparison.Ordinal) ||
+                                                         string.Equals(link.TargetId, node.Id, StringComparison.Ordinal));
+
+                var groupCount = renderSnapshot.Groups.Length == 0
+                    ? 0
+                    : renderSnapshot.Groups.Count(group => group.NodeIds.Contains(node.Id));
+
+                var panelCount = renderSnapshot.PanelSurfaces.Count(p => string.Equals(p.NodeId, panel.NodeId, StringComparison.Ordinal));
+
                 var isCommandSurfaceActive = activeCommandSurface.Matches(panel);
                 if (semantics.IsPanelette)
                 {
-                    DrawPanelettePlaceholder(ctx, rect, panel, semantics, node.Label, isCommandSurfaceActive);
+                    DrawPanelettePlaceholder(ctx, rect, panel, semantics, node.Label, isCommandSurfaceActive, linkCount, groupCount, panelCount);
                     continue;
                 }
 
@@ -372,7 +383,10 @@ namespace Constellate.Renderer.OpenTK.Controls
             PanelSurfaceNode panel,
             PanelSurfaceSemantics semantics,
             string nodeLabel,
-            bool isCommandSurfaceActive)
+            bool isCommandSurfaceActive,
+            int linkCount,
+            int groupCount,
+            int panelCount)
         {
             if (semantics.IsLabelPanelette)
             {
@@ -402,6 +416,9 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             GetMetadataPanelettePalette(panel.IsFocused, panel.IsSelected, out var fillColor, out var strokeColor, out var accentColor, out var headerBrush, out var bodyBrush);
 
+            var isTier2 = semantics.PaneletteTier > 1;
+            var metricsSummary = $"links={linkCount}, groups={groupCount}, panels={panelCount}";
+
             ctx.DrawRectangle(
                 new SolidColorBrush(fillColor),
                 new Pen(new SolidColorBrush(strokeColor), panel.IsFocused ? 2.4 : 1.6),
@@ -429,13 +446,19 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             var detailLine = panel.CommandSurface is { HasCommands: true } commandSurface
                 ? isCommandSurfaceActive
-                    ? $"Context Surface Open • {commandSurface.DescribeIdentity()} • {commandSurface.Commands.Count} commands"
-                    : $"Commands • {commandSurface.SurfaceName}/{commandSurface.SurfaceGroup} • {commandSurface.SurfaceSource} • {commandSurface.DescribeCommandsSummary(2)}"
-                : panel.IsFocused
-                    ? "Focused in-world metadata surface"
-                    : panel.IsSelected
-                        ? "Selected in-world metadata surface"
-                        : "Tier 1 panelette placeholder";
+                    ? isTier2
+                        ? $"Tier 2 • {metricsSummary} • {commandSurface.DescribeIdentity()} • {commandSurface.Commands.Count} commands"
+                        : $"Context Surface Open • {commandSurface.DescribeIdentity()} • {commandSurface.Commands.Count} commands"
+                    : isTier2
+                        ? $"Tier 2 • {metricsSummary} • Commands • {commandSurface.DescribeCommandsSummary(2)}"
+                        : $"Commands • {commandSurface.SurfaceName}/{commandSurface.SurfaceGroup} • {commandSurface.SurfaceSource} • {commandSurface.DescribeCommandsSummary(2)}"
+                : isTier2
+                    ? $"Tier 2 panelette • {metricsSummary}"
+                    : panel.IsFocused
+                        ? "Focused in-world metadata surface"
+                        : panel.IsSelected
+                            ? "Selected in-world metadata surface"
+                            : "Tier 1 panelette placeholder";
 
             var detailText = new FormattedText(
                 detailLine,

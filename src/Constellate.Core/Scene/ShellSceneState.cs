@@ -87,7 +87,13 @@ namespace Constellate.Core.Scene
             _scene.GetSnapshot().Bookmarks
             ?? Array.Empty<SceneBookmark>();
 
+        public NodeId? GetEnteredNodeId() => _scene.EnteredNodeId;
+
+        public bool IsNodeExpanded(NodeId id) => _scene.IsNodeExpanded(id);
+
         public bool TryGetLastView(out ViewParams view) => _scene.TryGetLastView(out view);
+
+        /// <summary>
 
         /// <summary>
         /// Returns a snapshot of the recent navigation/view history as recorded from

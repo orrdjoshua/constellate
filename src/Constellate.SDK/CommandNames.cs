@@ -28,6 +28,10 @@ namespace Constellate.SDK
         public const string HomeView = "HomeView";
         public const string CenterOnNode = "CenterOnNode";
         public const string FrameSelection = "FrameSelection";
+        public const string EnterNode = "EnterNode";
+        public const string ExitNode = "ExitNode";
+        public const string ExpandNode = "ExpandNode";
+        public const string CollapseNode = "CollapseNode";
         public const string SetInteractionMode = "SetInteractionMode";
         public const string BookmarkRestore = "BookmarkRestore";
         public const string SetLayout = "SetLayout";

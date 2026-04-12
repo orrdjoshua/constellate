@@ -112,6 +112,12 @@
                 <TextBlock Text="{Binding InteractionModeSummary}"
                            Foreground="#D9E2EC"
                            TextWrapping="Wrap" />
+                <TextBlock Text="{Binding EnteredNodeSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding EnteredNodeSummary}"
+                           Foreground="#D9E2EC"
+                           TextWrapping="Wrap" />
                 <TextBlock Text="{Binding GroupSummary}"
                            Foreground="#D9E2EC"
                            TextWrapping="Wrap" />
@@ -260,6 +266,12 @@
                     <Button Classes="SidebarActionButton"
                             Content="Frame Selection"
                              Command="{Binding FrameSelectionCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Enter Focused Node"
+                             Command="{Binding EnterFocusedNodeCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Exit Node"
+                             Command="{Binding ExitNodeCommand}" />
                     <Button Classes="SidebarActionButton"
                             Content="Save Bookmark"
                             Command="{Binding SaveBookmarkCommand}" />
@@ -337,6 +349,9 @@
                      <Button Classes="SidebarActionButton"
                              Content="Attach Label Panelette"
                              Command="{Binding AttachLabelPaneletteCommand}" />
+                     <Button Classes="SidebarActionButton"
+                             Content="Attach Detailed Metadata Panelette"
+                             Command="{Binding AttachDetailMetadataPaneletteCommand}" />
                   </StackPanel>
                 </Expander>
 

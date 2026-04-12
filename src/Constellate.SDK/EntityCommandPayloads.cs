@@ -124,6 +124,19 @@ namespace Constellate.SDK
     public sealed record BookmarkRestorePayload(
         string Name);
 
+    public sealed record EnterNodePayload(
+        string Id,
+        string? Mode = null);
+
+    public sealed record ExitNodePayload(
+        string? Id = null);
+
+    public sealed record ExpandNodePayload(
+        string Id);
+
+    public sealed record CollapseNodePayload(
+        string Id);
+
     public sealed record CommandInvokedPayload(
         string CommandName,
         Guid CommandId);

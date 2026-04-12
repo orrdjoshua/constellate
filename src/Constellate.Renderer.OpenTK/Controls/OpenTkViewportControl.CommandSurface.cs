@@ -19,7 +19,10 @@ namespace Constellate.Renderer.OpenTK.Controls
         private const string SurfaceCommand_AttachMetadataPanelettesForAllNodes = "Engine.AttachMetadataPanelettesForAllNodes";
         private const string SurfaceCommand_AttachLabelPanelettesForAllNodes = "Engine.AttachLabelPanelettesForAllNodes";
         private const string SurfaceCommand_ClearPanelettesForAllNodes = "Engine.ClearPanelettesForAllNodes";
+        private const string SurfaceCommand_AttachDetailMetadataPaneletteForNode = "Engine.AttachDetailMetadataPaneletteForNode";
+        private const string SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes = "Engine.AttachDetailMetadataPanelettesForAllNodes";
         private const string SurfaceCommand_CreateNodeAtPointer = "Engine.CreateNodeAtPointer";
+        private const string SurfaceCommand_ExitNodeContext = "Engine.Node.ExitContext";
         private const string SurfaceCommand_SetModeNavigate = "Engine.SetInteractionMode.Navigate";
         private const string SurfaceCommand_SetModeMarquee = "Engine.SetInteractionMode.Marquee";
         private const string SurfaceCommand_SetModeMove = "Engine.SetInteractionMode.Move";
@@ -101,9 +104,11 @@ namespace Constellate.Renderer.OpenTK.Controls
                 PanelCommandDescriptor.Create(CommandNames.CenterOnNode, "Center on Node"),
                 PanelCommandDescriptor.Create(CommandNames.Select, "Select"),
                 PanelCommandDescriptor.Create(CommandNames.Focus, "Focus"),
+                PanelCommandDescriptor.Create(CommandNames.EnterNode, "Enter Node"),
                 PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette"),
-                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette"),
                 PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette"),
+                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette"),
+                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up"),
@@ -479,6 +484,9 @@ namespace Constellate.Renderer.OpenTK.Controls
                 case CommandNames.Focus:
                     SendCommand(CommandNames.Focus, new FocusEntityPayload(panel.NodeId));
                     return true;
+                case CommandNames.EnterNode:
+                    SendCommand(CommandNames.EnterNode, new EnterNodePayload(panel.NodeId));
+                    return true;
                 case SurfaceCommand_AttachMetadataPaneletteForNode:
                     AttachMetadataPaneletteForNode(panel.NodeId);
                     return true;
@@ -508,6 +516,9 @@ namespace Constellate.Renderer.OpenTK.Controls
                     return true;
                 case SurfaceCommand_AttachMetadataPanelettesForAllNodes:
                     AttachPanelettesForAllNodes("metadata");
+                    return true;
+                case SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes:
+                    AttachDetailMetadataPanelettesForAllNodes();
                     return true;
                 case SurfaceCommand_AttachLabelPanelettesForAllNodes:
                     AttachPanelettesForAllNodes("label");
@@ -716,6 +727,22 @@ namespace Constellate.Renderer.OpenTK.Controls
                 SendCommand(CommandNames.AttachPanel, payload);
             }
         }
+        
+
+        private static AttachPanelPayload CreateDetailMetadataPanelettePayloadForNode(string nodeId)
+        {
+            return new AttachPanelPayload(
+                Id: nodeId,
+                ViewRef: "panelette.meta.detail.node",
+                LocalOffset: new System.Numerics.Vector3(0f, 0.26f, 0.16f),
+                Size: new System.Numerics.Vector2(1.35f, 0.82f),
+                Anchor: "top",
+                IsVisible: true,
+                SurfaceKind: "panelette",
+                PaneletteKind: "metadata",
+                PaneletteTier: 2,
+                CommandSurface: null);
+        }
 
         private void ClearPanelettesForAllNodes()
         {
@@ -726,8 +753,27 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
         }
 
+        private void AttachDetailMetadataPaneletteForNode(string nodeId)
+        {
+            var payload = CreateDetailMetadataPanelettePayloadForNode(nodeId);
+            SendCommand(CommandNames.AttachPanel, payload);
+        }
+
+        private void AttachDetailMetadataPanelettesForAllNodes()
+        {
+            var snapshot = GetRenderSceneSnapshot();
+
+            foreach (var node in snapshot.Nodes)
+            {
+                var payload = CreateDetailMetadataPanelettePayloadForNode(node.Id);
+                SendCommand(CommandNames.AttachPanel, payload);
+            }
+        }
+
         private bool TryOpenBackgroundContextSurface(Point point)
         {
+            var hasEnteredNode = EngineServices.ShellScene.GetEnteredNodeId() is not null;
+
             var commandDescriptors = new[]
             {
                 PanelCommandDescriptor.Create(SurfaceCommand_CreateNodeAtPointer, "Create Node Here"),
@@ -735,12 +781,14 @@ namespace Constellate.Renderer.OpenTK.Controls
                 PanelCommandDescriptor.Create(CommandNames.ClearSelection, "Clear Selection"),
                 PanelCommandDescriptor.Create(CommandNames.HomeView, "Home View"),
                 PanelCommandDescriptor.Create(CommandNames.FrameSelection, "Frame Selection"),
+                hasEnteredNode ? PanelCommandDescriptor.Create(SurfaceCommand_ExitNodeContext, "Exit Node Context") : null,
                 PanelCommandDescriptor.Create(SurfaceCommand_SaveBookmark, "Save Bookmark"),
                 PanelCommandDescriptor.Create(SurfaceCommand_RestoreBookmark, "Restore Bookmark"),
                 PanelCommandDescriptor.Create(SurfaceCommand_SetModeNavigate, "Set Mode: Navigate"),
                 PanelCommandDescriptor.Create(SurfaceCommand_SetModeMarquee, "Set Mode: Marquee"),
                 PanelCommandDescriptor.Create(SurfaceCommand_SetModeMove, "Set Mode: Move"),
                 PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPanelettesForAllNodes, "Attach Metadata Panelettes (All Nodes)"),
+                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes, "Attach Detailed Metadata Panelettes (All Nodes)"),
                 PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPanelettesForAllNodes, "Attach Label Panelettes (All Nodes)"),
                 PanelCommandDescriptor.Create(SurfaceCommand_ClearPanelettesForAllNodes, "Remove Panelettes (All Nodes)")
             }
@@ -999,6 +1047,19 @@ namespace Constellate.Renderer.OpenTK.Controls
                         CommandNames.FrameSelection,
                         new FrameSelectionPayload());
                     return true;
+                case SurfaceCommand_ExitNodeContext:
+                {
+                    var enteredId = EngineServices.ShellScene.GetEnteredNodeId();
+                    if (enteredId is null)
+                    {
+                        return false;
+                    }
+
+                    SendCommand(
+                        CommandNames.ExitNode,
+                        new ExitNodePayload(enteredId.Value.ToString()));
+                    return true;
+                }
                 case SurfaceCommand_SaveBookmark:
                 {
                     var bookmarks = EngineServices.ShellScene.GetBookmarks();

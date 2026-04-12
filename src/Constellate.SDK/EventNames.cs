@@ -21,5 +21,11 @@ namespace Constellate.SDK
         // - ViewSetRequested: Core requests renderer to set a specific view (e.g., bookmark restore)
         public const string ViewChanged = "ViewChanged";
         public const string ViewSetRequested = "ViewSetRequested";
+
+        // Node-interior navigation and expansion events
+        public const string NodeEntered = "NodeEntered";
+        public const string NodeExited = "NodeExited";
+        public const string NodeExpanded = "NodeExpanded";
+        public const string NodeCollapsed = "NodeCollapsed";
     }
 }
