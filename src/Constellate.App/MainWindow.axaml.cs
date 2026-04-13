@@ -36,6 +36,11 @@ namespace Constellate.App
         private double _initialBottomHeight;
         private Grid? _rootGrid;
 
+        private bool _isChildPaneDragging;
+        private Point _childDragStartPoint;
+        private string? _childDragPaneId;
+        private string? _childDragOriginHostId;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -362,6 +367,79 @@ namespace Constellate.App
                 out var shadowHeight);
 
             vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
+        }
+
+        private void OnChildPaneHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            if (sender is not Control header || header.DataContext is not ChildPaneDescriptor descriptor)
+            {
+                return;
+            }
+
+            _isChildPaneDragging = true;
+            _childDragStartPoint = e.GetPosition(this);
+            _childDragPaneId = descriptor.Id;
+            _childDragOriginHostId = descriptor.HostId;
+
+            try { e.Pointer.Capture(this); } catch { }
+        }
+
+        private void OnChildPaneHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isChildPaneDragging)
+            {
+                return;
+            }
+
+            _isChildPaneDragging = false;
+
+            try { e.Pointer.Capture(null); } catch { }
+
+            var paneId = _childDragPaneId;
+            var originHost = _childDragOriginHostId;
+            _childDragPaneId = null;
+            _childDragOriginHostId = null;
+
+            if (string.IsNullOrWhiteSpace(paneId) || DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            var releasePoint = e.GetPosition(this);
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
+
+            if (!string.IsNullOrWhiteSpace(originHost) &&
+                string.Equals(
+                    MainWindowViewModel.NormalizeHostId(originHost),
+                    MainWindowViewModel.NormalizeHostId(targetHost),
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            vm.MoveChildPaneToHost(paneId, targetHost);
+        }
+
+        private void OnChildPaneHeaderPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isChildPaneDragging)
+            {
+                return;
+            }
+
+            // No visual drag-shadow for child panes yet; movement is applied on release.
         }
 
         private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
