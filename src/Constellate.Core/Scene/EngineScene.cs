@@ -712,6 +712,21 @@ namespace Constellate.Core.Scene
             }
         }
 
+        internal void SetActiveGroupId(string? groupId)
+        {
+            lock (_gate)
+            {
+                if (!string.IsNullOrWhiteSpace(groupId) && _groups.ContainsKey(groupId))
+                {
+                    ActiveGroupId = groupId;
+                }
+                else
+                {
+                    ActiveGroupId = _groups.Keys.LastOrDefault();
+                }
+            }
+        }
+
         public bool TrySaveBookmark(string name, out SceneBookmark bookmark)
         {
             lock (_gate)
