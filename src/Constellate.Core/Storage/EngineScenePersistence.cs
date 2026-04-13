@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Constellate.Core.Scene;
 using Microsoft.Data.Sqlite;
@@ -9,9 +10,12 @@ namespace Constellate.Core.Storage
     /// <summary>
     /// v0.1 engine.db ↔ EngineScene bridge.
     ///
-    /// This first slice focuses on DB → EngineScene hydration for Nodes and Links
-    /// using the SPEC-020 v0.1 schema. Groups, bookmarks, pane attachments, and
-    /// EngineState are intentionally deferred to later CT-002 slices.
+    /// This first slice focuses on DB → EngineScene hydration for:
+    /// - Nodes and Links (per SPEC-020 v0.1),
+    /// - Groups and GroupMembers (new in this pass).
+    ///
+    /// Bookmarks, pane attachments, and EngineState are intentionally
+    /// deferred to later CT-002 slices.
     /// </summary>
     public static class EngineScenePersistence
     {
@@ -20,11 +24,11 @@ namespace Constellate.Core.Storage
         ///
         /// Behavior (v0.1):
         /// - Validates arguments and opens the SQLite DB at <paramref name="databasePath"/>.
-        /// - Reads all rows from Nodes and Links.
+        /// - Reads all rows from Nodes, Links, Groups, and GroupMembers.
         /// - Clears existing nodes/selection/links in <paramref name="scene"/> via public APIs.
-        /// - Re-creates nodes and links in the scene.
+        /// - Re-creates nodes, links, and groups in the scene.
         ///
-        /// Groups, bookmarks, pane attachments, and EngineState are not yet hydrated.
+        /// Bookmarks, pane attachments, and EngineState are not yet hydrated.
         /// </summary>
         /// <param name="databasePath">Path to engine.db for the current project.</param>
         /// <param name="scene">EngineScene instance to populate.</param>
@@ -41,6 +45,7 @@ namespace Constellate.Core.Storage
 
             var nodes = LoadNodes(connection);
             var links = LoadLinks(connection);
+            var groups = LoadGroups(connection, nodes);
 
             // Reset existing scene state (nodes + selection + links) via public APIs.
             var snapshot = scene.GetSnapshot();
@@ -58,13 +63,19 @@ namespace Constellate.Core.Storage
                 scene.Upsert(node);
             }
 
+            // Hydrate groups (pure scene/world structure, no side effects on selection).
+            if (groups.Count > 0)
+            {
+                scene.SetGroups(groups);
+            }
+
             // Re-create links via the command-style API.
             foreach (var link in links)
             {
                 scene.TryConnect(link.SourceId, link.TargetId, link.Kind, link.Weight);
             }
 
-            // Groups, bookmarks, pane attachments, and EngineState
+            // Bookmarks, pane attachments, and EngineState
             // will be hydrated in later CT-002 slices.
         }
 
@@ -240,6 +251,127 @@ FROM Links;";
                 }
 
                 result.Add(new LinkRecord(sourceId, targetId, kind, weight));
+            }
+
+            return result;
+        }
+
+        private static List<SceneGroup> LoadGroups(SqliteConnection connection, IReadOnlyList<SceneNode> nodes)
+        {
+            var result = new List<SceneGroup>();
+            if (nodes.Count == 0)
+            {
+                return result;
+            }
+
+            // Build a fast lookup so we only include memberships for nodes that actually exist.
+            var validNodeIds = new HashSet<NodeId>(nodes.Select(n => n.Id));
+
+            const string groupsSql = @"
+SELECT
+    Id,
+    Label
+FROM Groups;";
+
+            const string membersSql = @"
+SELECT
+    GroupId,
+    NodeId
+FROM GroupMembers;";
+
+            // Load all groups first.
+            var groupLabels = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = groupsSql;
+                using var reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    var idOrdinal = reader.GetOrdinal("Id");
+                    var labelOrdinal = reader.GetOrdinal("Label");
+
+                    while (reader.Read())
+                    {
+                        var groupId = reader.IsDBNull(idOrdinal) ? null : reader.GetString(idOrdinal);
+                        if (string.IsNullOrWhiteSpace(groupId))
+                        {
+                            continue;
+                        }
+
+                        var label = reader.IsDBNull(labelOrdinal)
+                            ? $"Group {groupLabels.Count + 1}"
+                            : (reader.GetString(labelOrdinal) ?? $"Group {groupLabels.Count + 1}");
+
+                        groupLabels[groupId] = label;
+                    }
+                }
+            }
+
+            if (groupLabels.Count == 0)
+            {
+                return result;
+            }
+
+            // Load all memberships in one pass.
+            var memberships = new Dictionary<string, List<NodeId>>(StringComparer.Ordinal);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = membersSql;
+                using var reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    var groupIdOrdinal = reader.GetOrdinal("GroupId");
+                    var nodeIdOrdinal = reader.GetOrdinal("NodeId");
+
+                    while (reader.Read())
+                    {
+                        var rawGroupId = reader.IsDBNull(groupIdOrdinal)
+                            ? null
+                            : reader.GetString(groupIdOrdinal);
+                        var rawNodeId = reader.IsDBNull(nodeIdOrdinal)
+                            ? null
+                            : reader.GetString(nodeIdOrdinal);
+
+                        if (string.IsNullOrWhiteSpace(rawGroupId) ||
+                            !groupLabels.ContainsKey(rawGroupId) ||
+                            !TryParseNodeId(rawNodeId, out var nodeId) ||
+                            !validNodeIds.Contains(nodeId))
+                        {
+                            continue;
+                        }
+
+                        if (!memberships.TryGetValue(rawGroupId, out var list))
+                        {
+                            list = new List<NodeId>();
+                            memberships[rawGroupId] = list;
+                        }
+
+                        list.Add(nodeId);
+                    }
+                }
+            }
+
+            // Construct SceneGroup records; drop groups with no valid members.
+            foreach (var (groupId, label) in groupLabels)
+            {
+                if (!memberships.TryGetValue(groupId, out var members) || members.Count == 0)
+                {
+                    continue;
+                }
+
+                var orderedMembers = members
+                    .Distinct()
+                    .OrderBy(id => id.ToString(), StringComparer.Ordinal)
+                    .ToArray();
+
+                if (orderedMembers.Length == 0)
+                {
+                    continue;
+                }
+
+                result.Add(new SceneGroup(groupId, label, orderedMembers));
             }
 
             return result;
