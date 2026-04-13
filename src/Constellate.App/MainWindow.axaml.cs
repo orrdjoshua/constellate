@@ -401,9 +401,6 @@ namespace Constellate.App
                 !p.IsMinimized &&
                 string.Equals(p.HostId, "right", StringComparison.Ordinal));
 
-        public bool IsRightPaneHostVisible =>
-            IsShellPaneOnRight || IsHistoryPaneOnRight;
-
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
 
