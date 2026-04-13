@@ -342,5 +342,20 @@
               Command="{Binding CreateOrRestoreParentPaneCommand}"
               CommandParameter="bottom" />
     </StackPanel>
+
+    <!-- Drag shadow overlay for parent-pane drag preview -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            IsHitTestVisible="False">
+      <Border IsVisible="{Binding IsParentPaneDragShadowVisible}"
+              Canvas.Left="{Binding ParentPaneDragShadowLeft}"
+              Canvas.Top="{Binding ParentPaneDragShadowTop}"
+              Width="{Binding ParentPaneDragShadowWidth}"
+              Height="{Binding ParentPaneDragShadowHeight}"
+              Background="#40FFFFFF"
+              BorderBrush="#80FFFFFF"
+              BorderThickness="2"
+              CornerRadius="4" />
+    </Canvas>
   </Grid>
 </Window>
