@@ -127,6 +127,39 @@ namespace Constellate.Core.Scene
             }
         }
 
+        internal void SetBookmarks(IEnumerable<SceneBookmark> bookmarks)
+        {
+            if (bookmarks is null) throw new ArgumentNullException(nameof(bookmarks));
+
+            lock (_gate)
+            {
+                _bookmarks.Clear();
+                foreach (var bookmark in bookmarks)
+                {
+                    _bookmarks[bookmark.Name] = bookmark;
+                }
+            }
+        }
+
+        internal void SetGroups(IEnumerable<SceneGroup> groups)
+        {
+            if (groups is null)
+            {
+                throw new ArgumentNullException(nameof(groups));
+            }
+
+            lock (_gate)
+            {
+                _groups.Clear();
+                foreach (var group in groups)
+                {
+                    _groups[group.Id] = group;
+                }
+
+                ActiveGroupId = _groups.Keys.LastOrDefault();
+            }
+        }
+
         public void Upsert(SceneNode node)
         {
             lock (_gate)
