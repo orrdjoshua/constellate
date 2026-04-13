@@ -3756,7 +3756,6 @@ namespace Constellate.App
             }
 
             return envelope.Name;
-            vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
         }
 
         private static bool TryGetString(JsonElement element, string propertyName, out string value)
