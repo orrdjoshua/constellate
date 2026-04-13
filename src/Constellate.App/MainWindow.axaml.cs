@@ -776,6 +776,7 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneToFloatingHostCommand;
         private readonly RelayCommand _destroyParentPaneCommand;
         private readonly RelayCommand _createOrRestoreParentPaneCommand;
+        private readonly RelayCommand _setTopPaneSplitCommand;
         private readonly RelayCommand _setLeftPaneSplitCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
@@ -907,6 +908,24 @@ namespace Constellate.App
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
         public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesLeft =>
             ChildPanes
                 .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && pane.IsMinimized)
@@ -916,6 +935,24 @@ namespace Constellate.App
         public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTop =>
             ChildPanes
                 .Where(pane => string.Equals(pane.HostId, "top", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTopRow0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTopRow1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -1147,6 +1184,7 @@ namespace Constellate.App
         public ICommand MoveChildPaneToFloatingHostCommand => _moveChildPaneToFloatingHostCommand;
         public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
         public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
+        public ICommand SetTopPaneSplitCommand => _setTopPaneSplitCommand;
         public ICommand SetLeftPaneSplitCommand => _setLeftPaneSplitCommand;
 
         public bool IsCurrentStateSectionExpanded
@@ -2448,6 +2486,10 @@ namespace Constellate.App
             OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
             OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
             OnPropertyChanged(nameof(MinimizedChildPanesLeft));
+            OnPropertyChanged(nameof(VisibleChildPanesTop));
+            OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+            OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+            OnPropertyChanged(nameof(MinimizedChildPanesTop));
             OnPropertyChanged(nameof(VisibleChildPanesTop));
             OnPropertyChanged(nameof(MinimizedChildPanesTop));
             OnPropertyChanged(nameof(VisibleChildPanesRight));
@@ -3937,6 +3979,7 @@ namespace Constellate.App
             _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
             _destroyParentPaneCommand.RaiseCanExecuteChanged();
             _setLeftPaneSplitCommand.RaiseCanExecuteChanged();
+            _setTopPaneSplitCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
