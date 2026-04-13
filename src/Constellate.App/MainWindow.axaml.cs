@@ -734,7 +734,7 @@ namespace Constellate.App
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
-        public IReadOnlyList<ChildPaneDescriptors> VisibleChildPanesBottom =>
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesBottom =>
             ChildPanes
                 .Where(pane => string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) && !pane.IsMinimized)
                 .OrderBy(pane => pane.Order)
