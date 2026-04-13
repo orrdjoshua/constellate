@@ -228,6 +228,14 @@ namespace Constellate.App
                     new PaneDescriptor("shell.main", "Shell Sidebar", "left")
                 });
 
+        public bool IsShellPaneOnLeft =>
+            Panes.Count > 0 &&
+            string.Equals(Panes[0].HostId, "left", StringComparison.Ordinal);
+
+        public bool IsShellPaneOnTop =>
+            Panes.Count > 0 &&
+            string.Equals(Panes[0].HostId, "top", StringComparison.Ordinal);
+
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
 
@@ -1679,6 +1687,8 @@ namespace Constellate.App
             }
 
             Panes[0] = current with { HostId = normalized };
+            OnPropertyChanged(nameof(IsShellPaneOnLeft));
+            OnPropertyChanged(nameof(IsShellPaneOnTop));
             OnPropertyChanged(nameof(PaneStructureSummary));
         }
 
