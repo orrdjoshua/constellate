@@ -163,7 +163,7 @@
                     <TextBlock Text="Groups"
                                Foreground="#9FD3FF"
                                FontWeight="SemiBold" />
-                  </Expender.Header>
+            </Expander.Header>
                   <StackPanel Margin="12,6,0,0"
                               Spacing="6">
                     <Button Classes="SidebarActionButton"
