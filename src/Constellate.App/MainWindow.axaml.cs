@@ -898,25 +898,6 @@ namespace Constellate.App
                     pane.ContainerIndex == 0)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
-
-        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
-            ChildPanes
-                .Where(pane =>
-                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
-                    !pane.IsMinimized &&
-                    pane.ContainerIndex == 1)
-                .OrderBy(pane => pane.Order)
-                .ToArray();
-
-        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn0 =>
-            ChildPanes
-                .Where(pane =>
-                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
-                    !pane.IsMinimized &&
-                    pane.ContainerIndex == 0)
-                .OrderBy(pane => pane.Order)
-                .ToArray();
-
         public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
             ChildPanes
                 .Where(pane =>
