@@ -33,7 +33,7 @@
             BorderBrush="#2A394B"
             BorderThickness="0,0,1,0"
             Padding="14"
-            IsVisible="False">
+            IsVisible="{Binding IsShellPaneOnLeft}">
     </Border>
 
     <!-- Top parent-pane host (no legacy header; reserved for future parent panes) -->
@@ -41,7 +41,7 @@
             Grid.Column="1"
             Grid.Row="0"
             Padding="0"
-            IsVisible="False">
+            IsVisible="{Binding IsShellPaneOnTop}">
     </Border>
 
     <!-- Right parent-pane host (reserved for future generic parent panes) -->
@@ -52,7 +52,7 @@
             BorderBrush="#2A394B"
             BorderThickness="1,0,0,0"
             Padding="14"
-            IsVisible="False">
+            IsVisible="{Binding IsRightPaneHostVisible}">
     </Border>
 
     <!-- Center viewport host: pure 3D World -->
@@ -70,7 +70,7 @@
             BorderBrush="#2A394B"
             BorderThickness="0,1,0,0"
             Padding="10,6,10,10"
-            IsVisible="False">
+            IsVisible="{Binding IsShellPaneOnBottom}">
     </Border>
 
     <!-- Floating parent-pane host overlaying the viewport (for future floating panes) -->
@@ -85,7 +85,93 @@
             BorderThickness="0"
             CornerRadius="8"
             Padding="0"
-            IsVisible="False">
+            IsVisible="{Binding IsShellPaneFloating}">
     </Border>
+
+    <!-- Corner affordances: small always-visible controls to create/restore parent panes.
+         Top-left: create/restore Left and Top panes.
+         Top-right: create/restore Top and Right panes.
+         Bottom-left: create/restore Left and Bottom panes.
+         Bottom-right: create/restore Bottom and Right panes. -->
+
+    <!-- Top-left corner -->
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬇"
+              ToolTip.Tip="Create or restore Left pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="left" />
+      <Button Width="22"
+              Height="22"
+              Content="➡"
+              ToolTip.Tip="Create or restore Top pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="top" />
+    </StackPanel>
+
+    <!-- Top-right corner -->
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬅"
+              ToolTip.Tip="Create or restore Top pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="top" />
+      <Button Width="22"
+              Height="22"
+              Content="⬇"
+              ToolTip.Tip="Create or restore Right pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="right" />
+    </StackPanel>
+
+    <!-- Bottom-left corner -->
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬆"
+              ToolTip.Tip="Create or restore Left pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="left" />
+      <Button Width="22"
+              Height="22"
+              Content="➡"
+              ToolTip.Tip="Create or restore Bottom pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="bottom" />
+    </StackPanel>
+
+    <!-- Bottom-right corner -->
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬆"
+              ToolTip.Tip="Create or restore Right pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="right" />
+      <Button Width="22"
+              Height="22"
+              Content="⬅"
+              ToolTip.Tip="Create or restore Bottom pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="bottom" />
+    </StackPanel>
   </Grid>
 </Window>

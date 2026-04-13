@@ -263,6 +263,7 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneDownCommand;
         private readonly RelayCommand _floatSettingsChildPaneCommand;
         private readonly RelayCommand _dockSettingsChildPaneCommand;
+        private readonly RelayCommand _createOrRestoreParentPaneCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -322,8 +323,10 @@ namespace Constellate.App
             new(
                 new[]
                 {
-                    new PaneDescriptor("shell.main", "Shell Sidebar", "left"),
-                    new PaneDescriptor("shell.history", "History", "right")
+                    // Treat this as a generic parent pane descriptor. It starts minimized so
+                    // the app launches in pure 3D World mode; corner affordances can move
+                    // and restore it onto any edge.
+                    new PaneDescriptor("parent.main", "Parent Pane", "left", IsFloating: false, IsMinimized: true)
                 });
 
         public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
@@ -393,9 +396,8 @@ namespace Constellate.App
         public bool IsShellPaneMinimized =>
             Panes.Count > 0 && Panes[0].IsMinimized;
 
-        public bool IsHistoryPaneOnRight =>
+        public bool IsRightPaneHostVisible =>
             Panes.Any(p =>
-                string.Equals(p.Id, "shell.history", StringComparison.Ordinal) &&
                 !p.IsMinimized &&
                 string.Equals(p.HostId, "right", StringComparison.Ordinal));
 
@@ -469,6 +471,7 @@ namespace Constellate.App
         public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
         public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
         public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
+        public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -1232,6 +1235,46 @@ namespace Constellate.App
                     IsSettingsChildFloating = false;
                 },
                 _ => IsSettingsChildFloating);
+
+            _createOrRestoreParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    if (parameter is not string hostId || string.IsNullOrWhiteSpace(hostId))
+                    {
+                        return;
+                    }
+
+                    var normalizedHost = NormalizeHostId(hostId);
+                    var current = Panes[0];
+
+                    // If already on this host and not minimized, nothing to do.
+                    if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal) &&
+                        !current.IsMinimized)
+                    {
+                        return;
+                    }
+
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                },
+                _ => Panes.Count > 0);
 
             LoadShellLayout();
             RefreshFromEngineState();
@@ -2606,6 +2649,7 @@ namespace Constellate.App
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+            _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
