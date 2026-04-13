@@ -1617,16 +1617,23 @@ namespace Constellate.App
 
                     var normalizedHost = NormalizeHostId(hostId);
 
-                    // If no parent pane exists yet (for example after Close was used),
-                    // create a new generic parent pane on the requested host.
-                    if (Panes.Count == 0)
+                    // If a parent pane already exists on this host:
+                    // - if minimized, restore it;
+                    // - if visible, nothing to do.
+                    for (var i = 0; i < Panes.Count; i++)
                     {
-                        Panes.Add(new PaneDescriptor(
-                            "parent.main",
-                            "Parent Pane",
-                            normalizedHost,
-                            IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
-                            IsMinimized: false));
+                        var pane = Panes[i];
+                        if (!string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        if (!pane.IsMinimized)
+                        {
+                            return;
+                        }
+
+                        Panes[i] = pane with { IsMinimized = false };
 
                         OnPropertyChanged(nameof(IsShellPaneOnLeft));
                         OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -1639,21 +1646,19 @@ namespace Constellate.App
 
                         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                         _restoreShellPaneCommand.RaiseCanExecuteChanged();
-                        _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                        _destroyParentPaneCommand.RaiseCanExecuteChanged();
                         SaveShellLayout();
                         return;
                     }
 
-                    var current = Panes[0];
-
-                    // If already on this host and not minimized, nothing to do.
-                    if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal) &&
-                        !current.IsMinimized)
-                    {
-                        return;
-                    }
-
-                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+                    // No pane exists yet on this host; create a new generic parent pane.
+                    var newId = $"parent.{normalizedHost}.{Panes.Count + 1}";
+                    Panes.Add(new PaneDescriptor(
+                        newId,
+                        "Parent Pane",
+                        normalizedHost,
+                        IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                        IsMinimized: false));
 
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
                     OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -1666,6 +1671,7 @@ namespace Constellate.App
 
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
                     SaveShellLayout();
                 },
                 _ => true);
