@@ -684,6 +684,7 @@ namespace Constellate.App
         string Title,
         int Order,
         string HostId,
+        int ContainerIndex = 0,
         bool IsMinimized = false);
 
     public sealed record ShellLayoutDescriptor(
@@ -775,6 +776,7 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneToFloatingHostCommand;
         private readonly RelayCommand _destroyParentPaneCommand;
         private readonly RelayCommand _createOrRestoreParentPaneCommand;
+        private readonly RelayCommand _setLeftPaneSplitCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -884,6 +886,24 @@ namespace Constellate.App
         public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeft =>
             ChildPanes
                 .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -1127,6 +1147,7 @@ namespace Constellate.App
         public ICommand MoveChildPaneToFloatingHostCommand => _moveChildPaneToFloatingHostCommand;
         public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
         public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
+        public ICommand SetLeftPaneSplitCommand => _setLeftPaneSplitCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -1887,6 +1908,18 @@ namespace Constellate.App
                     SaveShellLayout();
                 });
 
+            _setLeftPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("left", splits);
+                });
+
             _saveLayoutPresetCommand = new RelayCommand(
                 _ =>
                 {
@@ -2412,6 +2445,8 @@ namespace Constellate.App
             OnPropertyChanged(nameof(HasMinimizedChildPanes));
             OnPropertyChanged(nameof(MinimizedChildPanes));
             OnPropertyChanged(nameof(VisibleChildPanesLeft));
+            OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+            OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
             OnPropertyChanged(nameof(MinimizedChildPanesLeft));
             OnPropertyChanged(nameof(VisibleChildPanesTop));
             OnPropertyChanged(nameof(MinimizedChildPanesTop));
@@ -2426,6 +2461,46 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
             OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
             OnPropertyChanged(nameof(PaneStructureSummary));
+        }
+
+        private void ApplyChildPaneSplitsForHost(string hostId, int splits)
+        {
+            var normalizedHost = NormalizeHostId(hostId);
+            if (splits <= 0)
+            {
+                splits = 1;
+            }
+
+            splits = Math.Min(splits, 3);
+
+            var ordered = ChildPanes
+                .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+            if (ordered.Length == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < ordered.Length; i++)
+            {
+                var pane = ordered[i];
+                var newIndex = i % splits;
+
+                for (var j = 0; j < ChildPanes.Count; j++)
+                {
+                    if (!string.Equals(ChildPanes[j].Id, pane.Id, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    ChildPanes[j] = ChildPanes[j] with { ContainerIndex = newIndex };
+                    break;
+                }
+            }
+
+            RaiseChildPaneCollectionsChanged();
         }
 
         public string FocusSummary
@@ -3861,6 +3936,7 @@ namespace Constellate.App
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
             _destroyParentPaneCommand.RaiseCanExecuteChanged();
+            _setLeftPaneSplitCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
