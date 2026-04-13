@@ -160,6 +160,76 @@ namespace Constellate.App
             Wire("BottomRight_RightTriangle");
         }
 
+        private void ComputeChildPaneDragShadowRect(
+            string hostId,
+            Point pointer,
+            out double left,
+            out double top,
+            out double width,
+            out double height)
+        {
+            var normalized = MainWindowViewModel.NormalizeHostId(hostId);
+            var windowBounds = Bounds;
+            var windowWidth = windowBounds.Width;
+            var windowHeight = windowBounds.Height;
+
+            const double defaultWidth = 260.0;
+            const double defaultHeight = 160.0;
+            const double margin = 12.0;
+
+            Rect hostRect;
+
+            Border? host = null;
+            switch (normalized)
+            {
+                case "left":
+                    host = this.FindControl<Border>("LeftPaneHost");
+                    break;
+                case "top":
+                    host = this.FindControl<Border>("TopPaneHost");
+                    break;
+                case "right":
+                    host = this.FindControl<Border>("RightPaneHost");
+                    break;
+                case "bottom":
+                    host = this.FindControl<Border>("BottomPaneHost");
+                    break;
+                case "floating":
+                    host = this.FindControl<Border>("FloatingPaneHost");
+                    break;
+            }
+
+            if (host is not null && host.IsVisible)
+            {
+                hostRect = host.Bounds;
+            }
+            else
+            {
+                hostRect = new Rect(0, 0, windowWidth, windowHeight);
+            }
+
+            if (string.Equals(normalized, "floating", StringComparison.Ordinal))
+            {
+                width = defaultWidth;
+                height = defaultHeight;
+                left = pointer.X - (width / 2.0);
+                top = pointer.Y - (height / 2.0);
+
+                left = Math.Clamp(left, 0, Math.Max(0, windowWidth - width));
+                top = Math.Clamp(top, 0, Math.Max(0, windowHeight - height));
+                return;
+            }
+
+            width = Math.Min(defaultWidth, Math.Max(120.0, hostRect.Width - (2 * margin)));
+            height = Math.Min(defaultHeight, Math.Max(80.0, hostRect.Height - (2 * margin)));
+
+            left = hostRect.X + ((hostRect.Width - width) / 2.0);
+            top = hostRect.Y + margin;
+
+            left = Math.Clamp(left, 0, Math.Max(0, windowWidth - width));
+            top = Math.Clamp(top, 0, Math.Max(0, windowHeight - height));
+        }
+
         private void OnTopCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
         {
             if (DataContext is MainWindowViewModel vm)
@@ -317,6 +387,7 @@ namespace Constellate.App
             var height = Bounds.Height;
             if (width <= 0 || height <= 0)
             {
+                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
                 vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
                 _dragOriginHostId = null;
                 return;
@@ -439,7 +510,31 @@ namespace Constellate.App
                 return;
             }
 
-            // No visual drag-shadow for child panes yet; movement is applied on release.
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            var currentPoint = e.GetPosition(this);
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+
+            if (width <= 0 || height <= 0)
+            {
+                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(currentPoint, width, height);
+            ComputeChildPaneDragShadowRect(
+                targetHost,
+                currentPoint,
+                out var left,
+                out var top,
+                out var shadowWidth,
+                out var shadowHeight);
+
+            vm.SetChildPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
         }
 
         private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -702,6 +797,11 @@ namespace Constellate.App
         private double _parentPaneDragShadowTop;
         private double _parentPaneDragShadowWidth;
         private double _parentPaneDragShadowHeight;
+        private bool _isChildPaneDragShadowVisible;
+        private double _childPaneDragShadowLeft;
+        private double _childPaneDragShadowTop;
+        private double _childPaneDragShadowWidth;
+        private double _childPaneDragShadowHeight;
         private bool _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
         private float _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
         private float _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
@@ -1159,6 +1259,73 @@ namespace Constellate.App
         {
             get => _parentPaneDragShadowHeight;
             private set { if (Math.Abs(_parentPaneDragShadowHeight - value) > double.Epsilon) { _parentPaneDragShadowHeight = value; OnPropertyChanged(); } }
+        }
+
+        public bool IsChildPaneDragShadowVisible
+        {
+            get => _isChildPaneDragShadowVisible;
+            private set
+            {
+                if (_isChildPaneDragShadowVisible == value)
+                {
+                    return;
+                }
+
+                _isChildPaneDragShadowVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double ChildPaneDragShadowLeft
+        {
+            get => _childPaneDragShadowLeft;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowLeft - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowLeft = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowTop
+        {
+            get => _childPaneDragShadowTop;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowTop - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowTop = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowWidth
+        {
+            get => _childPaneDragShadowWidth;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowWidth - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowWidth = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowHeight
+        {
+            get => _childPaneDragShadowHeight;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowHeight - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowHeight = value;
+                    OnPropertyChanged();
+                }
+            }
         }
 
         public MainWindowViewModel()
@@ -2077,6 +2244,26 @@ namespace Constellate.App
             ParentPaneDragShadowTop = top;
             ParentPaneDragShadowWidth = width;
             ParentPaneDragShadowHeight = height;
+        }
+
+        /// <summary>
+        /// Update the drag-shadow rectangle used to preview child-pane movement across
+        /// parent hosts. When <paramref name="visible"/> is false, the rect values are
+        /// ignored and the shadow is hidden.
+        /// </summary>
+        public void SetChildPaneDragShadow(bool visible, double left, double top, double width, double height)
+        {
+            IsChildPaneDragShadowVisible = visible;
+
+            if (!visible)
+            {
+                return;
+            }
+
+            ChildPaneDragShadowLeft = left;
+            ChildPaneDragShadowTop = top;
+            ChildPaneDragShadowWidth = width;
+            ChildPaneDragShadowHeight = height;
         }
 
         private void SetChildPaneMinimized(string id, bool minimized)
@@ -3569,6 +3756,7 @@ namespace Constellate.App
             }
 
             return envelope.Name;
+            vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
         }
 
         private static bool TryGetString(JsonElement element, string propertyName, out string value)

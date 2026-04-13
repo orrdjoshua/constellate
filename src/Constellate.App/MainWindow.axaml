@@ -1038,7 +1038,7 @@
             IsHitTestVisible="{Binding IsShellPaneOnBottom}"
             IsVisible="{Binding IsShellPaneOnBottom}" />
 
-    <!-- Drag shadow overlay for parent-pane drag preview -->
+    <!-- Drag shadow overlays for parent and child pane drag previews -->
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
             IsHitTestVisible="False">
@@ -1051,6 +1051,15 @@
               BorderBrush="#80FFFFFF"
               BorderThickness="2"
               CornerRadius="4" />
+      <Border IsVisible="{Binding IsChildPaneDragShadowVisible}"
+              Canvas.Left="{Binding ChildPaneDragShadowLeft}"
+              Canvas.Top="{Binding ChildPaneDragShadowTop}"
+              Width="{Binding ChildPaneDragShadowWidth}"
+              Height="{Binding ChildPaneDragShadowHeight}"
+              Background="#4040C0FF"
+              BorderBrush="#80FFFFFF"
+              BorderThickness="1.5"
+              CornerRadius="3" />
     </Canvas>
   </Grid>
 </Window>
