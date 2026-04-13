@@ -685,6 +685,12 @@ namespace Constellate.App
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesOrdered =>
+            ChildPanes
+                .Where(pane => !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
         public bool HasMinimizedChildPanes =>
             ChildPanes.Any(pane => pane.IsMinimized);
 
@@ -1896,6 +1902,7 @@ namespace Constellate.App
                 ChildPanes[i] = current with { IsMinimized = minimized };
 
                 OnPropertyChanged(nameof(ChildPanesOrdered));
+                OnPropertyChanged(nameof(VisibleChildPanesOrdered));
                 OnPropertyChanged(nameof(HasMinimizedChildPanes));
                 OnPropertyChanged(nameof(MinimizedChildPanes));
                 OnPropertyChanged(nameof(IsShellCurrentChildVisible));
@@ -1920,6 +1927,7 @@ namespace Constellate.App
             ChildPanes.Add(new ChildPaneDescriptor(id, title, nextOrder, IsMinimized: false));
 
             OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
             OnPropertyChanged(nameof(HasMinimizedChildPanes));
             OnPropertyChanged(nameof(MinimizedChildPanes));
             OnPropertyChanged(nameof(IsShellCurrentChildVisible));
@@ -1977,6 +1985,7 @@ namespace Constellate.App
             }
 
             OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
             OnPropertyChanged(nameof(HasMinimizedChildPanes));
             OnPropertyChanged(nameof(MinimizedChildPanes));
             OnPropertyChanged(nameof(IsShellCurrentChildVisible));

@@ -123,7 +123,7 @@
           </ItemsControl>
 
           <!-- Visible child panes (dummy content for now) -->
-          <ItemsControl ItemsSource="{Binding ChildPanesOrdered}"
+          <ItemsControl ItemsSource="{Binding VisibleChildPanesOrdered}"
                         x:CompileBindings="False">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
