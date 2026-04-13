@@ -1696,22 +1696,6 @@ namespace Constellate.App
                         Panes.Clear();
                     }
 
-                    SendCommand(
-                        CommandNames.AttachPanel,
-                        new AttachPanelPayload(
-                            focusedNode.Id.ToString(),
-                            viewRef,
-                            LocalOffset: new Vector3(0f, 0.26f, 0.16f),
-                            Size: new Vector2(1.35f, 0.82f),
-                            Anchor: "top",
-                            IsVisible: true,
-                            SurfaceKind: "panelette",
-                            PaneletteKind: "metadata",
-                            PaneletteTier: 2,
-                            CommandSurface: new PanelCommandSurfaceMetadataPayload(
-                                SurfaceName: "node.detail",
-                                SurfaceGroup: "primary",
-                                CommandIds: ["Engine.PromotePaneletteToShell"])));
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
                     OnPropertyChanged(nameof(IsShellPaneOnTop));
                     OnPropertyChanged(nameof(IsShellPaneOnRight));
@@ -1732,11 +1716,10 @@ namespace Constellate.App
         }
 
         /// <summary>
-        /// Update the drag-shadow rectangle used to preview parent-pane docking/floating.
-        /// When <paramref name="visible"/> is false, the rect values are ignored and the
-        /// shadow is hidden.
+        /// Legacy, unused variant retained only to avoid breaking old layouts; superseded
+        /// by the later SetParentPaneDragShadow implementation.
         /// </summary>
-        public void SetParentPaneDragShadow(bool visible, double left, double top, double width, double height)
+        public void SetParentPaneDragShadow_Legacy(bool visible, double left, double top, double width, double height)
         {
             IsParentPaneDragShadowVisible = visible;
 
@@ -1751,7 +1734,7 @@ namespace Constellate.App
             ParentPaneDragShadowHeight = height;
         }
 
-        private void SetChildPaneMinimized(string id, bool minimized)
+        private void SetChildPaneMinimized_Legacy(string id, bool minimized)
         {
             for (var i = 0; i < ChildPanes.Count; i++)
             {
@@ -2047,7 +2030,7 @@ namespace Constellate.App
             }
         }
 
-        private bool CanMoveChildPane(string id, int delta)
+        private bool CanMoveChildPane_Legacy(string id, int delta)
         {
             var ordered = ChildPanesOrdered.ToList();
             var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
@@ -2060,7 +2043,7 @@ namespace Constellate.App
             return newIndex >= 0 && newIndex < ordered.Count;
         }
 
-        private void MoveChildPane(string id, int delta)
+        private void MoveChildPane_Legacy(string id, int delta)
         {
             var ordered = ChildPanesOrdered.ToList();
             var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
