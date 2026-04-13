@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Globalization;
 using Constellate.Core.Scene;
 using Microsoft.Data.Sqlite;
 
@@ -81,6 +82,9 @@ namespace Constellate.Core.Storage
                 scene.SetBookmarks(bookmarks);
             }
 
+            // Hydrate interaction/engine state (interaction mode, active group, entered node, last view).
+            LoadEngineState(connection, scene, groups);
+
             // Pane attachments and EngineState will be hydrated in later CT-002 slices.
         }
 
@@ -126,7 +130,8 @@ DELETE FROM Bookmarks;
 DELETE FROM GroupMembers;
 DELETE FROM Groups;
 DELETE FROM Links;
-DELETE FROM Nodes;";
+DELETE FROM Nodes;
+DELETE FROM EngineState;";
                 truncate.ExecuteNonQuery();
             }
 
@@ -135,12 +140,89 @@ DELETE FROM Nodes;";
             InsertLinks(connection, transaction, snapshot.Links);
             InsertBookmarks(connection, transaction, snapshot.Bookmarks);
 
+            var enteredNodeId = scene.EnteredNodeId;
+            var hasLastView = scene.TryGetLastView(out var lastView);
+            InsertEngineState(connection, transaction, snapshot, enteredNodeId, hasLastView ? lastView : (ViewParams?)null);
+
             transaction.Commit();
 
             // Future CT-002 slices will extend this method to persist:
             // - PanelAttachments,
             // - EngineState (ActiveGroupId, InteractionMode, EnteredNodeId, last view),
             // using the SPEC-020 tables.
+        }
+
+        private static void InsertEngineState(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            SceneSnapshot snapshot,
+            NodeId? enteredNodeId,
+            ViewParams? lastView)
+        {
+            const string sql = @"
+INSERT INTO EngineState (
+    Key,
+    Value
+) VALUES (
+    $key,
+    $value
+);";
+
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+
+            var keyParam = command.CreateParameter();
+            keyParam.ParameterName = "$key";
+            command.Parameters.Add(keyParam);
+
+            var valueParam = command.CreateParameter();
+            valueParam.ParameterName = "$value";
+            command.Parameters.Add(valueParam);
+
+            static bool HasValue(string? value) =>
+                !string.IsNullOrWhiteSpace(value);
+
+            void Insert(string key, string? value)
+            {
+                if (!HasValue(key) || value is null)
+                {
+                    return;
+                }
+
+                keyParam.Value = key;
+                valueParam.Value = value;
+                command.ExecuteNonQuery();
+            }
+
+            // Active group and interaction mode from snapshot.
+            if (HasValue(snapshot.ActiveGroupId))
+            {
+                Insert("ActiveGroupId", snapshot.ActiveGroupId);
+            }
+
+            if (HasValue(snapshot.InteractionMode))
+            {
+                Insert("InteractionMode", snapshot.InteractionMode);
+            }
+
+            // Entered node, if any.
+            if (enteredNodeId is { } id)
+            {
+                Insert("EnteredNodeId", id.ToString());
+            }
+
+            // Last view, if available.
+            if (lastView is { } view)
+            {
+                var culture = CultureInfo.InvariantCulture;
+                Insert("LastViewYaw", view.Yaw.ToString("R", culture));
+                Insert("LastViewPitch", view.Pitch.ToString("R", culture));
+                Insert("LastViewDistance", view.Distance.ToString("R", culture));
+                Insert("LastViewTargetX", view.Target.X.ToString("R", culture));
+                Insert("LastViewTargetY", view.Target.Y.ToString("R", culture));
+                Insert("LastViewTargetZ", view.Target.Z.ToString("R", culture));
+            }
         }
 
         private static void InsertNodes(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<SceneNode> nodes)
@@ -1158,6 +1240,87 @@ FROM BookmarkSelectedPanels;";
             }
 
             return result;
+        }
+
+        private static void LoadEngineState(
+            SqliteConnection connection,
+            EngineScene scene,
+            IReadOnlyList<SceneGroup> groups)
+        {
+            const string sql = @"
+SELECT
+    Key,
+    Value
+FROM EngineState;";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            using var reader = command.ExecuteReader();
+            if (!reader.HasRows)
+            {
+                return;
+            }
+
+            var keyOrdinal = reader.GetOrdinal("Key");
+            var valueOrdinal = reader.GetOrdinal("Value");
+            var state = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+            while (reader.Read())
+            {
+                var key = reader.IsDBNull(keyOrdinal) ? null : reader.GetString(keyOrdinal);
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                var value = reader.IsDBNull(valueOrdinal) ? null : reader.GetString(valueOrdinal);
+                state[key] = value;
+            }
+
+            if (state.Count == 0)
+            {
+                return;
+            }
+
+            if (state.TryGetValue("InteractionMode", out var mode) &&
+                !string.IsNullOrWhiteSpace(mode))
+            {
+                scene.TrySetInteractionMode(mode);
+            }
+
+            if (state.TryGetValue("ActiveGroupId", out var activeGroupId) &&
+                !string.IsNullOrWhiteSpace(activeGroupId) &&
+                groups.Any(group => string.Equals(group.Id, activeGroupId, StringComparison.Ordinal)))
+            {
+                scene.SetActiveGroupId(activeGroupId);
+            }
+
+            if (state.TryGetValue("EnteredNodeId", out var rawEnteredNodeId) &&
+                TryParseNodeId(rawEnteredNodeId, out var enteredNodeId))
+            {
+                scene.TryEnterNode(enteredNodeId);
+            }
+
+            if (state.TryGetValue("LastViewYaw", out var yawStr) &&
+                state.TryGetValue("LastViewPitch", out var pitchStr) &&
+                state.TryGetValue("LastViewDistance", out var distanceStr) &&
+                state.TryGetValue("LastViewTargetX", out var xStr) &&
+                state.TryGetValue("LastViewTargetY", out var yStr) &&
+                state.TryGetValue("LastViewTargetZ", out var zStr))
+            {
+                var culture = CultureInfo.InvariantCulture;
+                if (float.TryParse(yawStr, NumberStyles.Float, culture, out var yaw) &&
+                    float.TryParse(pitchStr, NumberStyles.Float, culture, out var pitch) &&
+                    float.TryParse(distanceStr, NumberStyles.Float, culture, out var distance) &&
+                    float.TryParse(xStr, NumberStyles.Float, culture, out var x) &&
+                    float.TryParse(yStr, NumberStyles.Float, culture, out var y) &&
+                    float.TryParse(zStr, NumberStyles.Float, culture, out var z))
+                {
+                    var view = new ViewParams(yaw, pitch, distance, new Vector3(x, y, z));
+                    scene.SetLastView(view);
+                }
+            }
         }
 
         private static bool TryParseNodeId(string? rawId, out NodeId nodeId)
