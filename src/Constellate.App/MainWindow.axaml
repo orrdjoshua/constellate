@@ -1073,16 +1073,8 @@
     <Border x:Name="TopPaneHost"
             Grid.Column="1"
             Grid.Row="0"
-            Padding="12,10,12,6">
-      <StackPanel Spacing="4">
-        <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
-                   FontSize="16"
-                   FontWeight="SemiBold" />
-        <TextBlock Text="Viewport: Right-click background/node/link/group opens context surfaces for create/clear/view/mode/link/group actions • Navigate mode = click/select + left-drag orbit; Shift+Left-drag or Right/Middle-drag = pan • Move mode = left-drag repositions the focused/selected node set with transient preview and release-time commit; Esc cancels a live drag without committing • Marquee mode = left-drag box select (Shift additive) • In Navigate mode, Alt+Left-drag = planar move and Space+Left-drag = depth move using the same move-commit path • Ctrl+Click or Double-Click other node = directed link from selected/focused source to clicked target in Navigate mode • Tab / Shift+Tab = cycle focus • Enter or Space = select (Shift additive) • Ctrl+Z = undo • Esc backs out of overlays/drags then clears selection • sidebar command groups mirror these actions and are collapsible"
-                   FontSize="12"
-                   Foreground="#8FA8BE"
-                   TextWrapping="Wrap" />
-      </StackPanel>
+            Padding="0"
+            IsVisible="False">
     </Border>
 
     <!-- Right parent-pane host -->
