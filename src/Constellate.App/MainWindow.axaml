@@ -19,11 +19,21 @@
   </Window.Styles>
 
   <!-- 3-column, 3-row layout:
-       - Left/right/top/bottom hosts are invisible parent-pane placeholders.
+       - Left/right/top/bottom hosts are invisible parent-pane placeholders whose
+         free dimension can be resized via drag grips along their borders.
        - Center host contains the 3D viewport.
        - Floating host is an invisible overlay for future floating parent panes. -->
-  <Grid ColumnDefinitions="Auto,*,Auto"
-        RowDefinitions="Auto,*,Auto">
+  <Grid x:Name="RootGrid">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
 
     <!-- Left parent-pane host (reserved for future generic parent panes) -->
     <Border x:Name="LeftPaneHost"
@@ -33,6 +43,16 @@
             BorderBrush="#2A394B"
             BorderThickness="0,0,1,0"
             Padding="14"
+            MinWidth="260"
+            IsVisible="{Binding IsShellPaneOnLeft}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
             IsVisible="{Binding IsShellPaneOnLeft}">
       <Grid>
         <!-- Simple parent-pane header/chrome with label + minimize/close -->
@@ -67,7 +87,6 @@
           </DockPanel>
         </Border>
 
-
         <!-- Placeholder for future child-pane content inside the parent pane -->
       </Grid>
     </Border>
@@ -77,6 +96,16 @@
             Grid.Column="1"
             Grid.Row="0"
             Padding="10,6,10,4"
+            MinHeight="220"
+            IsVisible="{Binding IsShellPaneOnTop}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
             IsVisible="{Binding IsShellPaneOnTop}">
       <Grid>
         <Border Background="#121A23"
@@ -113,16 +142,6 @@
       </Grid>
     </Border>
 
-    <!-- Top parent-pane host (no legacy header; reserved for future parent panes) -->
-    <Border x:Name="TopPaneHost"
-            Grid.Column="1"
-            Grid.Row="0"
-            Padding="10,6,10,4"
-            IsVisible="{Binding IsShellPaneOnTop}">
-      <Grid>
-        <Border Background="#121A23"
-                CornerRadius="4"
-                Padding="6,4">
     <!-- Right parent-pane host (reserved for future generic parent panes) -->
     <Border x:Name="RightPaneHost"
             Grid.RowSpan="3"
@@ -131,51 +150,16 @@
             BorderBrush="#2A394B"
             BorderThickness="1,0,0,0"
             Padding="14"
+            MinWidth="260"
             IsVisible="{Binding IsRightPaneHostVisible}">
-      <Grid>
-        <Border Background="#121A23"
-                CornerRadius="4"
-                Padding="6,4"
-                Margin="0,0,0,8">
-          <DockPanel LastChildFill="False">
-            <TextBlock Text="Parent Pane"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Foreground="#E5EDF7"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left" />
-            <StackPanel Orientation="Horizontal"
-                        Spacing="4"
-                        HorizontalAlignment="Right"
-                        DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="–"
-                      ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="×"
-                      ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
-            </StackPanel>
-          </DockPanel>
-        </Border>
-
-        <!-- Placeholder for future child-pane content inside the parent pane -->
-      </Grid>
-    </Border>
-
-    <!-- Right parent-pane host (reserved for future generic parent panes) -->
-    <Border x:Name="RightPaneHost"
-            Grid.RowSpan="3"
-            Grid.Column="2"
-            Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="1,0,0,0"
-            Padding="14"
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
             IsVisible="{Binding IsRightPaneHostVisible}">
       <Grid>
         <Border Background="#121A23"
@@ -228,6 +212,16 @@
             BorderBrush="#2A394B"
             BorderThickness="0,1,0,0"
             Padding="10,6,10,10"
+            MinHeight="220"
+            IsVisible="{Binding IsShellPaneOnBottom}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
             IsVisible="{Binding IsShellPaneOnBottom}">
       <Grid>
         <Border Background="#121A23"
@@ -277,6 +271,14 @@
             CornerRadius="8"
             Padding="0"
             IsVisible="{Binding IsShellPaneFloating}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
                 CornerRadius="4"
@@ -320,250 +322,136 @@
          Bottom-right: create/restore Bottom and Right panes. -->
 
     <!-- Top-left corner -->
-    <StackPanel Orientation="Horizontal"
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
                 HorizontalAlignment="Left"
-    <!-- Center viewport host: pure 3D World -->
-    <Border x:Name="CenterViewportHost"
-            Grid.Column="1"
-            Grid.Row="1">
-      <rt:OpenTkViewportControl />
-    </Border>
+                VerticalAlignment="Top"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬇"
+              ToolTip.Tip="Create or restore Left pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="left" />
+      <Button Width="22"
+              Height="22"
+              Content="➡"
+              ToolTip.Tip="Create or restore Top pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="top" />
+    </StackPanel>
 
-    <!-- Bottom parent-pane host (reserved for future generic parent panes) -->
-    <Border x:Name="BottomPaneHost"
+    <!-- Top-right corner -->
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬅"
+              ToolTip.Tip="Create or restore Top pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="top" />
+      <Button Width="22"
+              Height="22"
+              Content="⬇"
+              ToolTip.Tip="Create or restore Right pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="right" />
+    </StackPanel>
+
+    <!-- Bottom-left corner -->
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬆"
+              ToolTip.Tip="Create or restore Left pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="left" />
+      <Button Width="22"
+              Height="22"
+              Content="➡"
+              ToolTip.Tip="Create or restore Bottom pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="bottom" />
+    </StackPanel>
+
+    <!-- Bottom-right corner -->
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="6"
+                Spacing="4">
+      <Button Width="22"
+              Height="22"
+              Content="⬆"
+              ToolTip.Tip="Create or restore Right pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="right" />
+      <Button Width="22"
+              Height="22"
+              Content="⬅"
+              ToolTip.Tip="Create or restore Bottom pane"
+              Command="{Binding CreateOrRestoreParentPaneCommand}"
+              CommandParameter="bottom" />
+    </StackPanel>
+
+    <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
+         These grips are only hit-testable when the corresponding parent pane is visible. -->
+
+    <!-- Left pane resize grip (horizontal resize for left host) -->
+    <Border x:Name="LeftPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="0"
+            HorizontalAlignment="Right"
+            Width="4"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnLeft}" />
+
+    <!-- Right pane resize grip (horizontal resize for right host) -->
+    <Border x:Name="RightPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="2"
+            HorizontalAlignment="Left"
+            Width="4"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnRight}" />
+
+    <!-- Top pane resize grip (vertical resize for top host) -->
+    <Border x:Name="TopPaneResizeGrip"
+            Grid.Row="0"
             Grid.Column="1"
+            VerticalAlignment="Bottom"
+            Height="4"
+            Background="Transparent"
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnTop}" />
+
+    <!-- Bottom pane resize grip (vertical resize for bottom host) -->
+    <Border x:Name="BottomPaneResizeGrip"
             Grid.Row="2"
-            Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="0,1,0,0"
-            Padding="10,6,10,10"
-            IsVisible="{Binding IsShellPaneOnBottom}">
-      <Grid>
-        <Border Background="#121A23"
-                CornerRadius="4"
-                Padding="6,4">
-          <DockPanel LastChildFill="False">
-            <TextBlock Text="Parent Pane"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Foreground="#E5EDF7"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left" />
-            <StackPanel Orientation="Horizontal"
-                        Spacing="4"
-                        HorizontalAlignment="Right"
-                        DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="–"
-                      ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="×"
-                      ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
-            </StackPanel>
-          </DockPanel>
-        </Border>
-
-        <!-- Placeholder for future child-pane content inside the parent pane -->
-      </Grid>
-    </Border>
-
-    <!-- Floating parent-pane host overlaying the viewport (for future floating panes) -->
-    <Border x:Name="FloatingPaneHost"
             Grid.Column="1"
-            Grid.Row="1"
-            HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            Margin="40"
+            Height="4"
             Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="0"
-            CornerRadius="8"
-            Padding="0"
-            IsVisible="{Binding IsShellPaneFloating}">
-      <Grid>
-        <Border Background="#121A23"
-                CornerRadius="4"
-                Padding="6,4"
-                Margin="0,0,0,8">
-          <DockPanel LastChildFill="False">
-            <TextBlock Text="Parent Pane"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Foreground="#E5EDF7"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left" />
-            <StackPanel Orientation="Horizontal"
-                        Spacing="4"
-                        HorizontalAlignment="Right"
-                        DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="–"
-                      ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
-              <Button Width="20"
-                      Height="20"
-                      Padding="0"
-                      Content="×"
-                      ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
-            </StackPanel>
-          </DockPanel>
-        </Border>
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnBottom}" />
 
-        <!-- Placeholder for future child-pane content inside the floating parent pane -->
-      </Grid>
-    </Border>
-
-    <!-- Corner affordances: small always-visible controls to create/restore parent panes.
-         Top-left: create/restore Left and Top panes.
-         Top-right: create/restore Top and Right panes.
-         Bottom-left: create/restore Left and Bottom panes.
-         Bottom-right: create/restore Bottom and Right panes. -->
-
-    <!-- Top-left corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                Margin="6"
-                Spacing="4">
-      <Button Width="22"
-              Height="22"
-              Content="⬇"
-              ToolTip.Tip="Create or restore Left pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="left" />
-      <Button Width="22"
-              Height="22"
-              Content="➡"
-              ToolTip.Tip="Create or restore Top pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="top" />
-    </StackPanel>
-
-    <!-- Top-right corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Margin="6"
-                Spacing="4">
-      <Button Width="22"
-              Height="22"
-              Content="⬇"
-              ToolTip.Tip="Create or restore Left pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="left" />
-      <Button Width="22"
-              Height="22"
-              Content="➡"
-              ToolTip.Tip="Create or restore Top pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="top" />
-    </StackPanel>
-
-    <!-- Top-right corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-              Content="⬅"
-              ToolTip.Tip="Create or restore Top pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="top" />
-      <Button Width="22"
-              Height="22"
-              Content="⬇"
-              ToolTip.Tip="Create or restore Right pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="right" />
-    </StackPanel>
-
-    <!-- Bottom-left corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Margin="6"
-                Spacing="4">
-      <Button Width="22"
-              Height="22"
-              Content="⬅"
-              ToolTip.Tip="Create or restore Top pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="top" />
-      <Button Width="22"
-              Height="22"
-              Content="⬇"
-              ToolTip.Tip="Create or restore Right pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="right" />
-    </StackPanel>
-
-    <!-- Bottom-left corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Left"
-              Content="⬆"
-              ToolTip.Tip="Create or restore Left pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="left" />
-      <Button Width="22"
-              Height="22"
-              Content="➡"
-              ToolTip.Tip="Create or restore Bottom pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="bottom" />
-    </StackPanel>
-
-    <!-- Bottom-right corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="6"
-                Spacing="4">
-      <Button Width="22"
-              Height="22"
-              Content="⬆"
-              ToolTip.Tip="Create or restore Left pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="left" />
-      <Button Width="22"
-              Height="22"
-              Content="➡"
-              ToolTip.Tip="Create or restore Right pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="right" />
-      <Button Width="22"
-              Height="22"
-              Content="⬅"
-              ToolTip.Tip="Create or restore Bottom pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="bottom" />
-    </StackPanel>
-
-    <!-- Bottom-right corner -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Margin="6"
-                Spacing="4">
-      <Button Width="22"
-              Height="22"
-              Content="⬆"
-              ToolTip.Tip="Create or restore Right pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="right" />
-      <Button Width="22"
-              Height="22"
-              Content="⬅"
-              ToolTip.Tip="Create or restore Bottom pane"
-              Command="{Binding CreateOrRestoreParentPaneCommand}"
-              CommandParameter="bottom" />
-    </StackPanel>
     <!-- Drag shadow overlay for parent-pane drag preview -->
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"

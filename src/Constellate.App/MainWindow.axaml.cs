@@ -25,6 +25,15 @@ namespace Constellate.App
         private bool _isShellPaneDragging;
         private Point _shellDragStartPoint;
 
+        private bool _isPaneResizing;
+        private string? _resizeEdge;
+        private Point _resizeStartPoint;
+        private double _initialLeftWidth;
+        private double _initialRightWidth;
+        private double _initialTopHeight;
+        private double _initialBottomHeight;
+        private Grid? _rootGrid;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -34,6 +43,8 @@ namespace Constellate.App
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+
+            _rootGrid = this.FindControl<Grid>("RootGrid");
 
             // Wire drag gestures on all shell parent-pane hosts so that docking
             // and floating behavior can be driven by the shared layout model
@@ -76,6 +87,43 @@ namespace Constellate.App
                 floatingHost.PointerPressed += ShellPaneHost_OnPointerPressed;
                 floatingHost.PointerReleased += ShellPaneHost_OnPointerReleased;
                 floatingHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+
+            // Wire resize grips for parent panes (left/right/top/bottom).
+            var leftResizeGrip = this.FindControl<Border>("LeftPaneResizeGrip");
+            if (leftResizeGrip is not null)
+            {
+                leftResizeGrip.Tag = "left";
+                leftResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
+                leftResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
+                leftResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+            }
+
+            var rightResizeGrip = this.FindControl<Border>("RightPaneResizeGrip");
+            if (rightResizeGrip is not null)
+            {
+                rightResizeGrip.Tag = "right";
+                rightResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
+                rightResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
+                rightResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+            }
+
+            var topResizeGrip = this.FindControl<Border>("TopPaneResizeGrip");
+            if (topResizeGrip is not null)
+            {
+                topResizeGrip.Tag = "top";
+                topResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
+                topResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
+                topResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+            }
+
+            var bottomResizeGrip = this.FindControl<Border>("BottomPaneResizeGrip");
+            if (bottomResizeGrip is not null)
+            {
+                bottomResizeGrip.Tag = "bottom";
+                bottomResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
+                bottomResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
+                bottomResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
             }
         }
 
@@ -171,6 +219,11 @@ namespace Constellate.App
 
         private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            if (_isPaneResizing)
+            {
+                return;
+            }
+
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
                 _isShellPaneDragging = true;
@@ -180,6 +233,11 @@ namespace Constellate.App
 
         private void ShellPaneHost_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
+            if (_isPaneResizing)
+            {
+                return;
+            }
+
             if (!_isShellPaneDragging)
             {
                 return;
@@ -234,11 +292,19 @@ namespace Constellate.App
             }
 
             vm.MoveShellPaneToHost(targetHost);
+                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
+            vm.MoveShellPaneToHost(targetHost);
+            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
         }
 
         private void ShellPaneHost_OnPointerMoved(object? sender, PointerEventArgs e)
         {
             if (!_isShellPaneDragging)
+            if (_isPaneResizing)
             {
                 return;
             }
@@ -288,6 +354,104 @@ namespace Constellate.App
                 out var shadowHeight);
 
             vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
+        }
+
+        private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_isShellPaneDragging || _isPaneResizing)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            if (sender is not Border grip || grip.Tag is not string edge || _rootGrid is null)
+            {
+                return;
+            }
+
+            _isPaneResizing = true;
+            _resizeEdge = edge;
+            _resizeStartPoint = e.GetPosition(this);
+
+            switch (edge)
+            {
+                case "left":
+                    _initialLeftWidth = _rootGrid.ColumnDefinitions[0].ActualWidth;
+                    break;
+                case "right":
+                    _initialRightWidth = _rootGrid.ColumnDefinitions[2].ActualWidth;
+                    break;
+                case "top":
+                    _initialTopHeight = _rootGrid.RowDefinitions[0].ActualHeight;
+                    break;
+                case "bottom":
+                    _initialBottomHeight = _rootGrid.RowDefinitions[2].ActualHeight;
+                    break;
+            }
+
+            try { e.Pointer.Capture(this); } catch { }
+            e.Handled = true;
+        }
+
+        private void PaneResizeGrip_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isPaneResizing)
+            {
+                return;
+            }
+
+            _isPaneResizing = false;
+            _resizeEdge = null;
+
+            try { e.Pointer.Capture(null); } catch { }
+            e.Handled = true;
+        }
+
+        private void PaneResizeGrip_OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isPaneResizing || _rootGrid is null || string.IsNullOrWhiteSpace(_resizeEdge))
+            {
+                return;
+            }
+
+            var current = e.GetPosition(this);
+            var dx = current.X - _resizeStartPoint.X;
+            var dy = current.Y - _resizeStartPoint.Y;
+            const double minSize = 80.0;
+
+            switch (_resizeEdge)
+            {
+                case "left":
+                {
+                    var newWidth = Math.Max(minSize, _initialLeftWidth + dx);
+                    _rootGrid.ColumnDefinitions[0].Width = new GridLength(newWidth, GridUnitType.Pixel);
+                    break;
+                }
+                case "right":
+                {
+                    var newWidth = Math.Max(minSize, _initialRightWidth - dx);
+                    _rootGrid.ColumnDefinitions[2].Width = new GridLength(newWidth, GridUnitType.Pixel);
+                    break;
+                }
+                case "top":
+                {
+                    var newHeight = Math.Max(minSize, _initialTopHeight + dy);
+                    _rootGrid.RowDefinitions[0].Height = new GridLength(newHeight, GridUnitType.Pixel);
+                    break;
+                }
+                case "bottom":
+                {
+                    var newHeight = Math.Max(minSize, _initialBottomHeight - dy);
+                    _rootGrid.RowDefinitions[2].Height = new GridLength(newHeight, GridUnitType.Pixel);
+                    break;
+                }
+            }
+
+            e.Handled = true;
         }
     }
 
