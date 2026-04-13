@@ -1692,6 +1692,13 @@ namespace Constellate.App
 
                     var normalizedHost = NormalizeHostId(hostId);
 
+                    var hadTopVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
+                    var hadLeftVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
                     // If a parent pane already exists on this host:
                     // - if minimized, restore it;
                     // - if visible, nothing to do.
@@ -1721,6 +1728,7 @@ namespace Constellate.App
 
                         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                         _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                            UpdateTopLeftOwnershipLayout();
                         _destroyParentPaneCommand.RaiseCanExecuteChanged();
                         SaveShellLayout();
                         return;
@@ -1734,6 +1742,29 @@ namespace Constellate.App
                         normalizedHost,
                         IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
                         IsMinimized: false));
+
+                    var hasTopVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
+                    var hasLeftVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+                    if (hasTopVisible && hasLeftVisible)
+                    {
+                        if (string.Equals(normalizedHost, "top", StringComparison.Ordinal) &&
+                            !hadTopVisible && hadLeftVisible)
+                        {
+                            _isTopCornerOwnedByTop = false;
+                        }
+                        else if (string.Equals(normalizedHost, "left", StringComparison.Ordinal) &&
+                                 !hadLeftVisible && hadTopVisible)
+                        {
+                            _isTopCornerOwnedByTop = true;
+                        }
+                    }
+
+                    UpdateTopLeftOwnershipLayout();
 
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
                     OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -1792,6 +1823,7 @@ namespace Constellate.App
 
             LoadShellLayout();
             RefreshFromEngineState();
+            UpdateTopLeftOwnershipLayout();
         }
 
         /// <summary>
@@ -1815,23 +1847,7 @@ namespace Constellate.App
             }
 
             _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
-
-            if (_isTopCornerOwnedByTop)
-            {
-                // Top owns both top corners: span columns 0–1; Left starts below Top.
-                LeftPaneRow = 1;
-                LeftPaneRowSpan = 2;
-                TopPaneColumn = 0;
-                TopPaneColumnSpan = 2;
-            }
-            else
-            {
-                // Left owns corners again: full-height; Top restricted to center column.
-                LeftPaneRow = 0;
-                LeftPaneRowSpan = 3;
-                TopPaneColumn = 1;
-                TopPaneColumnSpan = 1;
-            }
+            UpdateTopLeftOwnershipLayout();
         }
 
         /// <summary>
@@ -2935,6 +2951,7 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                UpdateTopLeftOwnershipLayout();
                 SaveShellLayout();
                 return;
             }
@@ -2951,6 +2968,61 @@ namespace Constellate.App
             return normalized is "left" or "top" or "right" or "bottom" or "floating"
                 ? normalized
                 : "left";
+        }
+
+        private void UpdateTopLeftOwnershipLayout()
+        {
+            var hasTop = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.Ordinal));
+
+            var hasLeft = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+            if (!hasTop && !hasLeft)
+            {
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+                return;
+            }
+
+            if (hasTop && !hasLeft)
+            {
+                _isTopCornerOwnedByTop = true;
+                LeftPaneRow = 1;
+                LeftPaneRowSpan = 2;
+                TopPaneColumn = 0;
+                TopPaneColumnSpan = 2;
+                return;
+            }
+
+            if (!hasTop && hasLeft)
+            {
+                _isTopCornerOwnedByTop = false;
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+                return;
+            }
+
+            if (_isTopCornerOwnedByTop)
+            {
+                LeftPaneRow = 1;
+                LeftPaneRowSpan = 2;
+                TopPaneColumn = 0;
+                TopPaneColumnSpan = 2;
+            }
+            else
+            {
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+            }
         }
 
         private void LoadShellLayout()
@@ -2985,10 +3057,11 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(IsShellPaneFloating));
                 OnPropertyChanged(nameof(IsShellPaneMinimized));
                     OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                OnPropertyChanged(nameof(PaneStructureSummary));
-                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
-                _restoreShellPaneCommand.RaiseCanExecuteChanged();
-            _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                    UpdateTopLeftOwnershipLayout();
             }
             catch
             {
