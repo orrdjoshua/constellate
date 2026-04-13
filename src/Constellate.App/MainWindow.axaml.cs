@@ -2289,6 +2289,42 @@ namespace Constellate.App
                 },
                 _ => Panes.Count > 0);
 
+            _setTopPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("top", splits);
+                });
+
+            _setRightPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("right", splits);
+                });
+
+            _setBottomPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("bottom", splits);
+                });
+
             LoadShellLayout();
             RefreshFromEngineState();
             UpdateTopLeftOwnershipLayout();
