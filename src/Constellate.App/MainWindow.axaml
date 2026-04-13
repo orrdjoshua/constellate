@@ -23,7 +23,8 @@
          free dimension can be resized via drag grips along their borders.
        - Center host contains the 3D viewport.
        - Floating host is an invisible overlay for future floating parent panes. -->
-  <Grid x:Name="RootGrid">
+  <Grid x:Name="RootGrid"
+        Background="#050911">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="*" />
@@ -51,7 +52,7 @@
           <MenuItem Header="Minimize pane"
                     Command="{Binding MinimizeShellPaneCommand}"
                     CommandParameter="left" />
-          <MenuItem Header="Close pane"
+          <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="left" />
         </ContextMenu>
@@ -73,18 +74,18 @@
                         Spacing="4"
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="left" />
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="×"
-                      ToolTip.Tip="Close pane"
+                      ToolTip.Tip="Destroy pane"
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="left" />
             </StackPanel>
@@ -100,6 +101,9 @@
             Grid.Column="{Binding TopPaneColumn}"
             Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
             Grid.Row="0"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,0,1"
             Padding="10,6,10,4"
             MinHeight="220"
             IsVisible="{Binding IsShellPaneOnTop}">
@@ -108,7 +112,7 @@
           <MenuItem Header="Minimize pane"
                     Command="{Binding MinimizeShellPaneCommand}"
                     CommandParameter="top" />
-          <MenuItem Header="Close pane"
+          <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="top" />
         </ContextMenu>
@@ -128,18 +132,18 @@
                         Spacing="4"
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="top" />
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="×"
-                      ToolTip.Tip="Close pane"
+                      ToolTip.Tip="Destroy pane"
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="top" />
             </StackPanel>
@@ -165,7 +169,7 @@
           <MenuItem Header="Minimize pane"
                     Command="{Binding MinimizeShellPaneCommand}"
                     CommandParameter="right" />
-          <MenuItem Header="Close pane"
+          <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="right" />
         </ContextMenu>
@@ -186,18 +190,18 @@
                         Spacing="4"
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="right" />
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="×"
-                      ToolTip.Tip="Close pane"
+                      ToolTip.Tip="Destroy pane"
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="right" />
             </StackPanel>
@@ -230,7 +234,7 @@
           <MenuItem Header="Minimize pane"
                     Command="{Binding MinimizeShellPaneCommand}"
                     CommandParameter="bottom" />
-          <MenuItem Header="Close pane"
+          <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="bottom" />
         </ContextMenu>
@@ -250,18 +254,18 @@
                         Spacing="4"
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="bottom" />
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="×"
-                      ToolTip.Tip="Close pane"
+                      ToolTip.Tip="Destroy pane"
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="bottom" />
             </StackPanel>
@@ -290,7 +294,7 @@
           <MenuItem Header="Minimize pane"
                     Command="{Binding MinimizeShellPaneCommand}"
                     CommandParameter="floating" />
-          <MenuItem Header="Close pane"
+          <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="floating" />
         </ContextMenu>
@@ -311,18 +315,18 @@
                         Spacing="4"
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="floating" />
-              <Button Width="20"
-                      Height="20"
+              <Button Width="22"
+                      Height="22"
                       Padding="0"
                       Content="×"
-                      ToolTip.Tip="Close pane"
+                      ToolTip.Tip="Destroy pane"
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="floating" />
             </StackPanel>
@@ -483,21 +487,27 @@
     <Border x:Name="TopLeftIntersectionHit"
             Grid.Row="0"
             Grid.Column="0"
-            Width="8"
-            Height="8"
+            Width="10"
+            Height="10"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,2,2"
+            IsVisible="{Binding IsShellPaneOnTop}"
             DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
 
     <Border x:Name="TopRightIntersectionHit"
             Grid.Row="0"
             Grid.Column="2"
-            Width="8"
-            Height="8"
+            Width="10"
+            Height="10"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="2,0,0,2"
+            IsVisible="{Binding IsShellPaneOnTop}"
             DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
 
     <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
@@ -508,40 +518,44 @@
             Grid.Row="1"
             Grid.Column="0"
             HorizontalAlignment="Right"
-            Width="4"
+            Width="8"
             Background="Transparent"
             Cursor="SizeWestEast"
-            IsHitTestVisible="{Binding IsShellPaneOnLeft}" />
+            IsHitTestVisible="{Binding IsShellPaneOnLeft}"
+            IsVisible="{Binding IsShellPaneOnLeft}" />
 
     <!-- Right pane resize grip (horizontal resize for right host) -->
     <Border x:Name="RightPaneResizeGrip"
             Grid.Row="1"
             Grid.Column="2"
             HorizontalAlignment="Left"
-            Width="4"
+            Width="8"
             Background="Transparent"
             Cursor="SizeWestEast"
-            IsHitTestVisible="{Binding IsShellPaneOnRight}" />
+            IsHitTestVisible="{Binding IsShellPaneOnRight}"
+            IsVisible="{Binding IsShellPaneOnRight}" />
 
     <!-- Top pane resize grip (vertical resize for top host) -->
     <Border x:Name="TopPaneResizeGrip"
             Grid.Row="0"
             Grid.Column="1"
             VerticalAlignment="Bottom"
-            Height="4"
+            Height="8"
             Background="Transparent"
             Cursor="SizeNorthSouth"
-            IsHitTestVisible="{Binding IsShellPaneOnTop}" />
+            IsHitTestVisible="{Binding IsShellPaneOnTop}"
+            IsVisible="{Binding IsShellPaneOnTop}" />
 
     <!-- Bottom pane resize grip (vertical resize for bottom host) -->
     <Border x:Name="BottomPaneResizeGrip"
             Grid.Row="2"
             Grid.Column="1"
             VerticalAlignment="Top"
-            Height="4"
+            Height="8"
             Background="Transparent"
             Cursor="SizeNorthSouth"
-            IsHitTestVisible="{Binding IsShellPaneOnBottom}" />
+            IsHitTestVisible="{Binding IsShellPaneOnBottom}"
+            IsVisible="{Binding IsShellPaneOnBottom}" />
 
     <!-- Drag shadow overlay for parent-pane drag preview -->
     <Canvas Grid.RowSpan="3"
