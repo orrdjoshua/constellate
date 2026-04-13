@@ -35,11 +35,6 @@ namespace Constellate.App
         private double _initialTopHeight;
         private double _initialBottomHeight;
         private Grid? _rootGrid;
-
-        private int _leftSlideIndex;
-        private int _topSlideIndex;
-        private int _rightSlideIndex;
-        private int _bottomSlideIndex;
         private bool _isChildPaneDragging;
         private Point _childDragStartPoint;
         private string? _childDragPaneId;
@@ -829,6 +824,10 @@ namespace Constellate.App
         private int _leftPaneRowSpan = 3;
         private int _topPaneColumn = 1;
         private int _topPaneColumnSpan = 1;
+        private int _leftSlideIndex;
+        private int _topSlideIndex;
+        private int _rightSlideIndex;
+        private int _bottomSlideIndex;
 
         public ObservableCollection<EngineCapability> Capabilities { get; } =
             new(EngineServices.Capabilities.GetAll());
