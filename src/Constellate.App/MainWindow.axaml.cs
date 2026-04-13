@@ -587,6 +587,7 @@ namespace Constellate.App
         private readonly RelayCommand _resetLayoutToDefaultCommand;
         private readonly RelayCommand _saveLayoutPresetCommand;
         private readonly RelayCommand _restoreLayoutPresetCommand;
+        private readonly RelayCommand _createChildPaneCommand;
         private readonly RelayCommand _minimizeChildPaneCommand;
         private readonly RelayCommand _restoreChildPaneFromTaskbarCommand;
         private readonly RelayCommand _moveChildPaneUpCommand;
@@ -673,10 +674,10 @@ namespace Constellate.App
             new(
                 new[]
                 {
-                    new ChildPaneDescriptor("shell.current", "Current State & Command Surface", 0),
-                    new ChildPaneDescriptor("shell.settings", "Settings", 1),
-                    new ChildPaneDescriptor("shell.developer", "Developer Readouts", 2),
-                    new ChildPaneDescriptor("shell.capabilities", "Engine Capabilities", 3)
+                    new ChildPaneDescriptor("child.1", "Pane 1", 0),
+                    new ChildPaneDescriptor("child.2", "Pane 2", 1),
+                    new ChildPaneDescriptor("child.3", "Pane 3", 2),
+                    new ChildPaneDescriptor("child.4", "Pane 4", 3)
                 });
 
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
@@ -862,6 +863,7 @@ namespace Constellate.App
         public ICommand ResetLayoutToDefaultCommand => _resetLayoutToDefaultCommand;
         public ICommand SaveLayoutPresetCommand => _saveLayoutPresetCommand;
         public ICommand RestoreLayoutPresetCommand => _restoreLayoutPresetCommand;
+        public ICommand CreateChildPaneCommand => _createChildPaneCommand;
         public ICommand MinimizeChildPaneCommand => _minimizeChildPaneCommand;
         public ICommand RestoreChildPaneFromTaskbarCommand => _restoreChildPaneFromTaskbarCommand;
         public ICommand MoveChildPaneUpCommand => _moveChildPaneUpCommand;
@@ -1498,6 +1500,12 @@ namespace Constellate.App
             _applyBackgroundPaperCommand = new RelayCommand(
                 _ => ApplyBackgroundPreset("Paper"));
 
+            _createChildPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    CreateChildPane();
+                });
+
             _minimizeChildPaneCommand = new RelayCommand(
                 parameter =>
                 {
@@ -1897,6 +1905,31 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 return;
             }
+        }
+
+        private void CreateChildPane()
+        {
+            var nextOrder = ChildPanes.Count == 0
+                ? 0
+                : ChildPanes.Max(pane => pane.Order) + 1;
+
+            var labelIndex = ChildPanes.Count + 1;
+            var id = $"child.{labelIndex}";
+            var title = $"Pane {labelIndex}";
+
+            ChildPanes.Add(new ChildPaneDescriptor(id, title, nextOrder, IsMinimized: false));
+
+            OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(HasMinimizedChildPanes));
+            OnPropertyChanged(nameof(MinimizedChildPanes));
+            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
+            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
+            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+            OnPropertyChanged(nameof(PaneStructureSummary));
+
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
         }
 
         private bool CanMoveChildPane(string id, int delta)
