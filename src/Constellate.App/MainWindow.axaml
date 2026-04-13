@@ -48,9 +48,11 @@
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="left" />
           <MenuItem Header="Close pane"
-                    Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="left" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -75,13 +77,15 @@
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="left" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="left" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -100,9 +104,11 @@
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="top" />
           <MenuItem Header="Close pane"
-                    Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="top" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -125,13 +131,15 @@
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="top" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="top" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -153,9 +161,11 @@
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="right" />
           <MenuItem Header="Close pane"
-                    Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="right" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -179,13 +189,15 @@
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="right" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="right" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -214,9 +226,11 @@
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="bottom" />
           <MenuItem Header="Close pane"
-                    Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="bottom" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -239,13 +253,15 @@
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="bottom" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="bottom" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -270,9 +286,11 @@
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="floating" />
           <MenuItem Header="Close pane"
-                    Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="floating" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -296,13 +314,15 @@
                       Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="floating" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
-                      Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="floating" />
             </StackPanel>
           </DockPanel>
         </Border>
