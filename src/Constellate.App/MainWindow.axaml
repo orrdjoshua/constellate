@@ -103,7 +103,8 @@
         <StackPanel Grid.Row="1"
                     Spacing="6">
           <!-- Taskbar strip for minimized child panes -->
-          <ItemsControl Items="{Binding MinimizedChildPanes}">
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanes}"
+                        x:CompileBindings="False">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <StackPanel Orientation="Horizontal"
@@ -122,7 +123,8 @@
           </ItemsControl>
 
           <!-- Visible child panes (dummy content for now) -->
-          <ItemsControl Items="{Binding ChildPanesOrdered}">
+          <ItemsControl ItemsSource="{Binding ChildPanesOrdered}"
+                        x:CompileBindings="False">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Border Margin="0,0,0,6"
@@ -131,8 +133,7 @@
                   <Grid RowDefinitions="Auto,*">
                     <DockPanel Grid.Row="0"
                                LastChildFill="False"
-                               Background="#192531"
-                               Padding="6,4">
+                               Background="#192531">
                       <TextBlock Text="{Binding Title}"
                                  FontSize="12"
                                  Foreground="#E5EDF7"
