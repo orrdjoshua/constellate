@@ -35,7 +35,6 @@ namespace Constellate.App
         private double _initialTopHeight;
         private double _initialBottomHeight;
         private Grid? _rootGrid;
-        private bool _isTopCornerOwnedByTop;
 
         public MainWindow()
         {
@@ -528,6 +527,7 @@ namespace Constellate.App
         private const string ShellLayoutFileName = "shell-layout.json";
         private readonly IDisposable[] _eventSubscriptions;
         private readonly ShellSceneState _shellScene = EngineServices.ShellScene;
+        private bool _isTopCornerOwnedByTop;
 
         private readonly RelayCommand _focusFirstNodeCommand;
         private readonly RelayCommand _selectFirstNodeCommand;
