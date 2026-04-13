@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -125,6 +126,32 @@ namespace Constellate.App
                 bottomResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
                 bottomResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
             }
+
+            // Wire 45° bisected triangular corner affordances to the generic
+            // CreateOrRestoreParentPaneCommand on the viewmodel. Each triangle
+            // carries a Tag string for the target host ("left"|"top"|"right"|"bottom").
+            AttachCornerTriangleHandlers();
+        }
+
+        private void AttachCornerTriangleHandlers()
+        {
+            void Wire(string name)
+            {
+                var triangle = this.FindControl<Polygon>(name);
+                if (triangle is not null)
+                {
+                    triangle.PointerPressed += CornerTriangle_OnPointerPressed;
+                }
+            }
+
+            Wire("TopLeft_LeftTriangle");
+            Wire("TopLeft_TopTriangle");
+            Wire("TopRight_TopTriangle");
+            Wire("TopRight_RightTriangle");
+            Wire("BottomLeft_LeftTriangle");
+            Wire("BottomLeft_BottomTriangle");
+            Wire("BottomRight_BottomTriangle");
+            Wire("BottomRight_RightTriangle");
         }
 
         private static string GetTargetHostForPoint(Point point, double width, double height)
@@ -407,6 +434,30 @@ namespace Constellate.App
             }
 
             e.Handled = true;
+        }
+
+        private void CornerTriangle_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            if (sender is not Control triangle || triangle.Tag is not string hostId || string.IsNullOrWhiteSpace(hostId))
+            {
+                return;
+            }
+
+            if (vm.CreateOrRestoreParentPaneCommand.CanExecute(hostId))
+            {
+                vm.CreateOrRestoreParentPaneCommand.Execute(hostId);
+                e.Handled = true;
+            }
         }
     }
 
