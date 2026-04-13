@@ -11,11 +11,10 @@ namespace Constellate.Core.Storage
     /// v0.1 engine.db ↔ EngineScene bridge.
     ///
     /// This slice focuses on:
-    /// - DB → EngineScene hydration for Nodes, Links, Groups, and GroupMembers.
-    /// - EngineScene → DB persistence for Nodes, Links, Groups, and GroupMembers.
+    /// - DB → EngineScene hydration for Nodes, Links, Groups, GroupMembers, and Bookmarks.
+    /// - EngineScene → DB persistence for Nodes, Links, Groups, GroupMembers, and Bookmarks.
     ///
-    /// Bookmarks, pane attachments, and EngineState are intentionally
-    /// deferred to later CT-002 slices.
+    /// Pane attachments and EngineState are intentionally deferred to later CT-002 slices.
     /// </summary>
     public static class EngineScenePersistence
     {
@@ -24,11 +23,11 @@ namespace Constellate.Core.Storage
         ///
         /// Behavior (v0.1):
         /// - Validates arguments and opens the SQLite DB at <paramref name="databasePath"/>.
-        /// - Reads all rows from Nodes, Links, Groups, and GroupMembers.
+        /// - Reads all rows from Nodes, Links, Groups, GroupMembers, and Bookmarks tables.
         /// - Clears existing nodes/selection/links in <paramref name="scene"/> via public APIs.
-        /// - Re-creates nodes, links, and groups in the scene.
+        /// - Re-creates nodes, links, groups, and bookmarks in the scene.
         ///
-        /// Bookmarks, pane attachments, and EngineState are not yet hydrated.
+        /// Pane attachments and EngineState are not yet hydrated.
         /// </summary>
         /// <param name="databasePath">Path to engine.db for the current project.</param>
         /// <param name="scene">EngineScene instance to populate.</param>
@@ -46,6 +45,7 @@ namespace Constellate.Core.Storage
             var nodes = LoadNodes(connection);
             var links = LoadLinks(connection);
             var groups = LoadGroups(connection, nodes);
+            var bookmarks = LoadBookmarks(connection, nodes);
 
             // Reset existing scene state (nodes + selection + links) via public APIs.
             var snapshot = scene.GetSnapshot();
@@ -75,8 +75,13 @@ namespace Constellate.Core.Storage
                 scene.TryConnect(link.SourceId, link.TargetId, link.Kind, link.Weight);
             }
 
-            // Bookmarks, pane attachments, and EngineState
-            // will be hydrated in later CT-002 slices.
+            // Hydrate bookmarks directly into the scene snapshot surface.
+            if (bookmarks.Count > 0)
+            {
+                scene.SetBookmarks(bookmarks);
+            }
+
+            // Pane attachments and EngineState will be hydrated in later CT-002 slices.
         }
 
         /// <summary>
@@ -85,11 +90,13 @@ namespace Constellate.Core.Storage
         /// Behavior (v0.1):
         /// - Validates arguments and opens the SQLite DB at <paramref name="databasePath"/>.
         /// - Starts a transaction.
-        /// - Truncates Nodes, Links, Groups, and GroupMembers.
+        /// - Truncates Nodes, Links, Groups, GroupMembers, Bookmarks, BookmarkSelectedNodes, BookmarkSelectedPanels.
         /// - Re-inserts nodes (including NodeAppearance inline columns),
-        ///   groups and memberships, and links (with LinkAppearance defaults).
+        ///   groups and memberships,
+        ///   links (with LinkAppearance defaults),
+        ///   and bookmarks (including focused/selected nodes/panels + view).
         ///
-        /// Bookmarks, pane attachments, and EngineState are not yet persisted.
+        /// Pane attachments and EngineState are not yet persisted.
         /// </summary>
         /// <param name="databasePath">Path to engine.db for the current project.</param>
         /// <param name="scene">EngineScene instance whose snapshot should be saved.</param>
@@ -113,6 +120,9 @@ namespace Constellate.Core.Storage
             {
                 truncate.Transaction = transaction;
                 truncate.CommandText = @"
+DELETE FROM BookmarkSelectedPanels;
+DELETE FROM BookmarkSelectedNodes;
+DELETE FROM Bookmarks;
 DELETE FROM GroupMembers;
 DELETE FROM Groups;
 DELETE FROM Links;
@@ -123,11 +133,11 @@ DELETE FROM Nodes;";
             InsertNodes(connection, transaction, snapshot.Nodes);
             InsertGroups(connection, transaction, snapshot.Groups);
             InsertLinks(connection, transaction, snapshot.Links);
+            InsertBookmarks(connection, transaction, snapshot.Bookmarks);
 
             transaction.Commit();
 
             // Future CT-002 slices will extend this method to persist:
-            // - Bookmarks,
             // - PanelAttachments,
             // - EngineState (ActiveGroupId, InteractionMode, EnteredNodeId, last view),
             // using the SPEC-020 tables.
@@ -434,6 +444,193 @@ INSERT INTO Links (
             }
         }
 
+        private static void InsertBookmarks(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<SceneBookmark>? bookmarks)
+        {
+            if (bookmarks is null || bookmarks.Count == 0)
+            {
+                return;
+            }
+
+            const string insertBookmarkSql = @"
+INSERT INTO Bookmarks (
+    Name,
+    FocusedNodeId,
+    FocusedPanelNodeId,
+    FocusedPanelViewRef,
+    ViewYaw,
+    ViewPitch,
+    ViewDistance,
+    ViewTargetX,
+    ViewTargetY,
+    ViewTargetZ
+) VALUES (
+    $name,
+    $focusedNodeId,
+    $focusedPanelNodeId,
+    $focusedPanelViewRef,
+    $viewYaw,
+    $viewPitch,
+    $viewDistance,
+    $viewTargetX,
+    $viewTargetY,
+    $viewTargetZ
+);";
+
+            const string insertSelectedNodeSql = @"
+INSERT INTO BookmarkSelectedNodes (
+    BookmarkName,
+    NodeId
+) VALUES (
+    $bookmarkName,
+    $nodeId
+);";
+
+            const string insertSelectedPanelSql = @"
+INSERT INTO BookmarkSelectedPanels (
+    BookmarkName,
+    NodeId,
+    ViewRef
+) VALUES (
+    $bookmarkName,
+    $nodeId,
+    $viewRef
+);";
+
+            using var bookmarkCommand = connection.CreateCommand();
+            bookmarkCommand.Transaction = transaction;
+            bookmarkCommand.CommandText = insertBookmarkSql;
+
+            var nameParam = bookmarkCommand.CreateParameter();
+            nameParam.ParameterName = "$name";
+            bookmarkCommand.Parameters.Add(nameParam);
+
+            var focusedNodeIdParam = bookmarkCommand.CreateParameter();
+            focusedNodeIdParam.ParameterName = "$focusedNodeId";
+            bookmarkCommand.Parameters.Add(focusedNodeIdParam);
+
+            var focusedPanelNodeIdParam = bookmarkCommand.CreateParameter();
+            focusedPanelNodeIdParam.ParameterName = "$focusedPanelNodeId";
+            bookmarkCommand.Parameters.Add(focusedPanelNodeIdParam);
+
+            var focusedPanelViewRefParam = bookmarkCommand.CreateParameter();
+            focusedPanelViewRefParam.ParameterName = "$focusedPanelViewRef";
+            bookmarkCommand.Parameters.Add(focusedPanelViewRefParam);
+
+            var viewYawParam = bookmarkCommand.CreateParameter();
+            viewYawParam.ParameterName = "$viewYaw";
+            bookmarkCommand.Parameters.Add(viewYawParam);
+
+            var viewPitchParam = bookmarkCommand.CreateParameter();
+            viewPitchParam.ParameterName = "$viewPitch";
+            bookmarkCommand.Parameters.Add(viewPitchParam);
+
+            var viewDistanceParam = bookmarkCommand.CreateParameter();
+            viewDistanceParam.ParameterName = "$viewDistance";
+            bookmarkCommand.Parameters.Add(viewDistanceParam);
+
+            var viewTargetXParam = bookmarkCommand.CreateParameter();
+            viewTargetXParam.ParameterName = "$viewTargetX";
+            bookmarkCommand.Parameters.Add(viewTargetXParam);
+
+            var viewTargetYParam = bookmarkCommand.CreateParameter();
+            viewTargetYParam.ParameterName = "$viewTargetY";
+            bookmarkCommand.Parameters.Add(viewTargetYParam);
+
+            var viewTargetZParam = bookmarkCommand.CreateParameter();
+            viewTargetZParam.ParameterName = "$viewTargetZ";
+            bookmarkCommand.Parameters.Add(viewTargetZParam);
+
+            using var selectedNodeCommand = connection.CreateCommand();
+            selectedNodeCommand.Transaction = transaction;
+            selectedNodeCommand.CommandText = insertSelectedNodeSql;
+
+            var snBookmarkNameParam = selectedNodeCommand.CreateParameter();
+            snBookmarkNameParam.ParameterName = "$bookmarkName";
+            selectedNodeCommand.Parameters.Add(snBookmarkNameParam);
+
+            var snNodeIdParam = selectedNodeCommand.CreateParameter();
+            snNodeIdParam.ParameterName = "$nodeId";
+            selectedNodeCommand.Parameters.Add(snNodeIdParam);
+
+            using var selectedPanelCommand = connection.CreateCommand();
+            selectedPanelCommand.Transaction = transaction;
+            selectedPanelCommand.CommandText = insertSelectedPanelSql;
+
+            var spBookmarkNameParam = selectedPanelCommand.CreateParameter();
+            spBookmarkNameParam.ParameterName = "$bookmarkName";
+            selectedPanelCommand.Parameters.Add(spBookmarkNameParam);
+
+            var spNodeIdParam = selectedPanelCommand.CreateParameter();
+            spNodeIdParam.ParameterName = "$nodeId";
+            selectedPanelCommand.Parameters.Add(spNodeIdParam);
+
+            var spViewRefParam = selectedPanelCommand.CreateParameter();
+            spViewRefParam.ParameterName = "$viewRef";
+            selectedPanelCommand.Parameters.Add(spViewRefParam);
+
+            foreach (var bookmark in bookmarks)
+            {
+                nameParam.Value = bookmark.Name;
+
+                focusedNodeIdParam.Value = bookmark.FocusedNodeId is null
+                    ? (object?)DBNull.Value
+                    : bookmark.FocusedNodeId.Value.ToString();
+
+                if (bookmark.FocusedPanel is { } focusedPanel)
+                {
+                    focusedPanelNodeIdParam.Value = focusedPanel.NodeId.ToString();
+                    focusedPanelViewRefParam.Value = focusedPanel.ViewRef ?? (object?)DBNull.Value ?? DBNull.Value;
+                }
+                else
+                {
+                    focusedPanelNodeIdParam.Value = DBNull.Value;
+                    focusedPanelViewRefParam.Value = DBNull.Value;
+                }
+
+                if (bookmark.View is { } view)
+                {
+                    viewYawParam.Value = view.Yaw;
+                    viewPitchParam.Value = view.Pitch;
+                    viewDistanceParam.Value = view.Distance;
+                    viewTargetXParam.Value = view.Target.X;
+                    viewTargetYParam.Value = view.Target.Y;
+                    viewTargetZParam.Value = view.Target.Z;
+                }
+                else
+                {
+                    viewYawParam.Value = DBNull.Value;
+                    viewPitchParam.Value = DBNull.Value;
+                    viewDistanceParam.Value = DBNull.Value;
+                    viewTargetXParam.Value = DBNull.Value;
+                    viewTargetYParam.Value = DBNull.Value;
+                    viewTargetZParam.Value = DBNull.Value;
+                }
+
+                bookmarkCommand.ExecuteNonQuery();
+
+                if (bookmark.SelectedNodeIds is { Count: > 0 })
+                {
+                    foreach (var nodeId in bookmark.SelectedNodeIds.Distinct())
+                    {
+                        snBookmarkNameParam.Value = bookmark.Name;
+                        snNodeIdParam.Value = nodeId.ToString();
+                        selectedNodeCommand.ExecuteNonQuery();
+                    }
+                }
+
+                if (bookmark.SelectedPanels is { Count: > 0 })
+                {
+                    foreach (var panel in bookmark.SelectedPanels.Distinct())
+                    {
+                        spBookmarkNameParam.Value = bookmark.Name;
+                        spNodeIdParam.Value = panel.NodeId.ToString();
+                        spViewRefParam.Value = panel.ViewRef ?? (object?)DBNull.Value ?? DBNull.Value;
+                        selectedPanelCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+        }
+
         private static List<SceneNode> LoadNodes(SqliteConnection connection)
         {
             var result = new List<SceneNode>();
@@ -727,6 +924,237 @@ FROM GroupMembers;";
                 }
 
                 result.Add(new SceneGroup(groupId, label, orderedMembers));
+            }
+
+            return result;
+        }
+
+        private static List<SceneBookmark> LoadBookmarks(SqliteConnection connection, IReadOnlyList<SceneNode> nodes)
+        {
+            var result = new List<SceneBookmark>();
+            if (nodes.Count == 0)
+            {
+                return result;
+            }
+
+            var validNodeIds = new HashSet<NodeId>(nodes.Select(n => n.Id));
+
+            const string bookmarksSql = @"
+SELECT
+    Name,
+    FocusedNodeId,
+    FocusedPanelNodeId,
+    FocusedPanelViewRef,
+    ViewYaw,
+    ViewPitch,
+    ViewDistance,
+    ViewTargetX,
+    ViewTargetY,
+    ViewTargetZ
+FROM Bookmarks;";
+
+            const string selectedNodesSql = @"
+SELECT
+    BookmarkName,
+    NodeId
+FROM BookmarkSelectedNodes;";
+
+            const string selectedPanelsSql = @"
+SELECT
+    BookmarkName,
+    NodeId,
+    ViewRef
+FROM BookmarkSelectedPanels;";
+
+            // First, load bookmark rows (names + focus + view).
+            var bookmarkCore = new Dictionary<string, (NodeId? FocusedNodeId, PanelTarget? FocusedPanel, ViewParams? View)>(StringComparer.Ordinal);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = bookmarksSql;
+                using var reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    var nameOrdinal = reader.GetOrdinal("Name");
+                    var focusedNodeIdOrdinal = reader.GetOrdinal("FocusedNodeId");
+                    var focusedPanelNodeIdOrdinal = reader.GetOrdinal("FocusedPanelNodeId");
+                    var focusedPanelViewRefOrdinal = reader.GetOrdinal("FocusedPanelViewRef");
+                    var viewYawOrdinal = reader.GetOrdinal("ViewYaw");
+                    var viewPitchOrdinal = reader.GetOrdinal("ViewPitch");
+                    var viewDistanceOrdinal = reader.GetOrdinal("ViewDistance");
+                    var viewTargetXOrdinal = reader.GetOrdinal("ViewTargetX");
+                    var viewTargetYOrdinal = reader.GetOrdinal("ViewTargetY");
+                    var viewTargetZOrdinal = reader.GetOrdinal("ViewTargetZ");
+
+                    while (reader.Read())
+                    {
+                        var name = reader.IsDBNull(nameOrdinal) ? null : reader.GetString(nameOrdinal);
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            continue;
+                        }
+
+                        NodeId? focusedNodeId = null;
+                        if (!reader.IsDBNull(focusedNodeIdOrdinal))
+                        {
+                            var rawNodeId = reader.GetString(focusedNodeIdOrdinal);
+                            if (TryParseNodeId(rawNodeId, out var parsed) && validNodeIds.Contains(parsed))
+                            {
+                                focusedNodeId = parsed;
+                            }
+                        }
+
+                        PanelTarget? focusedPanel = null;
+                        if (!reader.IsDBNull(focusedPanelNodeIdOrdinal))
+                        {
+                            var rawPanelNodeId = reader.GetString(focusedPanelNodeIdOrdinal);
+                            if (TryParseNodeId(rawPanelNodeId, out var panelNodeId) && validNodeIds.Contains(panelNodeId))
+                            {
+                                var viewRef = reader.IsDBNull(focusedPanelViewRefOrdinal)
+                                    ? null
+                                    : reader.GetString(focusedPanelViewRefOrdinal);
+
+                                if (!string.IsNullOrWhiteSpace(viewRef))
+                                {
+                                    focusedPanel = new PanelTarget(panelNodeId, viewRef!);
+                                }
+                            }
+                        }
+
+                        ViewParams? view = null;
+                        if (!reader.IsDBNull(viewYawOrdinal) &&
+                            !reader.IsDBNull(viewPitchOrdinal) &&
+                            !reader.IsDBNull(viewDistanceOrdinal) &&
+                            !reader.IsDBNull(viewTargetXOrdinal) &&
+                            !reader.IsDBNull(viewTargetYOrdinal) &&
+                            !reader.IsDBNull(viewTargetZOrdinal))
+                        {
+                            var yaw = (float)reader.GetDouble(viewYawOrdinal);
+                            var pitch = (float)reader.GetDouble(viewPitchOrdinal);
+                            var distance = (float)reader.GetDouble(viewDistanceOrdinal);
+                            var target = new Vector3(
+                                x: (float)reader.GetDouble(viewTargetXOrdinal),
+                                y: (float)reader.GetDouble(viewTargetYOrdinal),
+                                z: (float)reader.GetDouble(viewTargetZOrdinal));
+
+                            view = new ViewParams(yaw, pitch, distance, target);
+                        }
+
+                        bookmarkCore[name] = (focusedNodeId, focusedPanel, view);
+                    }
+                }
+            }
+
+            if (bookmarkCore.Count == 0)
+            {
+                return result;
+            }
+
+            // Next, load selected nodes grouped by bookmark.
+            var selectedNodes = new Dictionary<string, List<NodeId>>(StringComparer.Ordinal);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = selectedNodesSql;
+                using var reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    var bookmarkNameOrdinal = reader.GetOrdinal("BookmarkName");
+                    var nodeIdOrdinal = reader.GetOrdinal("NodeId");
+
+                    while (reader.Read())
+                    {
+                        var name = reader.IsDBNull(bookmarkNameOrdinal) ? null : reader.GetString(bookmarkNameOrdinal);
+                        if (string.IsNullOrWhiteSpace(name) || !bookmarkCore.ContainsKey(name))
+                        {
+                            continue;
+                        }
+
+                        var rawNodeId = reader.IsDBNull(nodeIdOrdinal) ? null : reader.GetString(nodeIdOrdinal);
+                        if (!TryParseNodeId(rawNodeId, out var nodeId) || !validNodeIds.Contains(nodeId))
+                        {
+                            continue;
+                        }
+
+                        if (!selectedNodes.TryGetValue(name, out var list))
+                        {
+                            list = new List<NodeId>();
+                            selectedNodes[name] = list;
+                        }
+
+                        list.Add(nodeId);
+                    }
+                }
+            }
+
+            // Then, load selected panels grouped by bookmark.
+            var selectedPanels = new Dictionary<string, List<PanelTarget>>(StringComparer.Ordinal);
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = selectedPanelsSql;
+                using var reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    var bookmarkNameOrdinal = reader.GetOrdinal("BookmarkName");
+                    var nodeIdOrdinal = reader.GetOrdinal("NodeId");
+                    var viewRefOrdinal = reader.GetOrdinal("ViewRef");
+
+                    while (reader.Read())
+                    {
+                        var name = reader.IsDBNull(bookmarkNameOrdinal) ? null : reader.GetString(bookmarkNameOrdinal);
+                        if (string.IsNullOrWhiteSpace(name) || !bookmarkCore.ContainsKey(name))
+                        {
+                            continue;
+                        }
+
+                        var rawNodeId = reader.IsDBNull(nodeIdOrdinal) ? null : reader.GetString(nodeIdOrdinal);
+                        if (!TryParseNodeId(rawNodeId, out var nodeId) || !validNodeIds.Contains(nodeId))
+                        {
+                            continue;
+                        }
+
+                        var viewRef = reader.IsDBNull(viewRefOrdinal) ? null : reader.GetString(viewRefOrdinal);
+                        if (string.IsNullOrWhiteSpace(viewRef))
+                        {
+                            continue;
+                        }
+
+                        if (!selectedPanels.TryGetValue(name, out var list))
+                        {
+                            list = new List<PanelTarget>();
+                            selectedPanels[name] = list;
+                        }
+
+                        list.Add(new PanelTarget(nodeId, viewRef!));
+                    }
+                }
+            }
+
+            // Finally, build SceneBookmark records.
+            foreach (var (name, core) in bookmarkCore)
+            {
+                var nodeList = selectedNodes.TryGetValue(name, out var nodesForBookmark)
+                    ? nodesForBookmark.Distinct().OrderBy(id => id.ToString(), StringComparer.Ordinal).ToArray()
+                    : Array.Empty<NodeId>();
+
+                var panelList = selectedPanels.TryGetValue(name, out var panelsForBookmark)
+                    ? panelsForBookmark
+                        .Distinct()
+                        .OrderBy(p => p.NodeId.ToString(), StringComparer.Ordinal)
+                        .ThenBy(p => p.ViewRef, StringComparer.Ordinal)
+                        .ToArray()
+                    : Array.Empty<PanelTarget>();
+
+                var bookmark = new SceneBookmark(
+                    Name: name,
+                    FocusedNodeId: core.FocusedNodeId,
+                    SelectedNodeIds: nodeList,
+                    FocusedPanel: core.FocusedPanel,
+                    SelectedPanels: panelList,
+                    View: core.View);
+
+                result.Add(bookmark);
             }
 
             return result;
