@@ -670,6 +670,8 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </ScrollViewer>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- Floating parent-pane host overlaying the viewport (for future floating panes) -->
