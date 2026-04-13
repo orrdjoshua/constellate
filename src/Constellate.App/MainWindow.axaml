@@ -62,6 +62,13 @@
           <MenuItem Header="Two columns"
                     Command="{Binding SetLeftPaneSplitCommand}"
                     CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="left:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="left:next" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid RowDefinitions="Auto,*">
@@ -306,6 +313,13 @@
           <MenuItem Header="Two rows"
                     Command="{Binding SetTopPaneSplitCommand}"
                     CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="top:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="top:next" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid RowDefinitions="Auto,*">
@@ -549,6 +563,13 @@
           <MenuItem Header="Two columns"
                     Command="{Binding SetRightPaneSplitCommand}"
                     CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="right:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="right:next" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid RowDefinitions="Auto,*">
@@ -791,6 +812,13 @@
           <MenuItem Header="Two rows"
                     Command="{Binding SetBottomPaneSplitCommand}"
                     CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="bottom:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="bottom:next" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid RowDefinitions="Auto,*">

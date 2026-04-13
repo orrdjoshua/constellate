@@ -36,6 +36,10 @@ namespace Constellate.App
         private double _initialBottomHeight;
         private Grid? _rootGrid;
 
+        private int _leftSlideIndex;
+        private int _topSlideIndex;
+        private int _rightSlideIndex;
+        private int _bottomSlideIndex;
         private bool _isChildPaneDragging;
         private Point _childDragStartPoint;
         private string? _childDragPaneId;
@@ -685,7 +689,8 @@ namespace Constellate.App
         int Order,
         string HostId,
         int ContainerIndex = 0,
-        bool IsMinimized = false);
+        bool IsMinimized = false,
+        int SlideIndex = 0);
 
     public sealed record ShellLayoutDescriptor(
         string HostId,
@@ -779,6 +784,7 @@ namespace Constellate.App
         private readonly RelayCommand _setTopPaneSplitCommand;
         private readonly RelayCommand _setRightPaneSplitCommand;
         private readonly RelayCommand _setBottomPaneSplitCommand;
+        private readonly RelayCommand _slideParentPaneCommand;
         private readonly RelayCommand _setLeftPaneSplitCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
@@ -866,7 +872,7 @@ namespace Constellate.App
                     new ChildPaneDescriptor("child.1", "Pane 1", 0, "left"),
                     new ChildPaneDescriptor("child.2", "Pane 2", 1, "left"),
                     new ChildPaneDescriptor("child.3", "Pane 3", 2, "left"),
-                    new ChildPaneDescriptor("child.4", "Pane 4", 3, "left")
+                           new ChildPaneDescriptor("child.4", "Pane 4", 3, "left")
                 });
 
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
@@ -897,7 +903,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 0)
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _leftSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
         public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
@@ -905,7 +912,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 1)
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _leftSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -914,7 +922,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "right", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 0)
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _rightSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -923,7 +932,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "right", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 1)
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _rightSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -932,7 +942,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 0)
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _bottomSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -941,7 +952,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 1)
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _bottomSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -962,7 +974,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 0)
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _topSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -971,7 +984,8 @@ namespace Constellate.App
                 .Where(pane =>
                     string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
                     !pane.IsMinimized &&
-                    pane.ContainerIndex == 1)
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _topSlideIndex)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -1206,6 +1220,7 @@ namespace Constellate.App
         public ICommand SetTopPaneSplitCommand => _setTopPaneSplitCommand;
         public ICommand SetRightPaneSplitCommand => _setRightPaneSplitCommand;
         public ICommand SetBottomPaneSplitCommand => _setBottomPaneSplitCommand;
+        public ICommand SlideParentPaneCommand => _slideParentPaneCommand;
         public ICommand SetLeftPaneSplitCommand => _setLeftPaneSplitCommand;
 
         public bool IsCurrentStateSectionExpanded
@@ -2325,6 +2340,17 @@ namespace Constellate.App
                     ApplyChildPaneSplitsForHost("bottom", splits);
                 });
 
+            _slideParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is not string arg || string.IsNullOrWhiteSpace(arg))
+                    {
+                        return;
+                    }
+
+                    SlideParentPane(arg);
+                });
+
             LoadShellLayout();
             RefreshFromEngineState();
             UpdateTopLeftOwnershipLayout();
@@ -2427,7 +2453,14 @@ namespace Constellate.App
             var id = $"child.{labelIndex}";
             var title = $"Pane {labelIndex}";
 
-            ChildPanes.Add(new ChildPaneDescriptor(id, title, nextOrder, normalizedHost, IsMinimized: false));
+            ChildPanes.Add(new ChildPaneDescriptor(
+                id,
+                title,
+                nextOrder,
+                normalizedHost,
+                ContainerIndex: 0,
+                IsMinimized: false,
+                SlideIndex: GetSlideIndexForHost(normalizedHost)));
 
             RaiseChildPaneCollectionsChanged();
 
@@ -2528,7 +2561,13 @@ namespace Constellate.App
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
 
-            ChildPanes[index] = current with { HostId = normalizedHost, Order = nextOrder };
+            ChildPanes[index] = current with
+            {
+                HostId = normalizedHost,
+                Order = nextOrder,
+                ContainerIndex = 0,
+                SlideIndex = GetSlideIndexForHost(normalizedHost)
+            };
 
             RaiseChildPaneCollectionsChanged();
         }
@@ -2566,6 +2605,58 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
             OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
             OnPropertyChanged(nameof(PaneStructureSummary));
+        }
+
+        private int GetSlideIndexForHost(string hostId)
+        {
+            var normalized = NormalizeHostId(hostId);
+            return normalized switch
+            {
+                "top" => _topSlideIndex,
+                "right" => _rightSlideIndex,
+                "bottom" => _bottomSlideIndex,
+                _ => _leftSlideIndex
+            };
+        }
+
+        private void SlideParentPane(string arg)
+        {
+            var parts = arg.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+            {
+                return;
+            }
+
+            var host = NormalizeHostId(parts[0]);
+            var delta = string.Equals(parts[1], "next", StringComparison.OrdinalIgnoreCase) ? 1 : -1;
+
+            switch (host)
+            {
+                case "left":
+                    _leftSlideIndex = Math.Max(0, _leftSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesLeft));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                    break;
+                case "top":
+                    _topSlideIndex = Math.Max(0, _topSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesTop));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                    break;
+                case "right":
+                    _rightSlideIndex = Math.Max(0, _rightSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesRight));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                    break;
+                case "bottom":
+                    _bottomSlideIndex = Math.Max(0, _bottomSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesBottom));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
+                    break;
+            }
         }
 
         private void ApplyChildPaneSplitsForHost(string hostId, int splits)
