@@ -322,7 +322,8 @@ namespace Constellate.App
             new(
                 new[]
                 {
-                    new PaneDescriptor("shell.main", "Shell Sidebar", "left")
+                    new PaneDescriptor("shell.main", "Shell Sidebar", "left"),
+                    new PaneDescriptor("shell.history", "History", "right")
                 });
 
         public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
@@ -391,6 +392,15 @@ namespace Constellate.App
 
         public bool IsShellPaneMinimized =>
             Panes.Count > 0 && Panes[0].IsMinimized;
+
+        public bool IsHistoryPaneOnRight =>
+            Panes.Any(p =>
+                string.Equals(p.Id, "shell.history", StringComparison.Ordinal) &&
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "right", StringComparison.Ordinal));
+
+        public bool IsRightPaneHostVisible =>
+            IsShellPaneOnRight || IsHistoryPaneOnRight;
 
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
