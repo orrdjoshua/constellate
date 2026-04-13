@@ -151,6 +151,25 @@
                                 Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding Id}" />
                       </StackPanel>
+                      <DockPanel.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Move to Left"
+                                    Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Top"
+                                    Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Right"
+                                    Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Bottom"
+                                    Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Floating"
+                                    Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                        </ContextMenu>
+                      </DockPanel.ContextMenu>
                     </DockPanel>
 
                     <!-- Dummy child-pane body; real content will be provided by future pane types -->
@@ -288,6 +307,25 @@
                                 Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding Id}" />
                       </StackPanel>
+                      <DockPanel.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Move to Left"
+                                    Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Top"
+                                    Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Right"
+                                    Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Bottom"
+                                    Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Floating"
+                                    Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                        </ContextMenu>
+                      </DockPanel.ContextMenu>
                     </DockPanel>
 
                     <!-- Dummy child-pane body; real content will be provided by future pane types -->
@@ -420,6 +458,25 @@
                                 Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding Id}" />
                       </StackPanel>
+                      <DockPanel.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Move to Left"
+                                    Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Top"
+                                    Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Right"
+                                    Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Bottom"
+                                    Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Floating"
+                                    Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                        </ContextMenu>
+                      </DockPanel.ContextMenu>
                     </DockPanel>
                     <Border Grid.Row="1"
                             Margin="6,4,6,8"
@@ -556,6 +613,25 @@
                                 Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding Id}" />
                       </StackPanel>
+                      <DockPanel.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Move to Left"
+                                    Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Top"
+                                    Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Right"
+                                    Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Bottom"
+                                    Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Floating"
+                                    Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                        </ContextMenu>
+                      </DockPanel.ContextMenu>
                     </DockPanel>
                     <Border Grid.Row="1"
                             Margin="6,4,6,8"
@@ -689,6 +765,25 @@
                                 Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding Id}" />
                       </StackPanel>
+                      <DockPanel.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Move to Left"
+                                    Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Top"
+                                    Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Right"
+                                    Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Bottom"
+                                    Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          <MenuItem Header="Move to Floating"
+                                    Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                        </ContextMenu>
+                      </DockPanel.ContextMenu>
                     </DockPanel>
                     <Border Grid.Row="1"
                             Margin="6,4,6,8"

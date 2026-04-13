@@ -595,6 +595,11 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneDownCommand;
         private readonly RelayCommand _floatSettingsChildPaneCommand;
         private readonly RelayCommand _dockSettingsChildPaneCommand;
+        private readonly RelayCommand _moveChildPaneToLeftHostCommand;
+        private readonly RelayCommand _moveChildPaneToTopHostCommand;
+        private readonly RelayCommand _moveChildPaneToRightHostCommand;
+        private readonly RelayCommand _moveChildPaneToBottomHostCommand;
+        private readonly RelayCommand _moveChildPaneToFloatingHostCommand;
         private readonly RelayCommand _destroyParentPaneCommand;
         private readonly RelayCommand _createOrRestoreParentPaneCommand;
 
@@ -937,6 +942,11 @@ namespace Constellate.App
         public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
         public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
         public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
+        public ICommand MoveChildPaneToLeftHostCommand => _moveChildPaneToLeftHostCommand;
+        public ICommand MoveChildPaneToTopHostCommand => _moveChildPaneToTopHostCommand;
+        public ICommand MoveChildPaneToRightHostCommand => _moveChildPaneToRightHostCommand;
+        public ICommand MoveChildPaneToBottomHostCommand => _moveChildPaneToBottomHostCommand;
+        public ICommand MoveChildPaneToFloatingHostCommand => _moveChildPaneToFloatingHostCommand;
         public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
         public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
 
@@ -1758,6 +1768,51 @@ namespace Constellate.App
                 },
                 _ => IsSettingsChildFloating);
 
+            _moveChildPaneToLeftHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "left");
+                    }
+                });
+
+            _moveChildPaneToTopHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "top");
+                    }
+                });
+
+            _moveChildPaneToRightHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "right");
+                    }
+                });
+
+            _moveChildPaneToBottomHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "bottom");
+                    }
+                });
+
+            _moveChildPaneToFloatingHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "floating");
+                    }
+                });
+
             _createOrRestoreParentPaneCommand = new RelayCommand(
                 parameter =>
                 {
@@ -2037,6 +2092,52 @@ namespace Constellate.App
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
             _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        }
+
+        private void MoveChildPaneToHost(string id, string hostId)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            var normalizedHost = NormalizeHostId(hostId);
+
+            var index = -1;
+            ChildPaneDescriptor current = default;
+
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var pane = ChildPanes[i];
+                if (!string.Equals(pane.Id, id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                index = i;
+                current = pane;
+                break;
+            }
+
+            if (index < 0)
+            {
+                return;
+            }
+
+            if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var nextOrder = ChildPanes
+                .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                .Select(pane => pane.Order)
+                .DefaultIfEmpty(-1)
+                .Max() + 1;
+
+            ChildPanes[index] = current with { HostId = normalizedHost, Order = nextOrder };
+
+            RaiseChildPaneCollectionsChanged();
         }
 
         private void RaiseChildPaneCollectionsChanged()
