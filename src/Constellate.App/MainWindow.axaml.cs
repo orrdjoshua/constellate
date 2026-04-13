@@ -35,6 +35,7 @@ namespace Constellate.App
         private double _initialTopHeight;
         private double _initialBottomHeight;
         private Grid? _rootGrid;
+        private bool _isTopCornerOwnedByTop;
 
         public MainWindow()
         {
@@ -153,6 +154,16 @@ namespace Constellate.App
             Wire("BottomLeft_BottomTriangle");
             Wire("BottomRight_BottomTriangle");
             Wire("BottomRight_RightTriangle");
+        }
+
+        private void OnTopCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ToggleTopCornerOwnership();
+            }
+
+            e.Handled = true;
         }
 
         private static string GetTargetHostForPoint(Point point, double width, double height)
@@ -618,6 +629,10 @@ namespace Constellate.App
         private float _linkOpacity = EngineServices.Settings.LinkOpacity;
         private float _paneletteBackgroundIntensity = EngineServices.Settings.PaneletteBackgroundIntensity;
         private float _commandSurfaceOverlayOpacity = EngineServices.Settings.CommandSurfaceOverlayOpacity;
+        private int _leftPaneRow = 0;
+        private int _leftPaneRowSpan = 3;
+        private int _topPaneColumn = 1;
+        private int _topPaneColumnSpan = 1;
 
         public ObservableCollection<EngineCapability> Capabilities { get; } =
             new(EngineServices.Capabilities.GetAll());
@@ -674,6 +689,66 @@ namespace Constellate.App
 
         public IEnumerable<ChildPaneDescriptor> MinimizedChildPanes =>
             ChildPanesOrdered.Where(pane => pane.IsMinimized);
+
+        public int LeftPaneRow
+        {
+            get => _leftPaneRow;
+            set
+            {
+                if (_leftPaneRow == value)
+                {
+                    return;
+                }
+
+                _leftPaneRow = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int LeftPaneRowSpan
+        {
+            get => _leftPaneRowSpan;
+            set
+            {
+                if (_leftPaneRowSpan == value)
+                {
+                    return;
+                }
+
+                    _leftPaneRowSpan = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int TopPaneColumn
+        {
+            get => _topPaneColumn;
+            set
+            {
+                if (_topPaneColumn == value)
+                {
+                    return;
+                }
+
+                _topPaneColumn = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int TopPaneColumnSpan
+        {
+            get => _topPaneColumnSpan;
+            set
+            {
+                if (_topPaneColumnSpan == value)
+                {
+                    return;
+                }
+
+                _topPaneColumnSpan = value;
+                OnPropertyChanged();
+            }
+        }
 
         public bool IsShellCurrentChildVisible => !IsChildPaneMinimized("shell.current");
         public bool IsShellSettingsChildVisible => !IsChildPaneMinimized("shell.settings") && !IsSettingsChildFloating;
@@ -1717,6 +1792,46 @@ namespace Constellate.App
 
             LoadShellLayout();
             RefreshFromEngineState();
+        }
+
+        /// <summary>
+        /// Toggle which pane \"owns\" the top-left/right corners when both Top and Left
+        /// parent panes are visible: either Left is full-height and Top is center-only
+        /// (default), or Top spans the full top width and Left starts below it.
+        /// </summary>
+        public void ToggleTopCornerOwnership()
+        {
+            var hasTop = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.Ordinal));
+
+            var hasLeft = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+            if (!hasTop || !hasLeft)
+            {
+                return;
+            }
+
+            _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
+
+            if (_isTopCornerOwnedByTop)
+            {
+                // Top owns both top corners: span columns 0–1; Left starts below Top.
+                LeftPaneRow = 1;
+                LeftPaneRowSpan = 2;
+                TopPaneColumn = 0;
+                TopPaneColumnSpan = 2;
+            }
+            else
+            {
+                // Left owns corners again: full-height; Top restricted to center column.
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+            }
         }
 
         /// <summary>

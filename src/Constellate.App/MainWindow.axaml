@@ -37,7 +37,8 @@
 
     <!-- Left parent-pane host (reserved for future generic parent panes) -->
     <Border x:Name="LeftPaneHost"
-            Grid.RowSpan="3"
+            Grid.Row="{Binding LeftPaneRow}"
+            Grid.RowSpan="{Binding LeftPaneRowSpan}"
             Grid.Column="0"
             Background="#0E141B"
             BorderBrush="#2A394B"
@@ -96,7 +97,8 @@
 
     <!-- Top parent-pane host (no legacy header; reserved for future parent panes) -->
     <Border x:Name="TopPaneHost"
-            Grid.Column="1"
+            Grid.Column="{Binding TopPaneColumn}"
+            Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
             Grid.Row="0"
             Padding="10,6,10,4"
             MinHeight="220"
@@ -474,6 +476,29 @@
         </ToolTip.Tip>
       </Polygon>
     </Canvas>
+
+    <!-- Corner intersection hit targets between Top and Left/Right panes.
+         Double-clicking either top-corner intersection border toggles which
+         pane \"owns\" the corners (Top full-width vs Left full-height). -->
+    <Border x:Name="TopLeftIntersectionHit"
+            Grid.Row="0"
+            Grid.Column="0"
+            Width="8"
+            Height="8"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Background="Transparent"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
+
+    <Border x:Name="TopRightIntersectionHit"
+            Grid.Row="0"
+            Grid.Column="2"
+            Width="8"
+            Height="8"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Background="Transparent"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
 
     <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
          These grips are only hit-testable when the corresponding parent pane is visible. -->
