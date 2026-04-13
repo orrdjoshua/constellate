@@ -1,0 +1,25 @@
+diff a/src/Constellate.App/MainWindow.axaml.cs b/src/Constellate.App/MainWindow.axaml.cs	(rejected hunks)
+@@ -2668,22 +2668,23 @@
+                 var json = File.ReadAllText(ShellLayoutFileName);
+                 var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
+                 if (descriptor is null)
+                 {
+                     return;
+                 }
+ 
+                 var normalizedHost = NormalizeHostId(descriptor.HostId);
+                 var current = Panes[0];
+                 Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+ 
+                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                 OnPropertyChanged(nameof(IsShellPaneOnTop));
+                 OnPropertyChanged(nameof(IsShellPaneOnRight));
+                 OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                 OnPropertyChanged(nameof(IsShellPaneFloating));
+                 OnPropertyChanged(nameof(IsShellPaneMinimized));
++                OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                 OnPropertyChanged(nameof(PaneStructureSummary));
+                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
+             _destroyParentPaneCommand.RaiseCanExecuteChanged();
+             }
