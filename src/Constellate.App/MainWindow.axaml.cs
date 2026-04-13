@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows.Input;
@@ -34,15 +35,47 @@ namespace Constellate.App
         {
             AvaloniaXamlLoader.Load(this);
 
-            // Wire a simple drag gesture on the main shell parent-pane host so
-            // that future docking logic can consult the layout model instead of
-            // hardcoding left-only placement.
+            // Wire drag gestures on all shell parent-pane hosts so that docking
+            // and floating behavior can be driven by the shared layout model
+            // instead of hardcoded left-only placement.
             var leftHost = this.FindControl<Border>("LeftPaneHost");
             if (leftHost is not null)
             {
                 leftHost.PointerPressed += ShellPaneHost_OnPointerPressed;
                 leftHost.PointerReleased += ShellPaneHost_OnPointerReleased;
                 leftHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+
+            var topHost = this.FindControl<Border>("TopPaneHost");
+            if (topHost is not null)
+            {
+                topHost.PointerPressed += ShellPaneHost_OnPointerPressed;
+                topHost.PointerReleased += ShellPaneHost_OnPointerReleased;
+                topHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+
+            var rightHost = this.FindControl<Border>("RightPaneHost");
+            if (rightHost is not null)
+            {
+                rightHost.PointerPressed += ShellPaneHost_OnPointerPressed;
+                rightHost.PointerReleased += ShellPaneHost_OnPointerReleased;
+                rightHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+
+            var bottomHost = this.FindControl<Border>("BottomPaneHost");
+            if (bottomHost is not null)
+            {
+                bottomHost.PointerPressed += ShellPaneHost_OnPointerPressed;
+                bottomHost.PointerReleased += ShellPaneHost_OnPointerReleased;
+                bottomHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+
+            var floatingHost = this.FindControl<Border>("FloatingPaneHost");
+            if (floatingHost is not null)
+            {
+                floatingHost.PointerPressed += ShellPaneHost_OnPointerPressed;
+                floatingHost.PointerReleased += ShellPaneHost_OnPointerReleased;
+                floatingHost.PointerMoved += ShellPaneHost_OnPointerMoved;
             }
         }
 
@@ -70,9 +103,46 @@ namespace Constellate.App
                 return;
             }
 
-            // v0.1 rule: dragging upward toward the top quarter of the window
-            // docks the shell pane to the top host; otherwise it remains on the left.
-            var targetHost = releasePoint.Y < Bounds.Height * 0.25 ? "top" : "left";
+            // Dock based on drop region:
+            // - near left edge   → left host
+            // - near right edge  → right host
+            // - near top edge    → top host
+            // - near bottom edge → bottom host
+            // - interior region  → floating host
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            var leftThreshold = width * 0.15;
+            var rightThreshold = width * 0.85;
+            var topThreshold = height * 0.15;
+            var bottomThreshold = height * 0.85;
+
+            string targetHost;
+            if (releasePoint.X <= leftThreshold)
+            {
+                targetHost = "left";
+            }
+            else if (releasePoint.X >= rightThreshold)
+            {
+                targetHost = "right";
+            }
+            else if (releasePoint.Y <= topThreshold)
+            {
+                targetHost = "top";
+            }
+            else if (releasePoint.Y >= bottomThreshold)
+            {
+                targetHost = "bottom";
+            }
+            else
+            {
+                targetHost = "floating";
+            }
+
             vm.MoveShellPaneToHost(targetHost);
         }
 
@@ -107,12 +177,25 @@ namespace Constellate.App
         bool IsFloating = false,
         bool IsMinimized = false);
 
+    public sealed record ChildPaneDescriptor(
+        string Id,
+        string Title,
+        int Order,
+        bool IsMinimized = false);
+
+    public sealed record ShellLayoutDescriptor(
+        string HostId,
+        bool IsMinimized,
+        string? SavedHostId = null,
+        bool SavedIsMinimized = false);
+
     public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             IncludeFields = true
         };
+        private const string ShellLayoutFileName = "shell-layout.json";
         private readonly IDisposable[] _eventSubscriptions;
         private readonly ShellSceneState _shellScene = EngineServices.ShellScene;
 
@@ -171,6 +254,15 @@ namespace Constellate.App
         private readonly RelayCommand _applyBackgroundPaperCommand;
         private readonly RelayCommand _minimizeShellPaneCommand;
         private readonly RelayCommand _restoreShellPaneCommand;
+        private readonly RelayCommand _resetLayoutToDefaultCommand;
+        private readonly RelayCommand _saveLayoutPresetCommand;
+        private readonly RelayCommand _restoreLayoutPresetCommand;
+        private readonly RelayCommand _minimizeChildPaneCommand;
+        private readonly RelayCommand _restoreChildPaneFromTaskbarCommand;
+        private readonly RelayCommand _moveChildPaneUpCommand;
+        private readonly RelayCommand _moveChildPaneDownCommand;
+        private readonly RelayCommand _floatSettingsChildPaneCommand;
+        private readonly RelayCommand _dockSettingsChildPaneCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -187,6 +279,7 @@ namespace Constellate.App
         private bool _isDeveloperReadoutsSectionExpanded;
         private bool _isCapabilitiesSectionExpanded;
         private bool _isSettingsSectionExpanded;
+        private bool _isSettingsChildFloating;
         private bool _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
         private float _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
         private float _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
@@ -214,6 +307,8 @@ namespace Constellate.App
             {
                 new PaneHostDescriptor("left", "Shell Sidebar", "LeftPaneHost"),
                 new PaneHostDescriptor("top", "Viewport Header", "TopPaneHost"),
+                new PaneHostDescriptor("right", "Right Sidebar", "RightPaneHost"),
+                new PaneHostDescriptor("bottom", "Bottom Pane Host", "BottomPaneHost"),
                 new PaneHostDescriptor("center", "Viewport", "CenterViewportHost")
             };
 
@@ -230,6 +325,45 @@ namespace Constellate.App
                     new PaneDescriptor("shell.main", "Shell Sidebar", "left")
                 });
 
+        public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
+            new(
+                new[]
+                {
+                    new ChildPaneDescriptor("shell.current", "Current State & Command Surface", 0),
+                    new ChildPaneDescriptor("shell.settings", "Settings", 1),
+                    new ChildPaneDescriptor("shell.developer", "Developer Readouts", 2),
+                    new ChildPaneDescriptor("shell.capabilities", "Engine Capabilities", 3)
+                });
+
+        public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
+            ChildPanes
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public bool HasMinimizedChildPanes =>
+            ChildPanes.Any(pane => pane.IsMinimized);
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanes =>
+            ChildPanesOrdered.Where(pane => pane.IsMinimized);
+
+        public bool IsShellCurrentChildVisible => !IsChildPaneMinimized("shell.current");
+        public bool IsShellSettingsChildVisible => !IsChildPaneMinimized("shell.settings") && !IsSettingsChildFloating;
+        public bool IsShellDeveloperChildVisible => !IsChildPaneMinimized("shell.developer");
+        public bool IsShellCapabilitiesChildVisible => !IsChildPaneMinimized("shell.capabilities");
+
+        private bool IsChildPaneMinimized(string id)
+        {
+            foreach (var pane in ChildPanes)
+            {
+                if (string.Equals(pane.Id, id, StringComparison.Ordinal))
+                {
+                    return pane.IsMinimized;
+                }
+            }
+
+            return false;
+        }
+
         public bool IsShellPaneOnLeft =>
             Panes.Count > 0 &&
             !Panes[0].IsMinimized &&
@@ -239,6 +373,16 @@ namespace Constellate.App
             Panes.Count > 0 &&
             !Panes[0].IsMinimized &&
             string.Equals(Panes[0].HostId, "top", StringComparison.Ordinal);
+
+        public bool IsShellPaneOnRight =>
+            Panes.Count > 0 &&
+            !Panes[0].IsMinimized &&
+            string.Equals(Panes[0].HostId, "right", StringComparison.Ordinal);
+
+        public bool IsShellPaneOnBottom =>
+            Panes.Count > 0 &&
+            !Panes[0].IsMinimized &&
+            string.Equals(Panes[0].HostId, "bottom", StringComparison.Ordinal);
 
         public bool IsShellPaneFloating =>
             Panes.Count > 0 &&
@@ -306,6 +450,15 @@ namespace Constellate.App
         public ICommand ApplyBackgroundPaperCommand => _applyBackgroundPaperCommand;
         public ICommand MinimizeShellPaneCommand => _minimizeShellPaneCommand;
         public ICommand RestoreShellPaneCommand => _restoreShellPaneCommand;
+        public ICommand ResetLayoutToDefaultCommand => _resetLayoutToDefaultCommand;
+        public ICommand SaveLayoutPresetCommand => _saveLayoutPresetCommand;
+        public ICommand RestoreLayoutPresetCommand => _restoreLayoutPresetCommand;
+        public ICommand MinimizeChildPaneCommand => _minimizeChildPaneCommand;
+        public ICommand RestoreChildPaneFromTaskbarCommand => _restoreChildPaneFromTaskbarCommand;
+        public ICommand MoveChildPaneUpCommand => _moveChildPaneUpCommand;
+        public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
+        public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
+        public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -385,12 +538,29 @@ namespace Constellate.App
             set => SetExpansionState(ref _isCapabilitiesSectionExpanded, value);
         }
 
+        public bool IsSettingsChildFloating
+        {
+            get => _isSettingsChildFloating;
+            set
+            {
+                if (_isSettingsChildFloating == value)
+                {
+                    return;
+                }
+
+                _isSettingsChildFloating = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            }
+        }
+
         public MainWindowViewModel()
         {
             _eventSubscriptions =
             [
                 SubscribeRefresh(EventNames.CommandInvoked, "command activity"),
                 SubscribeRefresh(EventNames.SceneChanged, "scene changed"),
+                SubscribePanelInteraction(),
                 SubscribeRefresh(EventNames.FocusChanged, "focus changed"),
                 SubscribeRefresh(EventNames.PanelFocusChanged, "panel focus changed"),
                 SubscribeRefresh(EventNames.SelectionChanged, "selection changed"),
@@ -783,7 +953,7 @@ namespace Constellate.App
                     SendCommand(
                         CommandNames.AttachPanel,
                         new AttachPanelPayload(
-                            focusedNode.Id.ToString(),
+                                focusedNode.Id.ToString(),
                             viewRef,
                             LocalOffset: new Vector3(0f, 0.18f, 0.15f),
                             Size: new Vector2(1.05f, 0.62f),
@@ -791,11 +961,11 @@ namespace Constellate.App
                             IsVisible: true,
                             SurfaceKind: "panelette",
                             PaneletteKind: "metadata",
-                            PaneletteTier: 1,
+                                PaneletteTier: 1,
                             CommandSurface: new PanelCommandSurfaceMetadataPayload(
                                 SurfaceName: "node.quick",
                                 SurfaceGroup: "primary",
-                                CommandIds: [CommandNames.Focus, CommandNames.Select, CommandNames.CenterOnNode])));
+                                    CommandIds: [CommandNames.Focus, CommandNames.Select, CommandNames.CenterOnNode, "Engine.PromotePaneletteToShell"])));
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
@@ -849,7 +1019,11 @@ namespace Constellate.App
                             IsVisible: true,
                             SurfaceKind: "panelette",
                             PaneletteKind: "metadata",
-                            PaneletteTier: 2));
+                            PaneletteTier: 2,
+                            CommandSurface: new PanelCommandSurfaceMetadataPayload(
+                                SurfaceName: "node.detail",
+                                SurfaceGroup: "primary",
+                                CommandIds: ["Engine.PromotePaneletteToShell"])));
                 },
                 _ => _shellScene.GetFocusedNode() is not null);
 
@@ -874,6 +1048,24 @@ namespace Constellate.App
             _applyBackgroundPaperCommand = new RelayCommand(
                 _ => ApplyBackgroundPreset("Paper"));
 
+            _minimizeChildPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        SetChildPaneMinimized(id, true);
+                    }
+                });
+
+            _restoreChildPaneFromTaskbarCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        SetChildPaneMinimized(id, false);
+                    }
+                });
+
             _minimizeShellPaneCommand = new RelayCommand(
                 _ => SetShellPaneMinimized(true),
                 _ => Panes.Count > 0 && !Panes[0].IsMinimized);
@@ -882,7 +1074,245 @@ namespace Constellate.App
                 _ => SetShellPaneMinimized(false),
                 _ => Panes.Count > 0 && Panes[0].IsMinimized);
 
+            _resetLayoutToDefaultCommand = new RelayCommand(
+                _ =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    var current = Panes[0];
+                    var normalizedHost = "left";
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                });
+
+            _saveLayoutPresetCommand = new RelayCommand(
+                _ =>
+                {
+                    try
+                    {
+                        if (Panes.Count == 0)
+                        {
+                            return;
+                        }
+
+                        var current = Panes[0];
+                        var normalizedHost = NormalizeHostId(current.HostId);
+                        var isMinimized = current.IsMinimized;
+
+                        ShellLayoutDescriptor descriptor;
+                        if (File.Exists(ShellLayoutFileName))
+                        {
+                            var existingJson = File.ReadAllText(ShellLayoutFileName);
+                            var existing = JsonSerializer.Deserialize<ShellLayoutDescriptor>(existingJson, JsonOptions);
+                            descriptor = existing is null
+                                ? new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized)
+                                : existing with { SavedHostId = normalizedHost, SavedIsMinimized = isMinimized };
+                        }
+                        else
+                        {
+                            descriptor = new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized);
+                        }
+
+                        var json = JsonSerializer.Serialize(descriptor, JsonOptions);
+                        File.WriteAllText(ShellLayoutFileName, json);
+                    }
+                    catch
+                    {
+                    }
+                });
+
+            _restoreLayoutPresetCommand = new RelayCommand(
+                _ =>
+                {
+                    try
+                    {
+                        if (Panes.Count == 0 || !File.Exists(ShellLayoutFileName))
+                        {
+                            return;
+                        }
+
+                        var json = File.ReadAllText(ShellLayoutFileName);
+                        var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
+                        if (descriptor is null || string.IsNullOrWhiteSpace(descriptor.SavedHostId))
+                        {
+                            return;
+                        }
+
+                        var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
+                        var current = Panes[0];
+                        Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.SavedIsMinimized };
+
+                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                        OnPropertyChanged(nameof(IsShellPaneOnTop));
+                        OnPropertyChanged(nameof(IsShellPaneOnRight));
+                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                        OnPropertyChanged(nameof(IsShellPaneFloating));
+                        OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(PaneStructureSummary));
+                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                        SaveShellLayout();
+                    }
+                    catch
+                    {
+                    }
+                });
+
+            _moveChildPaneUpCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPane(id, -1);
+                    }
+                },
+                parameter =>
+                {
+                    if (parameter is not string id || string.IsNullOrWhiteSpace(id))
+                    {
+                        return false;
+                    }
+
+                    return CanMoveChildPane(id, -1);
+                });
+
+            _moveChildPaneDownCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPane(id, 1);
+                    }
+                },
+                parameter =>
+                {
+                    if (parameter is not string id || string.IsNullOrWhiteSpace(id))
+                    {
+                        return false;
+                    }
+
+                    return CanMoveChildPane(id, 1);
+                });
+
+            _floatSettingsChildPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    // Ensure the settings child is not minimized when floating.
+                    SetChildPaneMinimized("shell.settings", false);
+                    IsSettingsChildFloating = true;
+                },
+                _ => !IsSettingsChildFloating);
+
+            _dockSettingsChildPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    IsSettingsChildFloating = false;
+                },
+                _ => IsSettingsChildFloating);
+
+            LoadShellLayout();
             RefreshFromEngineState();
+        }
+
+        private void SetChildPaneMinimized(string id, bool minimized)
+        {
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var current = ChildPanes[i];
+                if (!string.Equals(current.Id, id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (current.IsMinimized == minimized)
+                {
+                    return;
+                }
+
+                ChildPanes[i] = current with { IsMinimized = minimized };
+
+                OnPropertyChanged(nameof(ChildPanesOrdered));
+                OnPropertyChanged(nameof(HasMinimizedChildPanes));
+                OnPropertyChanged(nameof(MinimizedChildPanes));
+                OnPropertyChanged(nameof(IsShellCurrentChildVisible));
+                OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+                OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
+                OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+                OnPropertyChanged(nameof(PaneStructureSummary));
+                return;
+            }
+        }
+
+        private bool CanMoveChildPane(string id, int delta)
+        {
+            var ordered = ChildPanesOrdered.ToList();
+            var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            var newIndex = index + delta;
+            return newIndex >= 0 && newIndex < ordered.Count;
+        }
+
+        private void MoveChildPane(string id, int delta)
+        {
+            var ordered = ChildPanesOrdered.ToList();
+            var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return;
+            }
+
+            var newIndex = index + delta;
+            if (newIndex < 0 || newIndex >= ordered.Count)
+            {
+                return;
+            }
+
+            var a = ordered[index];
+            var b = ordered[newIndex];
+
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var current = ChildPanes[i];
+                if (string.Equals(current.Id, a.Id, StringComparison.Ordinal))
+                {
+                    ChildPanes[i] = current with { Order = b.Order };
+                }
+                else if (string.Equals(current.Id, b.Id, StringComparison.Ordinal))
+                {
+                    ChildPanes[i] = current with { Order = a.Order };
+                }
+            }
+
+            OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(HasMinimizedChildPanes));
+            OnPropertyChanged(nameof(MinimizedChildPanes));
+            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
+            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
+            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+            OnPropertyChanged(nameof(PaneStructureSummary));
+
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+            _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
+            _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
         }
 
         public string FocusSummary
@@ -1235,7 +1665,11 @@ namespace Constellate.App
             $"view={FormatExpanded(IsViewGroupExpanded)} • " +
             $"editModes={FormatExpanded(IsEditModesGroupExpanded)} • " +
             $"mutation={FormatExpanded(IsMutationGroupExpanded)} • " +
-            $"appearance={FormatExpanded(IsAppearanceGroupExpanded)}";
+            $"appearance={FormatExpanded(IsAppearanceGroupExpanded)}" +
+            "\nChild Panes: " +
+            (ChildPanesOrdered.Count == 0
+                ? "none"
+                : string.Join(", ", ChildPanesOrdered.Select(p => p.Id)));
 
         public string LastActivitySummary => _lastActivitySummary;
 
@@ -1552,6 +1986,52 @@ namespace Constellate.App
             });
         }
 
+        private IDisposable SubscribePanelInteraction()
+        {
+            return EngineServices.EventBus.Subscribe(EventNames.PanelInteraction, envelope =>
+            {
+                if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                if (!TryGetString(payload, "action", out var action) ||
+                    !string.Equals(action, "promote_to_pane", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    var current = Panes[0];
+                    if (!current.IsMinimized)
+                    {
+                        return;
+                    }
+
+                    Panes[0] = current with { IsMinimized = false };
+
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                });
+
+                return true;
+            });
+        }
+
         private void SendCommand<TPayload>(string commandName, TPayload payload)
         {
             var envelope = new Envelope
@@ -1696,12 +2176,7 @@ namespace Constellate.App
             {
                 return;
             }
-
-            var normalized = hostId.Trim().ToLowerInvariant();
-            if (normalized != "left" && normalized != "top" && normalized != "floating")
-            {
-                normalized = "left";
-            }
+            var normalized = NormalizeHostId(hostId);
 
             var current = Panes[0];
             if (string.Equals(current.HostId, normalized, StringComparison.Ordinal))
@@ -1712,10 +2187,13 @@ namespace Constellate.App
             Panes[0] = current with { HostId = normalized };
             OnPropertyChanged(nameof(IsShellPaneOnLeft));
             OnPropertyChanged(nameof(IsShellPaneOnTop));
+            OnPropertyChanged(nameof(IsShellPaneOnRight));
+            OnPropertyChanged(nameof(IsShellPaneOnBottom));
             OnPropertyChanged(nameof(IsShellPaneFloating));
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
+            SaveShellLayout();
         }
 
         public void SetShellPaneMinimized(bool minimized)
@@ -1735,10 +2213,105 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellPaneMinimized));
             OnPropertyChanged(nameof(IsShellPaneOnLeft));
             OnPropertyChanged(nameof(IsShellPaneOnTop));
+            OnPropertyChanged(nameof(IsShellPaneOnRight));
+            OnPropertyChanged(nameof(IsShellPaneOnBottom));
             OnPropertyChanged(nameof(IsShellPaneFloating));
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
+            SaveShellLayout();
+        }
+
+        private static string NormalizeHostId(string? hostId)
+        {
+            if (string.IsNullOrWhiteSpace(hostId))
+            {
+                return "left";
+            }
+
+            var normalized = hostId.Trim().ToLowerInvariant();
+            return normalized is "left" or "top" or "right" or "bottom" or "floating"
+                ? normalized
+                : "left";
+        }
+
+        private void LoadShellLayout()
+        {
+            try
+            {
+                if (Panes.Count == 0)
+                {
+                    return;
+                }
+
+                if (!File.Exists(ShellLayoutFileName))
+                {
+                    return;
+                }
+
+                var json = File.ReadAllText(ShellLayoutFileName);
+                var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
+                if (descriptor is null)
+                {
+                    return;
+                }
+
+                var normalizedHost = NormalizeHostId(descriptor.HostId);
+                var current = Panes[0];
+                Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+
+                OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                OnPropertyChanged(nameof(IsShellPaneOnTop));
+                OnPropertyChanged(nameof(IsShellPaneOnRight));
+                OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                OnPropertyChanged(nameof(IsShellPaneFloating));
+                OnPropertyChanged(nameof(IsShellPaneMinimized));
+                OnPropertyChanged(nameof(PaneStructureSummary));
+                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                _restoreShellPaneCommand.RaiseCanExecuteChanged();
+            }
+            catch
+            {
+            }
+        }
+
+        private void SaveShellLayout()
+        {
+            try
+            {
+                if (Panes.Count == 0)
+                {
+                    return;
+                }
+
+                var current = Panes[0];
+                ShellLayoutDescriptor? existing = null;
+
+                if (File.Exists(ShellLayoutFileName))
+                {
+                    try
+                    {
+                        var existingJson = File.ReadAllText(ShellLayoutFileName);
+                        existing = JsonSerializer.Deserialize<ShellLayoutDescriptor>(existingJson, JsonOptions);
+                    }
+                    catch
+                    {
+                        existing = null;
+                    }
+                }
+
+                var normalizedHost = NormalizeHostId(current.HostId);
+
+                var descriptor = existing is null
+                    ? new ShellLayoutDescriptor(normalizedHost, current.IsMinimized)
+                    : existing with { HostId = normalizedHost, IsMinimized = current.IsMinimized };
+
+                var json = JsonSerializer.Serialize(descriptor, JsonOptions);
+                File.WriteAllText(ShellLayoutFileName, json);
+            }
+            catch
+            {
+            }
         }
 
         private void RefreshFromEngineState()
@@ -2021,6 +2594,8 @@ namespace Constellate.App
             _clearSelectionCommand.RaiseCanExecuteChanged();
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)

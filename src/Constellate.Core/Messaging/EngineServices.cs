@@ -1216,7 +1216,12 @@ namespace Constellate.Core.Messaging
                 new PanelCommandSurfaceMetadata(
                     "node.quick",
                     "primary",
-                    [new PanelCommandDescriptor(CommandNames.CenterOnNode, "Center On Node"), new PanelCommandDescriptor(CommandNames.Select, "Select Node"), new PanelCommandDescriptor(CommandNames.Focus, "Focus Node")],
+                    [
+                        new PanelCommandDescriptor(CommandNames.CenterOnNode, "Center On Node"),
+                        new PanelCommandDescriptor(CommandNames.Select, "Select Node"),
+                        new PanelCommandDescriptor(CommandNames.Focus, "Focus Node"),
+                        new PanelCommandDescriptor("Engine.PromotePaneletteToShell", "Promote to Pane")
+                    ],
                     "engine"));
         }
 

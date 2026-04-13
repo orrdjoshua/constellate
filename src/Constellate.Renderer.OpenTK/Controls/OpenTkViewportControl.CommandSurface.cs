@@ -21,6 +21,7 @@ namespace Constellate.Renderer.OpenTK.Controls
         private const string SurfaceCommand_ClearPanelettesForAllNodes = "Engine.ClearPanelettesForAllNodes";
         private const string SurfaceCommand_AttachDetailMetadataPaneletteForNode = "Engine.AttachDetailMetadataPaneletteForNode";
         private const string SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes = "Engine.AttachDetailMetadataPanelettesForAllNodes";
+        private const string SurfaceCommand_PromotePaneletteToShell = "Engine.PromotePaneletteToShell";
         private const string SurfaceCommand_CreateNodeAtPointer = "Engine.CreateNodeAtPointer";
         private const string SurfaceCommand_ExitNodeContext = "Engine.Node.ExitContext";
         private const string SurfaceCommand_SetModeNavigate = "Engine.SetInteractionMode.Navigate";
@@ -513,6 +514,9 @@ namespace Constellate.Renderer.OpenTK.Controls
                     return true;
                 case SurfaceCommand_NodeShrink:
                     ApplyNodeTransformFromContextSurface(panel.NodeId, NVec3.Zero, 1f / 1.15f);
+                    return true;
+                case SurfaceCommand_PromotePaneletteToShell:
+                    PublishPanelInteraction(panel.NodeId, panel.ViewRef, "promote_to_pane");
                     return true;
                 case SurfaceCommand_AttachMetadataPanelettesForAllNodes:
                     AttachPanelettesForAllNodes("metadata");

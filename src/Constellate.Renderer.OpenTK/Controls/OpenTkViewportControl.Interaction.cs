@@ -927,6 +927,28 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
         }
 
+        private static void PublishPanelInteraction(string nodeId, string viewRef, string action)
+        {
+            try
+            {
+                var payload = new { nodeId, viewRef, action };
+
+                EngineServices.EventBus.Publish(new Envelope
+                {
+                    V = "1.0",
+                    Id = Guid.NewGuid(),
+                    Ts = DateTimeOffset.UtcNow,
+                    Type = EnvelopeType.Event,
+                    Name = EventNames.PanelInteraction,
+                    Payload = JsonSerializer.SerializeToElement(payload, JsonOptions),
+                    CorrelationId = null
+                });
+            }
+            catch
+            {
+            }
+        }
+
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var pt = e.GetPosition(this);
