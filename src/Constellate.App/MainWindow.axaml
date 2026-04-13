@@ -935,6 +935,71 @@
         </StackPanel>
       </Border>
     </DataTemplate>
+
+    <!-- History parent pane content template: dedicated 2D World surface for navigation-view and world-state command history. -->
+    <DataTemplate x:Key="HistoryPaneContentTemplate"
+                  x:DataType="app:MainWindowViewModel">
+      <Border Background="#0B1017"
+              BorderBrush="#2B3A4D"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="10">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="10">
+            <DockPanel LastChildFill="False">
+              <TextBlock Text="History"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         Foreground="#F4F7FB"
+                         DockPanel.Dock="Left" />
+            </DockPanel>
+
+            <TextBlock Text="Read-only view of navigation history and undoable world-state command history. This pane surfaces the same summaries that appear in Developer Readouts, but as a dedicated 2D World surface."
+                       Foreground="#C7D2DE"
+                       Opacity="0.95"
+                       TextWrapping="Wrap" />
+
+            <Border Margin="0,6,0,0"
+                    Padding="10"
+                    Background="#151E28"
+                    BorderBrush="#304055"
+                    BorderThickness="1"
+                    CornerRadius="6">
+              <StackPanel Spacing="8">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Navigation history"
+                             Foreground="#F4F7FB"
+                             FontSize="13"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="Camera/view samples as reported by the renderer via ViewChanged; this is navigation/view history, not represented-world undo."
+                             Foreground="#8FA8BE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding NavigationHistorySummary}" />
+
+                <StackPanel Spacing="2"
+                            Margin="0,8,0,0">
+                  <TextBlock Text="World-state command history"
+                             Foreground="#F4F7FB"
+                             FontSize="13"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="Recent undoable commands over the Core command bus. This reflects represented-world state/action history, not pure navigation or 2D content edits."
+                             Foreground="#8FA8BE"
+                             FontSize="11"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBox Classes="SidebarReadout"
+                         Text="{Binding CommandHistorySummary}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </DataTemplate>
   </Window.Resources>
 
   <Window.Styles>
@@ -1048,6 +1113,7 @@
         <ContentControl Content="{Binding}"
                         ContentTemplate="{StaticResource ShellSettingsChildContentTemplate}" />
       </StackPanel>
+            IsVisible="False">
     </Border>
 
     <!-- Top parent-pane host (viewport header + optional shell when docked top) -->
@@ -1080,6 +1146,7 @@
             IsVisible="{Binding IsShellPaneOnRight}">
       <ContentControl Content="{Binding}"
                       ContentTemplate="{StaticResource ShellPaneContentTemplate}" />
+            IsVisible="False">
     </Border>
 
     <!-- Center viewport host -->
@@ -1100,6 +1167,7 @@
             IsVisible="{Binding IsShellPaneOnBottom}">
       <ContentControl Content="{Binding}"
                       ContentTemplate="{StaticResource ShellPaneContentTemplate}" />
+            IsVisible="False">
     </Border>
 
     <!-- Floating parent-pane host overlaying the viewport -->
@@ -1128,5 +1196,7 @@
             Margin="4"
             Command="{Binding RestoreShellPaneCommand}"
             IsVisible="{Binding IsShellPaneMinimized}" />
+            IsVisible="False">
+    </Border>
   </Grid>
 </Window>
