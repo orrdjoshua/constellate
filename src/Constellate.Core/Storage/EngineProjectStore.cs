@@ -15,7 +15,6 @@ namespace Constellate.Core.Storage
     /// - open an existing project and return its basic metadata.
     ///
     /// Later Phase A work will add:
-    /// - schema bootstrap against engine.db using SPEC-020,
     /// - DB-backed EngineScene hydration in OpenProject.
     /// </summary>
     public sealed class EngineProjectStore
@@ -54,9 +53,8 @@ namespace Constellate.Core.Storage
         /// - root folder (if missing),
         /// - content/ and indexes/ subfolders,
         /// - project.json (if missing),
-        /// - an empty engine.db file (if missing).
-        ///
-        /// Schema bootstrap for engine.db is handled in a later Phase A slice.
+        /// - an empty engine.db file (if missing),
+        /// - and applies the SPEC-020 v0.1 schema via EngineDbBootstrap.
         /// </summary>
         /// <param name="rootPath">Desired project root directory.</param>
         /// <param name="name">
@@ -89,9 +87,11 @@ namespace Constellate.Core.Storage
 
             if (!File.Exists(paths.DatabasePath))
             {
-                // Create an empty DB file; schema bootstrap will be applied later.
                 using var _ = File.Create(paths.DatabasePath);
             }
+
+            // Apply (or re-apply) the v0.1 schema; statements are idempotent.
+            EngineDbBootstrap.EnsureSchema(paths.DatabasePath);
 
             return paths;
         }
@@ -102,9 +102,10 @@ namespace Constellate.Core.Storage
         /// - validates the presence of project.json and engine.db,
         /// - deserializes the project manifest,
         /// - updates LastOpenedAtUtc,
+        /// - ensures engine.db has at least the v0.1 schema,
         /// - returns paths + manifest.
         ///
-        /// DB schema/bootstrap and EngineScene hydration are handled by later CT-002 slices.
+        /// DB-backed EngineScene hydration is handled by later CT-002 slices.
         /// </summary>
         /// <param name="rootPath">Existing project root directory.</param>
         /// <exception cref="DirectoryNotFoundException">If the root directory does not exist.</exception>
@@ -156,8 +157,9 @@ namespace Constellate.Core.Storage
                 manifest = updatedManifest;
             }
 
-            // NOTE: schema bootstrap + EngineScene hydration will be layered on top of this
-            // entry point once SPEC-020 is wired through a SQLite provider.
+            // Ensure the DB has at least the v0.1 schema applied.
+            EngineDbBootstrap.EnsureSchema(paths.DatabasePath);
+
             return new ProjectOpenResult(paths, manifest);
         }
 
