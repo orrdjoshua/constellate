@@ -19,3 +19,5 @@ Thumbs.db
 
 # Avalonia designer cache
 **/.avalonia/
+_worktrees/
+node_modules/

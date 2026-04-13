@@ -31,6 +31,25 @@ namespace Constellate.App
         }
     }
 
+    public sealed record PaneHostDescriptor(
+        string Id,
+        string DisplayName,
+        string HostElementName);
+
+    /// <summary>
+    /// Minimal descriptor for a logical pane in the 2D World. For v0.1 this is
+    /// a simple record that captures identity, title, and host placement
+    /// (which parent-pane host it belongs to, whether it is floating, and
+    /// whether it is minimized). Future passes can extend this into a richer
+    /// ShellLayoutViewModel without changing the initial contract.
+    /// </summary>
+    public sealed record PaneDescriptor(
+        string Id,
+        string Title,
+        string HostId,
+        bool IsFloating = false,
+        bool IsMinimized = false);
+
     public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -124,6 +143,33 @@ namespace Constellate.App
 
         public ObservableCollection<EngineCapability> Capabilities { get; } =
             new(EngineServices.Capabilities.GetAll());
+
+        /// <summary>
+        /// Declarative taxonomy of parent-pane hosts in the main window. This is the
+        /// first step toward a ShellLayoutViewModel/PaneDescriptor model so that
+        /// additional top/right/bottom/floating parents can be added without
+        /// restructuring MainWindow.axaml again.
+        /// </summary>
+        public IReadOnlyList<PaneHostDescriptor> PaneHosts { get; } =
+            new[]
+            {
+                new PaneHostDescriptor("left", "Shell Sidebar", "LeftPaneHost"),
+                new PaneHostDescriptor("top", "Viewport Header", "TopPaneHost"),
+                new PaneHostDescriptor("center", "Viewport", "CenterViewportHost")
+            };
+
+        /// <summary>
+        /// Minimal pane layout model for the current 2D World. For v0.31 this
+        /// contains a single shell sidebar pane hosted on the left; later D2/D3
+        /// slices will extend this collection and bind docking/floating behavior
+        /// to these descriptors instead of hardcoding layout in XAML.
+        /// </summary>
+        public ObservableCollection<PaneDescriptor> Panes { get; } =
+            new(
+                new[]
+                {
+                    new PaneDescriptor("shell.main", "Shell Sidebar", hostId: "left")
+                });
 
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };

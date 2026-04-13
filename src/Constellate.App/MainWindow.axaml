@@ -61,7 +61,9 @@
   </Window.Styles>
 
   <Grid ColumnDefinitions="300,*" RowDefinitions="Auto,*">
-    <Border Grid.RowSpan="2"
+    <!-- Left parent-pane host (shell sidebar). This remains the main shell surface but is now treated as a parent pane. -->
+    <Border x:Name="LeftPaneHost"
+            Grid.RowSpan="2"
             Background="#0E141B"
             BorderBrush="#2A394B"
             BorderThickness="0,0,1,0"
@@ -750,7 +752,9 @@
       </ScrollViewer>
     </Border>
 
-    <Border Grid.Column="1"
+    <!-- Top parent-pane host over the viewport; currently hosts the viewport help/header text. -->
+    <Border x:Name="TopPaneHost"
+            Grid.Column="1"
             Padding="12,10,12,6">
       <StackPanel Spacing="4">
         <TextBlock Text="Constellate — Hybrid 2D/3D shell with Core capability registry"
@@ -763,7 +767,11 @@
       </StackPanel>
     </Border>
 
-    <rt:OpenTkViewportControl Grid.Column="1"
-                              Grid.Row="1" />
+    <!-- Center viewport host; the 3D world lives here and future layouts may dock additional panes around it. -->
+    <Border x:Name="CenterViewportHost"
+            Grid.Column="1"
+            Grid.Row="1">
+      <rt:OpenTkViewportControl />
+    </Border>
   </Grid>
 </Window>
