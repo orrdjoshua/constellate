@@ -79,6 +79,96 @@ namespace Constellate.App
             }
         }
 
+        private static string GetTargetHostForPoint(Point point, double width, double height)
+        {
+            if (width <= 0 || height <= 0)
+            {
+                return "left";
+            }
+
+            var leftThreshold = width * 0.15;
+            var rightThreshold = width * 0.85;
+            var topThreshold = height * 0.15;
+            var bottomThreshold = height * 0.85;
+
+            if (point.X <= leftThreshold)
+            {
+                return "left";
+            }
+
+            if (point.X >= rightThreshold)
+            {
+                return "right";
+            }
+
+            if (point.Y <= topThreshold)
+            {
+                return "top";
+            }
+
+            if (point.Y >= bottomThreshold)
+            {
+                return "bottom";
+            }
+
+            return "floating";
+        }
+
+        private static void ComputeDragShadowRect(
+            string hostId,
+            double windowWidth,
+            double windowHeight,
+            Point pointer,
+            out double left,
+            out double top,
+            out double width,
+            out double height)
+        {
+            var normalized = MainWindowViewModel.NormalizeHostId(hostId);
+            windowWidth = Math.Max(1, windowWidth);
+            windowHeight = Math.Max(1, windowHeight);
+
+            switch (normalized)
+            {
+                case "left":
+                    width = windowWidth * 0.25;
+                    height = windowHeight;
+                    left = 0;
+                    top = 0;
+                    break;
+                case "right":
+                    width = windowWidth * 0.25;
+                    height = windowHeight;
+                    left = windowWidth - width;
+                    top = 0;
+                    break;
+                case "top":
+                    width = windowWidth * 0.6;
+                    height = windowHeight * 0.22;
+                    left = (windowWidth - width) / 2.0;
+                    top = 0;
+                    break;
+                case "bottom":
+                    width = windowWidth * 0.6;
+                    height = windowHeight * 0.22;
+                    left = (windowWidth - width) / 2.0;
+                    top = windowHeight - height;
+                    break;
+                case "floating":
+                default:
+                    width = windowWidth * 0.3;
+                    height = windowHeight * 0.3;
+                    left = pointer.X - (width / 2.0);
+                    top = pointer.Y - (height / 2.0);
+
+                    if (left < 0) left = 0;
+                    if (top < 0) top = 0;
+                    if (left + width > windowWidth) left = windowWidth - width;
+                    if (top + height > windowHeight) top = windowHeight - height;
+                    break;
+            }
+        }
+
         private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -155,6 +245,49 @@ namespace Constellate.App
 
             // v0.1 has no visual ghost/preview; later passes can add overlay feedback
             // using this hook without changing the layout model shape.
+                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
+            vm.MoveShellPaneToHost(targetHost);
+            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+        }
+
+        private void ShellPaneHost_OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isShellPaneDragging)
+            {
+                return;
+            }
+
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            var currentPoint = e.GetPosition(this);
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+
+            if (width <= 0 || height <= 0)
+            {
+                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(currentPoint, width, height);
+            ComputeDragShadowRect(
+                targetHost,
+                width,
+                height,
+                currentPoint,
+                out var left,
+                out var top,
+                out var shadowWidth,
+                out var shadowHeight);
+
+            vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
         }
     }
 
@@ -263,6 +396,8 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneDownCommand;
         private readonly RelayCommand _floatSettingsChildPaneCommand;
         private readonly RelayCommand _dockSettingsChildPaneCommand;
+        private readonly RelayCommand _destroyParentPaneCommand;
+        private readonly RelayCommand _createOrRestoreParentPaneCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -280,6 +415,11 @@ namespace Constellate.App
         private bool _isCapabilitiesSectionExpanded;
         private bool _isSettingsSectionExpanded;
         private bool _isSettingsChildFloating;
+        private bool _isParentPaneDragShadowVisible;
+        private double _parentPaneDragShadowLeft;
+        private double _parentPaneDragShadowTop;
+        private double _parentPaneDragShadowWidth;
+        private double _parentPaneDragShadowHeight;
         private bool _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
         private float _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
         private float _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
@@ -323,6 +463,10 @@ namespace Constellate.App
                 new[]
                 {
                     new PaneDescriptor("shell.main", "Shell Sidebar", "left")
+                    // Treat this as a generic parent pane descriptor. It starts minimized so
+                    // the app launches in pure 3D World mode; corner affordances can move
+                    // and restore it onto any edge.
+                    new PaneDescriptor("parent.main", "Parent Pane", "left", IsFloating: false, IsMinimized: true)
                 });
 
         public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
@@ -392,6 +536,11 @@ namespace Constellate.App
         public bool IsShellPaneMinimized =>
             Panes.Count > 0 && Panes[0].IsMinimized;
 
+        public bool IsRightPaneHostVisible =>
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "right", StringComparison.Ordinal));
+
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
 
@@ -459,6 +608,8 @@ namespace Constellate.App
         public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
         public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
         public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
+        public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
+        public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -552,6 +703,45 @@ namespace Constellate.App
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsShellSettingsChildVisible));
             }
+        }
+
+        public bool IsParentPaneDragShadowVisible
+        {
+            get => _isParentPaneDragShadowVisible;
+            private set
+            {
+                if (_isParentPaneDragShadowVisible == value)
+                {
+                    return;
+                }
+
+                _isParentPaneDragShadowVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double ParentPaneDragShadowLeft
+        {
+            get => _parentPaneDragShadowLeft;
+            private set { if (Math.Abs(_parentPaneDragShadowLeft - value) > double.Epsilon) { _parentPaneDragShadowLeft = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowTop
+        {
+            get => _parentPaneDragShadowTop;
+            private set { if (Math.Abs(_parentPaneDragShadowTop - value) > double.Epsilon) { _parentPaneDragShadowTop = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowWidth
+        {
+            get => _parentPaneDragShadowWidth;
+            private set { if (Math.Abs(_parentPaneDragShadowWidth - value) > double.Epsilon) { _parentPaneDragShadowWidth = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowHeight
+        {
+            get => _parentPaneDragShadowHeight;
+            private set { if (Math.Abs(_parentPaneDragShadowHeight - value) > double.Epsilon) { _parentPaneDragShadowHeight = value; OnPropertyChanged(); } }
         }
 
         public MainWindowViewModel()
@@ -1223,8 +1413,116 @@ namespace Constellate.App
                 },
                 _ => IsSettingsChildFloating);
 
+            _createOrRestoreParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is not string hostId || string.IsNullOrWhiteSpace(hostId))
+                    {
+                        return;
+                    }
+
+                    var normalizedHost = NormalizeHostId(hostId);
+
+                    // If no parent pane exists yet (for example after Close was used),
+                    // create a new generic parent pane on the requested host.
+                    if (Panes.Count == 0)
+                    {
+                        Panes.Add(new PaneDescriptor(
+                            "parent.main",
+                            "Parent Pane",
+                            normalizedHost,
+                            IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                            IsMinimized: false));
+
+                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                        OnPropertyChanged(nameof(IsShellPaneOnTop));
+                        OnPropertyChanged(nameof(IsShellPaneOnRight));
+                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                        OnPropertyChanged(nameof(IsShellPaneFloating));
+                        OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                        OnPropertyChanged(nameof(PaneStructureSummary));
+
+                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                        _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                        SaveShellLayout();
+                        return;
+                    }
+
+                    var current = Panes[0];
+
+                    // If already on this host and not minimized, nothing to do.
+                    if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal) &&
+                        !current.IsMinimized)
+                    {
+                        return;
+                    }
+
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                },
+                _ => true);
+
+            _destroyParentPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    Panes.Clear();
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                },
+                _ => true);
+
             LoadShellLayout();
             RefreshFromEngineState();
+        }
+
+        /// <summary>
+        /// Update the drag-shadow rectangle used to preview parent-pane docking/floating.
+        /// When <paramref name="visible"/> is false, the rect values are ignored and the
+        /// shadow is hidden.
+        /// </summary>
+        public void SetParentPaneDragShadow(bool visible, double left, double top, double width, double height)
+        {
+            IsParentPaneDragShadowVisible = visible;
+
+            if (!visible)
+            {
+                return;
+            }
+
+            ParentPaneDragShadowLeft = left;
+            ParentPaneDragShadowTop = top;
+            ParentPaneDragShadowWidth = width;
+            ParentPaneDragShadowHeight = height;
         }
 
         private void SetChildPaneMinimized(string id, bool minimized)
@@ -2223,6 +2521,7 @@ namespace Constellate.App
         }
 
         private static string NormalizeHostId(string? hostId)
+        internal static string NormalizeHostId(string? hostId)
         {
             if (string.IsNullOrWhiteSpace(hostId))
             {
@@ -2269,6 +2568,7 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
+            _destroyParentPaneCommand.RaiseCanExecuteChanged();
             }
             catch
             {
@@ -2596,6 +2896,8 @@ namespace Constellate.App
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+            _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+            _destroyParentPaneCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
