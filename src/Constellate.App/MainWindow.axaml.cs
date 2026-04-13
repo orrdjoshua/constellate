@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows.Input;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Constellate.Core.Capabilities;
@@ -19,6 +20,9 @@ namespace Constellate.App
 {
     public partial class MainWindow : Window
     {
+        private bool _isShellPaneDragging;
+        private Point _shellDragStartPoint;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -28,6 +32,58 @@ namespace Constellate.App
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+
+            // Wire a simple drag gesture on the main shell parent-pane host so
+            // that future docking logic can consult the layout model instead of
+            // hardcoding left-only placement.
+            var leftHost = this.FindControl<Border>("LeftPaneHost");
+            if (leftHost is not null)
+            {
+                leftHost.PointerPressed += ShellPaneHost_OnPointerPressed;
+                leftHost.PointerReleased += ShellPaneHost_OnPointerReleased;
+                leftHost.PointerMoved += ShellPaneHost_OnPointerMoved;
+            }
+        }
+
+        private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                _isShellPaneDragging = true;
+                _shellDragStartPoint = e.GetPosition(this);
+            }
+        }
+
+        private void ShellPaneHost_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isShellPaneDragging)
+            {
+                return;
+            }
+
+            _isShellPaneDragging = false;
+            var releasePoint = e.GetPosition(this);
+
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            // v0.1 rule: dragging upward toward the top quarter of the window
+            // docks the shell pane to the top host; otherwise it remains on the left.
+            var targetHost = releasePoint.Y < Bounds.Height * 0.25 ? "top" : "left";
+            vm.MoveShellPaneToHost(targetHost);
+        }
+
+        private void ShellPaneHost_OnPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isShellPaneDragging)
+            {
+                return;
+            }
+
+            // v0.1 has no visual ghost/preview; later passes can add overlay feedback
+            // using this hook without changing the layout model shape.
         }
     }
 
@@ -168,7 +224,7 @@ namespace Constellate.App
             new(
                 new[]
                 {
-                    new PaneDescriptor("shell.main", "Shell Sidebar", hostId: "left")
+                    new PaneDescriptor("shell.main", "Shell Sidebar", "left")
                 });
 
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
@@ -1132,7 +1188,8 @@ namespace Constellate.App
         }
 
         public string PaneStructureSummary =>
-            "2D Pane Layout: " +
+            $"Shell Host: {(Panes.Count > 0 ? Panes[0].HostId : "left")}" +
+            "\n2D Pane Layout: " +
             $"current={FormatExpanded(IsCurrentStateSectionExpanded)} • " +
             $"commands={FormatExpanded(IsCommandSurfaceSectionExpanded)} • " +
             $"settings={FormatExpanded(IsSettingsSectionExpanded)} • " +
@@ -1599,6 +1656,29 @@ namespace Constellate.App
             }
 
             return [];
+        }
+
+        public void MoveShellPaneToHost(string hostId)
+        {
+            if (Panes.Count == 0 || string.IsNullOrWhiteSpace(hostId))
+            {
+                return;
+            }
+
+            var normalized = hostId.Trim().ToLowerInvariant();
+            if (normalized != "left" && normalized != "top")
+            {
+                normalized = "left";
+            }
+
+            var current = Panes[0];
+            if (string.Equals(current.HostId, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            Panes[0] = current with { HostId = normalized };
+            OnPropertyChanged(nameof(PaneStructureSummary));
         }
 
         private void RefreshFromEngineState()
