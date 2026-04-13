@@ -169,6 +169,8 @@ namespace Constellate.App
         private readonly RelayCommand _applyBackgroundDeepSpaceCommand;
         private readonly RelayCommand _applyBackgroundDuskCommand;
         private readonly RelayCommand _applyBackgroundPaperCommand;
+        private readonly RelayCommand _minimizeShellPaneCommand;
+        private readonly RelayCommand _restoreShellPaneCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -230,11 +232,21 @@ namespace Constellate.App
 
         public bool IsShellPaneOnLeft =>
             Panes.Count > 0 &&
+            !Panes[0].IsMinimized &&
             string.Equals(Panes[0].HostId, "left", StringComparison.Ordinal);
 
         public bool IsShellPaneOnTop =>
             Panes.Count > 0 &&
+            !Panes[0].IsMinimized &&
             string.Equals(Panes[0].HostId, "top", StringComparison.Ordinal);
+
+        public bool IsShellPaneFloating =>
+            Panes.Count > 0 &&
+            !Panes[0].IsMinimized &&
+            string.Equals(Panes[0].HostId, "floating", StringComparison.Ordinal);
+
+        public bool IsShellPaneMinimized =>
+            Panes.Count > 0 && Panes[0].IsMinimized;
 
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
@@ -292,6 +304,8 @@ namespace Constellate.App
         public ICommand ApplyBackgroundDeepSpaceCommand => _applyBackgroundDeepSpaceCommand;
         public ICommand ApplyBackgroundDuskCommand => _applyBackgroundDuskCommand;
         public ICommand ApplyBackgroundPaperCommand => _applyBackgroundPaperCommand;
+        public ICommand MinimizeShellPaneCommand => _minimizeShellPaneCommand;
+        public ICommand RestoreShellPaneCommand => _restoreShellPaneCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -860,6 +874,14 @@ namespace Constellate.App
             _applyBackgroundPaperCommand = new RelayCommand(
                 _ => ApplyBackgroundPreset("Paper"));
 
+            _minimizeShellPaneCommand = new RelayCommand(
+                _ => SetShellPaneMinimized(true),
+                _ => Panes.Count > 0 && !Panes[0].IsMinimized);
+
+            _restoreShellPaneCommand = new RelayCommand(
+                _ => SetShellPaneMinimized(false),
+                _ => Panes.Count > 0 && Panes[0].IsMinimized);
+
             RefreshFromEngineState();
         }
 
@@ -1198,6 +1220,7 @@ namespace Constellate.App
 
         public string PaneStructureSummary =>
             $"Shell Host: {(Panes.Count > 0 ? Panes[0].HostId : "left")}" +
+            $" • minimized={FormatExpanded(!IsShellPaneMinimized)}" +
             "\n2D Pane Layout: " +
             $"current={FormatExpanded(IsCurrentStateSectionExpanded)} • " +
             $"commands={FormatExpanded(IsCommandSurfaceSectionExpanded)} • " +
@@ -1675,7 +1698,7 @@ namespace Constellate.App
             }
 
             var normalized = hostId.Trim().ToLowerInvariant();
-            if (normalized != "left" && normalized != "top")
+            if (normalized != "left" && normalized != "top" && normalized != "floating")
             {
                 normalized = "left";
             }
@@ -1689,7 +1712,33 @@ namespace Constellate.App
             Panes[0] = current with { HostId = normalized };
             OnPropertyChanged(nameof(IsShellPaneOnLeft));
             OnPropertyChanged(nameof(IsShellPaneOnTop));
+            OnPropertyChanged(nameof(IsShellPaneFloating));
             OnPropertyChanged(nameof(PaneStructureSummary));
+            _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+            _restoreShellPaneCommand.RaiseCanExecuteChanged();
+        }
+
+        public void SetShellPaneMinimized(bool minimized)
+        {
+            if (Panes.Count == 0)
+            {
+                return;
+            }
+
+            var current = Panes[0];
+            if (current.IsMinimized == minimized)
+            {
+                return;
+            }
+
+            Panes[0] = current with { IsMinimized = minimized };
+            OnPropertyChanged(nameof(IsShellPaneMinimized));
+            OnPropertyChanged(nameof(IsShellPaneOnLeft));
+            OnPropertyChanged(nameof(IsShellPaneOnTop));
+            OnPropertyChanged(nameof(IsShellPaneFloating));
+            OnPropertyChanged(nameof(PaneStructureSummary));
+            _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+            _restoreShellPaneCommand.RaiseCanExecuteChanged();
         }
 
         private void RefreshFromEngineState()
@@ -1970,6 +2019,8 @@ namespace Constellate.App
             _attachDetailMetadataPaneletteCommand.RaiseCanExecuteChanged();
             _clearLinksCommand.RaiseCanExecuteChanged();
             _clearSelectionCommand.RaiseCanExecuteChanged();
+            _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+            _restoreShellPaneCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)

@@ -13,10 +13,21 @@
                   x:DataType="app:MainWindowViewModel">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="10">
-          <TextBlock Text="Constellate Shell"
-                     FontSize="18"
-                     FontWeight="SemiBold"
-                     Foreground="#F4F7FB" />
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Constellate Shell"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="#F4F7FB"
+                       DockPanel.Dock="Left" />
+            <Button Classes="SidebarActionButton"
+                    Content="–"
+                    Width="28"
+                    Height="24"
+                    HorizontalAlignment="Right"
+                    Margin="6,0,0,0"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    ToolTip.Tip="Minimize shell pane to edge" />
+          </DockPanel>
           <TextBlock Text="Viewport interaction remains primary. Right-click context surfaces in the 3D world (background, node, link, group) are the first way to access commands; the left pane is an organized, collapsible secondary surface so tools stay compact and developer diagnostics remain available but secondary."
                      Foreground="#C7D2DE"
                      Opacity="0.95"
@@ -1283,5 +1294,32 @@
             Grid.Row="1">
       <rt:OpenTkViewportControl />
     </Border>
+
+    <!-- Floating parent-pane host over the viewport; shows the shell pane when it is detached into a floating state. -->
+    <Border x:Name="FloatingPaneHost"
+            Grid.Column="1"
+            Grid.Row="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="40"
+            Background="#111822"
+            BorderBrush="#2A394B"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="10"
+            IsVisible="{Binding IsShellPaneFloating}">
+      <ContentControl Content="{Binding}"
+                      ContentTemplate="{StaticResource ShellPaneContentTemplate}" />
+    </Border>
+
+    <!-- Edge restore tab for minimized shell pane. -->
+    <Button Grid.RowSpan="2"
+            Grid.Column="0"
+            Content="Shell"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Margin="4"
+            Command="{Binding RestoreShellPaneCommand}"
+            IsVisible="{Binding IsShellPaneMinimized}" />
   </Grid>
 </Window>
