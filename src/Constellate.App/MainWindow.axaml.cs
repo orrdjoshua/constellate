@@ -510,6 +510,7 @@ namespace Constellate.App
         string Id,
         string Title,
         int Order,
+        string HostId,
         bool IsMinimized = false);
 
     public sealed record ShellLayoutDescriptor(
@@ -674,10 +675,10 @@ namespace Constellate.App
             new(
                 new[]
                 {
-                    new ChildPaneDescriptor("child.1", "Pane 1", 0),
-                    new ChildPaneDescriptor("child.2", "Pane 2", 1),
-                    new ChildPaneDescriptor("child.3", "Pane 3", 2),
-                    new ChildPaneDescriptor("child.4", "Pane 4", 3)
+                    new ChildPaneDescriptor("child.1", "Pane 1", 0, "left"),
+                    new ChildPaneDescriptor("child.2", "Pane 2", 1, "left"),
+                    new ChildPaneDescriptor("child.3", "Pane 3", 2, "left"),
+                    new ChildPaneDescriptor("child.4", "Pane 4", 3, "left")
                 });
 
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
@@ -696,6 +697,66 @@ namespace Constellate.App
 
         public IEnumerable<ChildPaneDescriptor> MinimizedChildPanes =>
             ChildPanesOrdered.Where(pane => pane.IsMinimized);
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeft =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesLeft =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTop =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "top", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesTop =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "top", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesRight =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "right", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesRight =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "right", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptors> VisibleChildPanesBottom =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesBottom =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesFloating =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "floating", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesFloating =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "floating", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
 
         public int LeftPaneRow
         {
@@ -1507,9 +1568,10 @@ namespace Constellate.App
                 _ => ApplyBackgroundPreset("Paper"));
 
             _createChildPaneCommand = new RelayCommand(
-                _ =>
+                parameter =>
                 {
-                    CreateChildPane();
+                    var hostId = parameter as string;
+                    CreateChildPane(hostId);
                 });
 
             _minimizeChildPaneCommand = new RelayCommand(
@@ -1901,21 +1963,14 @@ namespace Constellate.App
 
                 ChildPanes[i] = current with { IsMinimized = minimized };
 
-                OnPropertyChanged(nameof(ChildPanesOrdered));
-                OnPropertyChanged(nameof(VisibleChildPanesOrdered));
-                OnPropertyChanged(nameof(HasMinimizedChildPanes));
-                OnPropertyChanged(nameof(MinimizedChildPanes));
-                OnPropertyChanged(nameof(IsShellCurrentChildVisible));
-                OnPropertyChanged(nameof(IsShellSettingsChildVisible));
-                OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
-                OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
-                OnPropertyChanged(nameof(PaneStructureSummary));
+                RaiseChildPaneCollectionsChanged();
                 return;
             }
         }
 
-        private void CreateChildPane()
+        private void CreateChildPane(string? hostId)
         {
+            var normalizedHost = NormalizeHostId(hostId);
             var nextOrder = ChildPanes.Count == 0
                 ? 0
                 : ChildPanes.Max(pane => pane.Order) + 1;
@@ -1924,17 +1979,9 @@ namespace Constellate.App
             var id = $"child.{labelIndex}";
             var title = $"Pane {labelIndex}";
 
-            ChildPanes.Add(new ChildPaneDescriptor(id, title, nextOrder, IsMinimized: false));
+            ChildPanes.Add(new ChildPaneDescriptor(id, title, nextOrder, normalizedHost, IsMinimized: false));
 
-            OnPropertyChanged(nameof(ChildPanesOrdered));
-            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
-            OnPropertyChanged(nameof(HasMinimizedChildPanes));
-            OnPropertyChanged(nameof(MinimizedChildPanes));
-            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
-            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
-            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
-            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
-            OnPropertyChanged(nameof(PaneStructureSummary));
+            RaiseChildPaneCollectionsChanged();
 
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
@@ -1984,20 +2031,35 @@ namespace Constellate.App
                 }
             }
 
-            OnPropertyChanged(nameof(ChildPanesOrdered));
-            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
-            OnPropertyChanged(nameof(HasMinimizedChildPanes));
-            OnPropertyChanged(nameof(MinimizedChildPanes));
-            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
-            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
-            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
-            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
-            OnPropertyChanged(nameof(PaneStructureSummary));
+            RaiseChildPaneCollectionsChanged();
 
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
             _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        }
+
+        private void RaiseChildPaneCollectionsChanged()
+        {
+            OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
+            OnPropertyChanged(nameof(HasMinimizedChildPanes));
+            OnPropertyChanged(nameof(MinimizedChildPanes));
+            OnPropertyChanged(nameof(VisibleChildPanesLeft));
+            OnPropertyChanged(nameof(MinimizedChildPanesLeft));
+            OnPropertyChanged(nameof(VisibleChildPanesTop));
+            OnPropertyChanged(nameof(MinimizedChildPanesTop));
+            OnPropertyChanged(nameof(VisibleChildPanesRight));
+            OnPropertyChanged(nameof(MinimizedChildPanesRight));
+            OnPropertyChanged(nameof(VisibleChildPanesBottom));
+            OnPropertyChanged(nameof(MinimizedChildPanesBottom));
+            OnPropertyChanged(nameof(VisibleChildPanesFloating));
+            OnPropertyChanged(nameof(MinimizedChildPanesFloating));
+            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
+            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
+            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+            OnPropertyChanged(nameof(PaneStructureSummary));
         }
 
         public string FocusSummary
