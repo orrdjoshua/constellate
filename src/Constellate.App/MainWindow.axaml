@@ -34,14 +34,82 @@
             BorderThickness="0,0,1,0"
             Padding="14"
             IsVisible="{Binding IsShellPaneOnLeft}">
+      <Grid>
+        <!-- Simple parent-pane header/chrome with label + minimize/close -->
+        <Border Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}" />
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Close pane"
+                      Command="{Binding DestroyParentPaneCommand}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Placeholder for future child-pane content inside the parent pane -->
+      </Grid>
     </Border>
 
     <!-- Top parent-pane host (no legacy header; reserved for future parent panes) -->
     <Border x:Name="TopPaneHost"
             Grid.Column="1"
             Grid.Row="0"
-            Padding="0"
+            Padding="10,6,10,4"
             IsVisible="{Binding IsShellPaneOnTop}">
+      <Grid>
+        <Border Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}" />
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Close pane"
+                      Command="{Binding DestroyParentPaneCommand}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Placeholder for future child-pane content inside the parent pane -->
+      </Grid>
     </Border>
 
     <!-- Right parent-pane host (reserved for future generic parent panes) -->
@@ -53,6 +121,40 @@
             BorderThickness="1,0,0,0"
             Padding="14"
             IsVisible="{Binding IsRightPaneHostVisible}">
+      <Grid>
+        <Border Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}" />
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Close pane"
+                      Command="{Binding DestroyParentPaneCommand}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Placeholder for future child-pane content inside the parent pane -->
+      </Grid>
     </Border>
 
     <!-- Center viewport host: pure 3D World -->
@@ -71,6 +173,39 @@
             BorderThickness="0,1,0,0"
             Padding="10,6,10,10"
             IsVisible="{Binding IsShellPaneOnBottom}">
+      <Grid>
+        <Border Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}" />
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Close pane"
+                      Command="{Binding DestroyParentPaneCommand}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Placeholder for future child-pane content inside the parent pane -->
+      </Grid>
     </Border>
 
     <!-- Floating parent-pane host overlaying the viewport (for future floating panes) -->
@@ -86,6 +221,40 @@
             CornerRadius="8"
             Padding="0"
             IsVisible="{Binding IsShellPaneFloating}">
+      <Grid>
+        <Border Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}" />
+              <Button Width="20"
+                      Height="20"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Close pane"
+                      Command="{Binding DestroyParentPaneCommand}" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Placeholder for future child-pane content inside the floating parent pane -->
+      </Grid>
     </Border>
 
     <!-- Corner affordances: small always-visible controls to create/restore parent panes.

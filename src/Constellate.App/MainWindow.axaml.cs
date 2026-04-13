@@ -263,6 +263,7 @@ namespace Constellate.App
         private readonly RelayCommand _moveChildPaneDownCommand;
         private readonly RelayCommand _floatSettingsChildPaneCommand;
         private readonly RelayCommand _dockSettingsChildPaneCommand;
+        private readonly RelayCommand _destroyParentPaneCommand;
         private readonly RelayCommand _createOrRestoreParentPaneCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
@@ -468,6 +469,7 @@ namespace Constellate.App
         public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
         public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
         public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
+        public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
         public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
 
         public bool IsCurrentStateSectionExpanded
@@ -1236,17 +1238,40 @@ namespace Constellate.App
             _createOrRestoreParentPaneCommand = new RelayCommand(
                 parameter =>
                 {
-                    if (Panes.Count == 0)
-                    {
-                        return;
-                    }
-
                     if (parameter is not string hostId || string.IsNullOrWhiteSpace(hostId))
                     {
                         return;
                     }
 
                     var normalizedHost = NormalizeHostId(hostId);
+
+                    // If no parent pane exists yet (for example after Close was used),
+                    // create a new generic parent pane on the requested host.
+                    if (Panes.Count == 0)
+                    {
+                        Panes.Add(new PaneDescriptor(
+                            "parent.main",
+                            "Parent Pane",
+                            normalizedHost,
+                            IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                            IsMinimized: false));
+
+                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                        OnPropertyChanged(nameof(IsShellPaneOnTop));
+                        OnPropertyChanged(nameof(IsShellPaneOnRight));
+                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                        OnPropertyChanged(nameof(IsShellPaneFloating));
+                        OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                        OnPropertyChanged(nameof(PaneStructureSummary));
+
+                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                        _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                        SaveShellLayout();
+                        return;
+                    }
+
                     var current = Panes[0];
 
                     // If already on this host and not minimized, nothing to do.
@@ -1271,7 +1296,32 @@ namespace Constellate.App
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
                     SaveShellLayout();
                 },
-                _ => Panes.Count > 0);
+                _ => true);
+
+            _destroyParentPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    Panes.Clear();
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                },
+                _ => true);
 
             LoadShellLayout();
             RefreshFromEngineState();
@@ -2647,6 +2697,7 @@ namespace Constellate.App
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+            _destroyParentPaneCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
