@@ -172,7 +172,7 @@
       </Grid>
     </Border>
 
-    <!-- Top parent-pane host (no legacy header; reserved for future parent panes) -->
+    <!-- Top parent-pane host (generic parent pane with child panes + taskbar) -->
     <Border x:Name="TopPaneHost"
             Grid.Column="{Binding TopPaneColumn}"
             Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
@@ -193,10 +193,13 @@
                     CommandParameter="top" />
         </ContextMenu>
       </Border.ContextMenu>
-      <Grid>
-        <Border Background="#121A23"
+      <Grid RowDefinitions="Auto,*">
+        <!-- Parent-pane header/chrome with label, Add Pane, minimize, destroy -->
+        <Border Grid.Row="0"
+                Background="#121A23"
                 CornerRadius="4"
-                Padding="6,4">
+                Padding="6,4"
+                Margin="0,0,0,8">
           <DockPanel LastChildFill="False">
             <TextBlock Text="Parent Pane"
                        FontSize="13"
@@ -211,10 +214,16 @@
               <Button Width="22"
                       Height="22"
                       Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}"
+                      CommandParameter="top" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
                       Content="–"
                       ToolTip.Tip="Minimize pane"
-                      Command="{Binding CreateChildPaneCommand}"
-                      CommandParameter="left" />
+                      Command="{Binding MinimizeShellPaneCommand}"
                       CommandParameter="top" />
               <Button Width="22"
                       Height="22"
@@ -227,7 +236,76 @@
           </DockPanel>
         </Border>
 
-        <!-- Placeholder for future child-pane content inside the parent pane -->
+        <!-- Child-pane taskbar (minimized children) and visible child panes for Top host -->
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <!-- Taskbar strip for minimized child panes on Top host -->
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesTop}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Visible child panes on Top host (dummy content for now) -->
+          <ItemsControl ItemsSource="{Binding VisibleChildPanesTop}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Margin="0,0,0,6"
+                        Background="#151E28"
+                        CornerRadius="4">
+                  <Grid RowDefinitions="Auto,*">
+                    <DockPanel Grid.Row="0"
+                               LastChildFill="False"
+                               Background="#192531">
+                      <TextBlock Text="{Binding Title}"
+                                 FontSize="12"
+                                 Foreground="#E5EDF7"
+                                 VerticalAlignment="Center"
+                                 DockPanel.Dock="Left" />
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="4"
+                                  HorizontalAlignment="Right"
+                                  DockPanel.Dock="Right">
+                        <Button Width="20"
+                                Height="20"
+                                Padding="0"
+                                Content="–"
+                                ToolTip.Tip="Minimize child pane"
+                                Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding Id}" />
+                      </StackPanel>
+                    </DockPanel>
+
+                    <!-- Dummy child-pane body; real content will be provided by future pane types -->
+                    <Border Grid.Row="1"
+                            Margin="6,4,6,8"
+                            Background="#101722"
+                            CornerRadius="2">
+                      <TextBlock Text="(empty child pane)"
+                                 Margin="6,4"
+                                 FontSize="11"
+                                 Foreground="#9BA8B7" />
+                    </Border>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
       </Grid>
     </Border>
 
