@@ -691,7 +691,13 @@ namespace Constellate.App
         string HostId,
         bool IsMinimized,
         string? SavedHostId = null,
-        bool SavedIsMinimized = false);
+        bool SavedIsMinimized = false,
+        int LeftSlideIndex = 0,
+        int TopSlideIndex = 0,
+        int RightSlideIndex = 0,
+        int BottomSlideIndex = 0,
+        IReadOnlyList<PaneDescriptor>? ParentPanes = null,
+        IReadOnlyList<ChildPaneDescriptor>? ChildPanes = null);
 
     public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
@@ -3769,11 +3775,6 @@ namespace Constellate.App
         {
             try
             {
-                if (Panes.Count == 0)
-                {
-                    return;
-                }
-
                 if (!File.Exists(ShellLayoutFileName))
                 {
                     return;
@@ -3786,9 +3787,40 @@ namespace Constellate.App
                     return;
                 }
 
-                var normalizedHost = NormalizeHostId(descriptor.HostId);
-                var current = Panes[0];
-                Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+                _leftSlideIndex = descriptor.LeftSlideIndex;
+                _topSlideIndex = descriptor.TopSlideIndex;
+                _rightSlideIndex = descriptor.RightSlideIndex;
+                _bottomSlideIndex = descriptor.BottomSlideIndex;
+
+                // Restore parent panes if present; otherwise fall back to legacy single-pane HostId/IsMinimized.
+                if (descriptor.ParentPanes is { Count: > 0 })
+                {
+                    Panes.Clear();
+                    foreach (var parent in descriptor.ParentPanes)
+                    {
+                        var normalizedHost = NormalizeHostId(parent.HostId);
+                        Panes.Add(parent with { HostId = normalizedHost });
+                    }
+                }
+                else if (Panes.Count > 0)
+                {
+                    var normalizedHost = NormalizeHostId(descriptor.HostId);
+                    var current = Panes[0];
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+                }
+
+                // Restore child panes if present; otherwise keep any seeded dummy panes.
+                if (descriptor.ChildPanes is { Count: > 0 })
+                {
+                    ChildPanes.Clear();
+                    foreach (var child in descriptor.ChildPanes)
+                    {
+                        var normalizedHost = NormalizeHostId(child.HostId);
+                        ChildPanes.Add(child with { HostId = normalizedHost });
+                    }
+
+                    RaiseChildPaneCollectionsChanged();
+                }
 
                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
                 OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -3796,12 +3828,26 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(IsShellPaneOnBottom));
                 OnPropertyChanged(nameof(IsShellPaneFloating));
                 OnPropertyChanged(nameof(IsShellPaneMinimized));
-                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                    OnPropertyChanged(nameof(PaneStructureSummary));
-                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
-                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
-                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
-                    UpdateTopLeftOwnershipLayout();
+                OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                OnPropertyChanged(nameof(PaneStructureSummary));
+                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                UpdateTopLeftOwnershipLayout();
+
+                // Ensure slide-index–filtered views are refreshed even when only slide indices change.
+                OnPropertyChanged(nameof(VisibleChildPanesLeft));
+                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                OnPropertyChanged(nameof(VisibleChildPanesTop));
+                OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+                OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                OnPropertyChanged(nameof(VisibleChildPanesRight));
+                OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+                OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                OnPropertyChanged(nameof(VisibleChildPanesBottom));
+                OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+                OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
             }
             catch
             {
@@ -3812,12 +3858,6 @@ namespace Constellate.App
         {
             try
             {
-                if (Panes.Count == 0)
-                {
-                    return;
-                }
-
-                var current = Panes[0];
                 ShellLayoutDescriptor? existing = null;
 
                 if (File.Exists(ShellLayoutFileName))
@@ -3833,11 +3873,28 @@ namespace Constellate.App
                     }
                 }
 
-                var normalizedHost = NormalizeHostId(current.HostId);
+                // Preserve legacy HostId/IsMinimized semantics using the first parent pane when present.
+                var hostId = existing?.HostId ?? "left";
+                var isMinimized = existing?.IsMinimized ?? false;
 
-                var descriptor = existing is null
-                    ? new ShellLayoutDescriptor(normalizedHost, current.IsMinimized)
-                    : existing with { HostId = normalizedHost, IsMinimized = current.IsMinimized };
+                if (Panes.Count > 0)
+                {
+                    var primary = Panes[0];
+                    hostId = NormalizeHostId(primary.HostId);
+                    isMinimized = primary.IsMinimized;
+                }
+
+                var descriptor = new ShellLayoutDescriptor(
+                    HostId: hostId,
+                    IsMinimized: isMinimized,
+                    SavedHostId: existing?.SavedHostId,
+                    SavedIsMinimized: existing?.SavedIsMinimized ?? false,
+                    LeftSlideIndex: _leftSlideIndex,
+                    TopSlideIndex: _topSlideIndex,
+                    RightSlideIndex: _rightSlideIndex,
+                    BottomSlideIndex: _bottomSlideIndex,
+                    ParentPanes: Panes.ToArray(),
+                    ChildPanes: ChildPanes.ToArray());
 
                 var json = JsonSerializer.Serialize(descriptor, JsonOptions);
                 File.WriteAllText(ShellLayoutFileName, json);
