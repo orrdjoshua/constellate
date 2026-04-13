@@ -19,11 +19,21 @@
   </Window.Styles>
 
   <!-- 3-column, 3-row layout:
-       - Left/right/top/bottom hosts are invisible parent-pane placeholders.
+       - Left/right/top/bottom hosts are invisible parent-pane placeholders whose
+         free dimension can be resized via drag grips along their borders.
        - Center host contains the 3D viewport.
        - Floating host is an invisible overlay for future floating parent panes. -->
-  <Grid ColumnDefinitions="Auto,*,Auto"
-        RowDefinitions="Auto,*,Auto">
+  <Grid x:Name="RootGrid">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
 
     <!-- Left parent-pane host (reserved for future generic parent panes) -->
     <Border x:Name="LeftPaneHost"
@@ -264,7 +274,9 @@
          Bottom-right: create/restore Bottom and Right panes. -->
 
     <!-- Top-left corner -->
-    <StackPanel Orientation="Horizontal"
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
                 Margin="6"
@@ -284,7 +296,9 @@
     </StackPanel>
 
     <!-- Top-right corner -->
-    <StackPanel Orientation="Horizontal"
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Margin="6"
@@ -304,7 +318,9 @@
     </StackPanel>
 
     <!-- Bottom-left corner -->
-    <StackPanel Orientation="Horizontal"
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Bottom"
                 Margin="6"
@@ -324,7 +340,9 @@
     </StackPanel>
 
     <!-- Bottom-right corner -->
-    <StackPanel Orientation="Horizontal"
+    <StackPanel Grid.RowSpan="3"
+                Grid.ColumnSpan="3"
+                Orientation="Horizontal"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Margin="6"
@@ -342,6 +360,49 @@
               Command="{Binding CreateOrRestoreParentPaneCommand}"
               CommandParameter="bottom" />
     </StackPanel>
+
+    <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
+         These grips are only hit-testable when the corresponding parent pane is visible. -->
+
+    <!-- Left pane resize grip (horizontal resize for left host) -->
+    <Border x:Name="LeftPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="0"
+            HorizontalAlignment="Right"
+            Width="4"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnLeft}" />
+
+    <!-- Right pane resize grip (horizontal resize for right host) -->
+    <Border x:Name="RightPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="2"
+            HorizontalAlignment="Left"
+            Width="4"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnRight}" />
+
+    <!-- Top pane resize grip (vertical resize for top host) -->
+    <Border x:Name="TopPaneResizeGrip"
+            Grid.Row="0"
+            Grid.Column="1"
+            VerticalAlignment="Bottom"
+            Height="4"
+            Background="Transparent"
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnTop}" />
+
+    <!-- Bottom pane resize grip (vertical resize for bottom host) -->
+    <Border x:Name="BottomPaneResizeGrip"
+            Grid.Row="2"
+            Grid.Column="1"
+            VerticalAlignment="Top"
+            Height="4"
+            Background="Transparent"
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnBottom}" />
 
     <!-- Drag shadow overlay for parent-pane drag preview -->
     <Canvas Grid.RowSpan="3"
