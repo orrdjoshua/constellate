@@ -51,6 +51,11 @@
                     Command="{Binding MinimizeShellPaneCommand}" />
           <MenuItem Header="Close pane"
                     Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="left" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="left" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -76,12 +81,16 @@
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="left" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
                       Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="left" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -103,6 +112,11 @@
                     Command="{Binding MinimizeShellPaneCommand}" />
           <MenuItem Header="Close pane"
                     Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="top" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="top" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -126,12 +140,16 @@
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="top" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
                       Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="top" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -156,6 +174,11 @@
                     Command="{Binding MinimizeShellPaneCommand}" />
           <MenuItem Header="Close pane"
                     Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="right" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="right" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -180,12 +203,16 @@
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="right" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
                       Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="right" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -217,6 +244,11 @@
                     Command="{Binding MinimizeShellPaneCommand}" />
           <MenuItem Header="Close pane"
                     Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="bottom" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="bottom" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -240,12 +272,16 @@
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="bottom" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
                       Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="bottom" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -273,6 +309,11 @@
                     Command="{Binding MinimizeShellPaneCommand}" />
           <MenuItem Header="Close pane"
                     Command="{Binding DestroyParentPaneCommand}" />
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="floating" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="floating" />
         </ContextMenu>
       </Border.ContextMenu>
       <Grid>
@@ -297,12 +338,16 @@
                       Content="–"
                       ToolTip.Tip="Minimize pane"
                       Command="{Binding MinimizeShellPaneCommand}" />
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="floating" />
               <Button Width="20"
                       Height="20"
                       Padding="0"
                       Content="×"
                       ToolTip.Tip="Close pane"
                       Command="{Binding DestroyParentPaneCommand}" />
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="floating" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -404,6 +449,149 @@
               Command="{Binding CreateOrRestoreParentPaneCommand}"
               CommandParameter="bottom" />
     </StackPanel>
+    <!-- Corner affordances: true 45° bisected triangular controls in each viewport corner.
+         Each corner draws a right-isosceles triangle offset slightly from the corner and
+         then bisects it; each half-triangle is a separate click target mapped to a host.
+         Top-left: left triangle = Left host, top triangle = Top host.
+         Top-right: top triangle = Top host, right triangle = Right host.
+         Bottom-left: left triangle = Left host, bottom triangle = Bottom host.
+         Bottom-right: bottom triangle = Bottom host, right triangle = Right host. -->
+
+    <!-- Top-left corner (origin at top-left of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="6">
+      <!-- Left triangle (hosts Left pane) : A(0,0) M(7,7) B(0,14) -->
+      <Polygon x:Name="TopLeft_LeftTriangle"
+               Points="0,0 7,7 0,14"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="left">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Left pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Top triangle (hosts Top pane) : A(0,0) C(14,0) M(7,7) -->
+      <Polygon x:Name="TopLeft_TopTriangle"
+               Points="0,0 14,0 7,7"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="top">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Top pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Top-right corner (origin at top-right of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="6">
+      <!-- Top triangle (hosts Top pane) : A(22,0) C(8,0) M(15,7) in local space -->
+      <Polygon x:Name="TopRight_TopTriangle"
+               Points="22,0 8,0 15,7"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="top">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Top pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Right triangle (hosts Right pane) : A(22,0) M(15,7) B(22,14) -->
+      <Polygon x:Name="TopRight_RightTriangle"
+               Points="22,0 15,7 22,14"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="right">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Right pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Bottom-left corner (origin at bottom-left of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Margin="6">
+      <!-- Left triangle (hosts Left pane) : A(0,22) M(7,15) B(0,8) -->
+      <Polygon x:Name="BottomLeft_LeftTriangle"
+               Points="0,22 7,15 0,8"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="left">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Left pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Bottom triangle (hosts Bottom pane) : A(0,22) C(14,22) M(7,15) -->
+      <Polygon x:Name="BottomLeft_BottomTriangle"
+               Points="0,22 14,22 7,15"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="bottom">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Bottom pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Bottom-right corner (origin at bottom-right of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="6">
+      <!-- Bottom triangle (hosts Bottom pane) : A(22,22) C(8,22) M(15,15) -->
+      <Polygon x:Name="BottomRight_BottomTriangle"
+               Points="22,22 8,22 15,15"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="bottom">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Bottom pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Right triangle (hosts Right pane) : A(22,22) M(15,15) B(22,8) -->
+      <Polygon x:Name="BottomRight_RightTriangle"
+               Points="22,22 15,15 22,8"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="right">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Right pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
 
     <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
          These grips are only hit-testable when the corresponding parent pane is visible. -->
