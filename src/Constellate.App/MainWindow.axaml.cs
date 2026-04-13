@@ -2172,7 +2172,7 @@ namespace Constellate.App
             _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
         }
 
-        private void MoveChildPaneToHost(string id, string hostId)
+        public void MoveChildPaneToHost(string id, string hostId)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
