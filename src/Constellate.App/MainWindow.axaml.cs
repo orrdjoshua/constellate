@@ -627,32 +627,32 @@ namespace Constellate.App
         }
 
         public bool IsShellPaneOnLeft =>
-            Panes.Count > 0 &&
-            !Panes[0].IsMinimized &&
-            string.Equals(Panes[0].HostId, "left", StringComparison.Ordinal);
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.Ordinal));
 
         public bool IsShellPaneOnTop =>
-            Panes.Count > 0 &&
-            !Panes[0].IsMinimized &&
-            string.Equals(Panes[0].HostId, "top", StringComparison.Ordinal);
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.Ordinal));
 
         public bool IsShellPaneOnRight =>
-            Panes.Count > 0 &&
-            !Panes[0].IsMinimized &&
-            string.Equals(Panes[0].HostId, "right", StringComparison.Ordinal);
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "right", StringComparison.Ordinal));
 
         public bool IsShellPaneOnBottom =>
-            Panes.Count > 0 &&
-            !Panes[0].IsMinimized &&
-            string.Equals(Panes[0].HostId, "bottom", StringComparison.Ordinal);
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "bottom", StringComparison.Ordinal));
 
         public bool IsShellPaneFloating =>
-            Panes.Count > 0 &&
-            !Panes[0].IsMinimized &&
-            string.Equals(Panes[0].HostId, "floating", StringComparison.Ordinal);
+            Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "floating", StringComparison.Ordinal));
 
         public bool IsShellPaneMinimized =>
-            Panes.Count > 0 && Panes[0].IsMinimized;
+            Panes.Any(p => p.IsMinimized);
 
         public bool IsRightPaneHostVisible =>
             Panes.Any(p =>
@@ -1469,6 +1469,7 @@ namespace Constellate.App
                         OnPropertyChanged(nameof(IsShellPaneOnBottom));
                         OnPropertyChanged(nameof(IsShellPaneFloating));
                         OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
                         OnPropertyChanged(nameof(PaneStructureSummary));
                         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                         _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -1610,6 +1611,7 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(IsShellPaneOnBottom));
                     OnPropertyChanged(nameof(IsShellPaneFloating));
                     OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
                     OnPropertyChanged(nameof(IsRightPaneHostVisible));
                     OnPropertyChanged(nameof(PaneStructureSummary));
 
@@ -2606,6 +2608,7 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellPaneOnRight));
             OnPropertyChanged(nameof(IsShellPaneOnBottom));
             OnPropertyChanged(nameof(IsShellPaneFloating));
+            OnPropertyChanged(nameof(IsRightPaneHostVisible));
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -2632,6 +2635,7 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellPaneOnRight));
             OnPropertyChanged(nameof(IsShellPaneOnBottom));
             OnPropertyChanged(nameof(IsShellPaneFloating));
+            OnPropertyChanged(nameof(IsRightPaneHostVisible));
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -2682,6 +2686,7 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(IsShellPaneOnBottom));
                 OnPropertyChanged(nameof(IsShellPaneFloating));
                 OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();

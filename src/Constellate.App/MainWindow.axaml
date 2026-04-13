@@ -43,7 +43,16 @@
             BorderBrush="#2A394B"
             BorderThickness="0,0,1,0"
             Padding="14"
+            MinWidth="260"
             IsVisible="{Binding IsShellPaneOnLeft}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <!-- Simple parent-pane header/chrome with label + minimize/close -->
         <Border Background="#121A23"
@@ -86,7 +95,16 @@
             Grid.Column="1"
             Grid.Row="0"
             Padding="10,6,10,4"
+            MinHeight="220"
             IsVisible="{Binding IsShellPaneOnTop}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
                 CornerRadius="4"
@@ -130,7 +148,16 @@
             BorderBrush="#2A394B"
             BorderThickness="1,0,0,0"
             Padding="14"
+            MinWidth="260"
             IsVisible="{Binding IsRightPaneHostVisible}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
                 CornerRadius="4"
@@ -182,7 +209,16 @@
             BorderBrush="#2A394B"
             BorderThickness="0,1,0,0"
             Padding="10,6,10,10"
+            MinHeight="220"
             IsVisible="{Binding IsShellPaneOnBottom}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
                 CornerRadius="4"
@@ -231,6 +267,14 @@
             CornerRadius="8"
             Padding="0"
             IsVisible="{Binding IsShellPaneFloating}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}" />
+          <MenuItem Header="Close pane"
+                    Command="{Binding DestroyParentPaneCommand}" />
+        </ContextMenu>
+      </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
                 CornerRadius="4"
