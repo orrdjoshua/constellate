@@ -362,35 +362,27 @@ namespace Constellate.App
 
         private void ShellPaneHost_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (_isPaneResizing)
-            {
-                return;
-            }
-
             if (!_isShellPaneDragging)
             {
                 return;
             }
 
             _isShellPaneDragging = false;
-            var releasePoint = e.GetPosition(this);
+
+            try { e.Pointer.Capture(null); } catch { }
 
             if (DataContext is not MainWindowViewModel vm)
             {
+                _dragOriginHostId = null;
                 return;
             }
 
-            // Dock based on drop region:
-            // - near left edge   → left host
-            // - near right edge  → right host
-            // - near top edge    → top host
-            // - near bottom edge → bottom host
-            // - interior region  → floating host
+            var releasePoint = e.GetPosition(this);
             var width = Bounds.Width;
             var height = Bounds.Height;
-            if (width <= 0 || height <= 0)
+
+            if (width <= 0 || height <= 0 || string.IsNullOrWhiteSpace(_dragOriginHostId))
             {
-                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
                 vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
                 _dragOriginHostId = null;
                 return;
@@ -889,6 +881,60 @@ namespace Constellate.App
         public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
             new();
 
+        /// <summary>
+        /// New generalized parent-pane entity collection for the 2D World. This will
+        /// eventually replace PaneDescriptor/Panes as the primary layout model once
+        /// behavior and XAML are migrated. It is seeded from the existing Panes
+        /// collection in the constructor so both models stay in sync during migration.
+        /// </summary>
+        public ObservableCollection<ParentPaneModel> ParentPaneModels { get; } =
+            new();
+
+        /// <summary>
+        /// New generalized child-pane entity collection. Child panes here are attached
+        /// to ParentPaneModels via ParentId and will eventually become the sole
+        /// representation for child layout; current ChildPanes (ChildPaneDescriptor)
+        /// remain active until the migration is complete.
+        /// </summary>
+        public ObservableCollection<ChildPaneModel> ChildPaneModels { get; } =
+            new();
+
+        /// <summary>
+        /// Parent-pane projections by host for the new ParentPaneModel entity set.
+        /// These are the future primary sources for XAML ItemsControls on each host
+        /// (Left/Top/Right/Bottom/Floating) once migration from PaneDescriptor is
+        /// complete.
+        /// </summary>
+        public IReadOnlyList<ParentPaneModel> ParentPaneModelsLeft =>
+            ParentPaneModels
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "left", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+        public IReadOnlyList<ParentPaneModel> ParentPaneModelsTop =>
+            ParentPaneModels
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "top", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+        public IReadOnlyList<ParentPaneModel> ParentPaneModelsRight =>
+            ParentPaneModels
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "right", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+        public IReadOnlyList<ParentPaneModel> ParentPaneModelsBottom =>
+            ParentPaneModels
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "bottom", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+        public IReadOnlyList<ParentPaneModel> ParentPaneModelsFloating =>
+            ParentPaneModels
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "floating", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
             ChildPanes
                 .OrderBy(pane => pane.Order)
@@ -1105,6 +1151,42 @@ namespace Constellate.App
             }
         }
 
+        /// <summary>
+        /// Parent-pane collections by host. These expose pane entities for each
+        /// dock edge so the XAML layer can render them via ItemsControl/DataTemplate.
+        /// For now, semantics remain \"one visible parent per host\" in practice,
+        /// but the collections are fully multi-pane capable.
+        /// </summary>
+        public IReadOnlyList<PaneDescriptor> ParentPanesLeft =>
+            Panes
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "left", StringComparison.Ordinal))
+                .ToArray();
+
+        public IReadOnlyList<PaneDescriptor> ParentPanesTop =>
+            Panes
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "top", StringComparison.Ordinal))
+                .ToArray();
+
+        public IReadOnlyList<PaneDescriptor> ParentPanesRight =>
+            Panes
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "right", StringComparison.Ordinal))
+                .ToArray();
+
+        public IReadOnlyList<PaneDescriptor> ParentPanesBottom =>
+            Panes
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "bottom", StringComparison.Ordinal))
+                .ToArray();
+
+        public IReadOnlyList<PaneDescriptor> ParentPanesFloating =>
+            Panes
+                .Where(p => !p.IsMinimized &&
+                            string.Equals(p.HostId, "floating", StringComparison.Ordinal))
+                .ToArray();
+
         public bool IsShellCurrentChildVisible => !IsChildPaneMinimized("shell.current");
         public bool IsShellSettingsChildVisible => !IsChildPaneMinimized("shell.settings") && !IsSettingsChildFloating;
         public bool IsShellDeveloperChildVisible => !IsChildPaneMinimized("shell.developer");
@@ -1124,37 +1206,45 @@ namespace Constellate.App
         }
 
         public bool IsShellPaneOnLeft =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+            ParentPaneModelsLeft.Count > 0;
 
         public bool IsShellPaneOnTop =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "top", StringComparison.Ordinal));
+            ParentPaneModelsTop.Count > 0;
 
         public bool IsShellPaneOnRight =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "right", StringComparison.Ordinal));
+            ParentPaneModelsRight.Count > 0;
 
         public bool IsShellPaneOnBottom =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "bottom", StringComparison.Ordinal));
+            ParentPaneModelsBottom.Count > 0;
 
         public bool IsShellPaneFloating =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "floating", StringComparison.Ordinal));
+            ParentPaneModelsFloating.Count > 0;
 
         public bool IsShellPaneMinimized =>
-            Panes.Any(p => p.IsMinimized);
+            ParentPaneModels.Any(p => p.IsMinimized);
 
         public bool IsRightPaneHostVisible =>
-            Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "right", StringComparison.Ordinal));
+            ParentPaneModelsRight.Count > 0;
+
+        public bool HasMinimizedParentLeft =>
+            ParentPaneModels.Any(p =>
+                p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.OrdinalIgnoreCase));
+
+        public bool HasMinimizedParentTop =>
+            ParentPaneModels.Any(p =>
+                p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.OrdinalIgnoreCase));
+
+        public bool HasMinimizedParentRight =>
+            ParentPaneModels.Any(p =>
+                p.IsMinimized &&
+                string.Equals(p.HostId, "right", StringComparison.OrdinalIgnoreCase));
+
+        public bool HasMinimizedParentBottom =>
+            ParentPaneModels.Any(p =>
+                p.IsMinimized &&
+                string.Equals(p.HostId, "bottom", StringComparison.OrdinalIgnoreCase));
 
         public string[] NodeHaloModeOptions { get; } = new[] { "2d", "3d", "both" };
         public string[] NodeHaloOcclusionModeOptions { get; } = new[] { "hollow", "occluding" };
@@ -1452,6 +1542,26 @@ namespace Constellate.App
                 SubscribeRefresh(EventNames.GroupChanged, "group changed"),
                 SubscribeRefresh(EventNames.FocusOriginChanged, "focus origin changed")
             ];
+
+            // Seed the new ParentPaneModels entity collection from the existing Panes
+            // collection so both models describe the same parent-pane set during
+            // migration. We keep Id in sync so later we can move XAML over without
+            // breaking layout identity.
+            foreach (var pane in Panes)
+            {
+                var normalizedHost = NormalizeHostId(pane.HostId);
+                ParentPaneModels.Add(new ParentPaneModel
+                {
+                    Id = pane.Id,
+                    Title = pane.Title,
+                    HostId = normalizedHost,
+                    IsMinimized = pane.IsMinimized,
+                    SplitCount = 1,
+                    SlideIndex = GetSlideIndexForHost(normalizedHost),
+                    FloatingWidth = 320,
+                    FloatingHeight = 240
+                });
+            }
 
             _focusFirstNodeCommand = new RelayCommand(
                 _ =>
@@ -1934,8 +2044,8 @@ namespace Constellate.App
             _createChildPaneCommand = new RelayCommand(
                 parameter =>
                 {
-                    var hostId = parameter as string;
-                    CreateChildPane(hostId);
+                    var parentOrHost = parameter as string;
+                    CreateChildPane(parentOrHost);
                 });
 
             _minimizeChildPaneCommand = new RelayCommand(
@@ -1975,14 +2085,34 @@ namespace Constellate.App
             _resetLayoutToDefaultCommand = new RelayCommand(
                 _ =>
                 {
-                    if (Panes.Count == 0)
+                    if (ParentPaneModels.Count == 0 && Panes.Count == 0)
                     {
                         return;
                     }
 
-                    var current = Panes[0];
-                    var normalizedHost = "left";
-                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+                    // Reset all parent panes into a simple baseline layout:
+                    // docked on the left host, visible, with single-split and first slide.
+                    foreach (var parent in ParentPaneModels)
+                    {
+                        parent.HostId = "left";
+                        parent.IsMinimized = false;
+                        parent.SplitCount = 1;
+                        parent.SlideIndex = 0;
+                    }
+
+                    for (var i = 0; i < Panes.Count; i++)
+                    {
+                        var pane = Panes[i];
+                        Panes[i] = pane with { HostId = "left", IsMinimized = false };
+                    }
+
+                    _leftSlideIndex = 0;
+                    _topSlideIndex = 0;
+                    _rightSlideIndex = 0;
+                    _bottomSlideIndex = 0;
+
+                    UpdateTopLeftOwnershipLayout();
+                    RaiseChildPaneCollectionsChanged();
 
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
                     OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -1990,9 +2120,20 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(IsShellPaneOnBottom));
                     OnPropertyChanged(nameof(IsShellPaneFloating));
                     OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                    OnPropertyChanged(nameof(HasMinimizedParentTop));
+                    OnPropertyChanged(nameof(HasMinimizedParentRight));
+                    OnPropertyChanged(nameof(HasMinimizedParentBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                    OnPropertyChanged(nameof(ParentPaneModelsTop));
+                    OnPropertyChanged(nameof(ParentPaneModelsRight));
+                    OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsFloating));
                     OnPropertyChanged(nameof(PaneStructureSummary));
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
                 });
 
             _setLeftPaneSplitCommand = new RelayCommand(
@@ -2010,14 +2151,37 @@ namespace Constellate.App
             _saveLayoutPresetCommand = new RelayCommand(
                 _ =>
                 {
-                    if (Panes.Count == 0)
+                    if (ParentPaneModels.Count == 0 && Panes.Count == 0)
                     {
                         return;
                     }
 
-                    var current = Panes[0];
-                    var normalizedHost = NormalizeHostId(current.HostId);
-                    var isMinimized = current.IsMinimized;
+                    string normalizedHost = "left";
+                    var isMinimized = false;
+
+                    if (ParentPaneModels.Count > 0)
+                    {
+                        var firstParent = ParentPaneModels[0];
+                        normalizedHost = NormalizeHostId(firstParent.HostId);
+                        isMinimized = firstParent.IsMinimized;
+                    }
+                    else if (Panes.Count > 0)
+                    {
+                        var current = Panes[0];
+                        normalizedHost = NormalizeHostId(current.HostId);
+                        isMinimized = current.IsMinimized;
+                    }
+
+                    var parentPanes = ParentPaneModels.Count > 0
+                        ? ParentPaneModels
+                            .Select(p => new PaneDescriptor(
+                                p.Id,
+                                p.Title,
+                                NormalizeHostId(p.HostId),
+                                IsFloating: string.Equals(p.HostId, "floating", StringComparison.OrdinalIgnoreCase),
+                                IsMinimized: p.IsMinimized))
+                            .ToArray()
+                        : Panes.ToArray();
 
                     _savedLayout = new ShellLayoutDescriptor(
                         HostId: normalizedHost,
@@ -2028,27 +2192,91 @@ namespace Constellate.App
                         TopSlideIndex: _topSlideIndex,
                         RightSlideIndex: _rightSlideIndex,
                         BottomSlideIndex: _bottomSlideIndex,
-                        ParentPanes: Panes.ToArray(),
+                        ParentPanes: parentPanes,
                         ChildPanes: ChildPanes.ToArray());
                 });
 
             _restoreLayoutPresetCommand = new RelayCommand(
                 _ =>
                 {
-                    if (Panes.Count == 0 || _savedLayout is null || string.IsNullOrWhiteSpace(_savedLayout.Value.SavedHostId))
+                    if (_savedLayout is not ShellLayoutDescriptor descriptor ||
+                        string.IsNullOrWhiteSpace(descriptor.SavedHostId))
                     {
                         return;
                     }
 
-                    var descriptor = _savedLayout.Value;
-                    var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
-                    var current = Panes[0];
-                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.SavedIsMinimized };
-
+                    // Restore slide indices first so GetSlideIndexForHost(host) reuses them.
                     _leftSlideIndex = descriptor.LeftSlideIndex;
                     _topSlideIndex = descriptor.TopSlideIndex;
                     _rightSlideIndex = descriptor.RightSlideIndex;
                     _bottomSlideIndex = descriptor.BottomSlideIndex;
+
+                    ParentPaneModels.Clear();
+                    Panes.Clear();
+
+                    if (descriptor.ParentPanes is { Count: > 0 } parentPanes)
+                    {
+                        foreach (var pane in parentPanes)
+                        {
+                            var normalizedHost = NormalizeHostId(pane.HostId);
+                            var paneDescriptor = new PaneDescriptor(
+                                pane.Id,
+                                pane.Title,
+                                normalizedHost,
+                                IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                                IsMinimized: pane.IsMinimized);
+
+                            Panes.Add(paneDescriptor);
+
+                            ParentPaneModels.Add(new ParentPaneModel
+                            {
+                                Id = pane.Id,
+                                Title = pane.Title,
+                                HostId = normalizedHost,
+                                IsMinimized = pane.IsMinimized,
+                                SplitCount = 1,
+                                SlideIndex = GetSlideIndexForHost(normalizedHost),
+                                FloatingWidth = 320,
+                                FloatingHeight = 240
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // Backward-compat: if no ParentPanes were stored, fall back to a single pane.
+                        var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
+                        var paneDescriptor = new PaneDescriptor(
+                            "parent.main",
+                            "Parent Pane",
+                            normalizedHost,
+                            IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                            IsMinimized: descriptor.SavedIsMinimized);
+
+                        Panes.Add(paneDescriptor);
+                        ParentPaneModels.Add(new ParentPaneModel
+                        {
+                            Id = paneDescriptor.Id,
+                            Title = paneDescriptor.Title,
+                            HostId = normalizedHost,
+                            IsMinimized = descriptor.SavedIsMinimized,
+                            SplitCount = 1,
+                            SlideIndex = GetSlideIndexForHost(normalizedHost),
+                            FloatingWidth = 320,
+                            FloatingHeight = 240
+                        });
+                    }
+
+                    ChildPanes.Clear();
+                    if (descriptor.ChildPanes is { Count: > 0 } savedChildren)
+                    {
+                        foreach (var child in savedChildren)
+                        {
+                            ChildPanes.Add(child);
+                        }
+                    }
+
+                    UpdateTopLeftOwnershipLayout();
+                    RaiseChildPaneCollectionsChanged();
 
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
                     OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -2057,23 +2285,19 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(IsShellPaneFloating));
                     OnPropertyChanged(nameof(IsShellPaneMinimized));
                     OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                    OnPropertyChanged(nameof(HasMinimizedParentTop));
+                    OnPropertyChanged(nameof(HasMinimizedParentRight));
+                    OnPropertyChanged(nameof(HasMinimizedParentBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                    OnPropertyChanged(nameof(ParentPaneModelsTop));
+                    OnPropertyChanged(nameof(ParentPaneModelsRight));
+                    OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsFloating));
                     OnPropertyChanged(nameof(PaneStructureSummary));
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
-
-                    // Refresh child-pane projections for updated slide indices.
-                    OnPropertyChanged(nameof(VisibleChildPanesLeft));
-                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
-                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
-                    OnPropertyChanged(nameof(VisibleChildPanesTop));
-                    OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
-                    OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
-                    OnPropertyChanged(nameof(VisibleChildPanesRight));
-                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
-                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
-                    OnPropertyChanged(nameof(VisibleChildPanesBottom));
-                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
-                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
+                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
                 });
 
             _moveChildPaneUpCommand = new RelayCommand(
@@ -2182,13 +2406,8 @@ namespace Constellate.App
                     }
 
                     var normalizedHost = NormalizeHostId(hostId);
-
-                    var hadTopVisible = Panes.Any(p =>
-                        !p.IsMinimized &&
-                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
-                    var hadLeftVisible = Panes.Any(p =>
-                        !p.IsMinimized &&
-                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+                    var hadTopVisible = IsShellPaneOnTop;
+                    var hadLeftVisible = IsShellPaneOnLeft;
 
                     // If a parent pane already exists on this host:
                     // - if minimized, restore it;
@@ -2208,6 +2427,28 @@ namespace Constellate.App
 
                         Panes[i] = pane with { IsMinimized = false };
 
+                        // Keep the corresponding ParentPaneModel in sync.
+                        var parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, pane.Id, StringComparison.Ordinal));
+                        if (parentModel is not null)
+                        {
+                            parentModel.HostId = normalizedHost;
+                            parentModel.IsMinimized = false;
+                        }
+                        else
+                        {
+                            ParentPaneModels.Add(new ParentPaneModel
+                            {
+                                Id = pane.Id,
+                                Title = pane.Title,
+                                HostId = normalizedHost,
+                                IsMinimized = false,
+                                SplitCount = 1,
+                                SlideIndex = GetSlideIndexForHost(normalizedHost),
+                                FloatingWidth = 320,
+                                FloatingHeight = 240
+                            });
+                        }
+
                         OnPropertyChanged(nameof(IsShellPaneOnLeft));
                         OnPropertyChanged(nameof(IsShellPaneOnTop));
                         OnPropertyChanged(nameof(IsShellPaneOnRight));
@@ -2216,6 +2457,15 @@ namespace Constellate.App
                         OnPropertyChanged(nameof(IsShellPaneMinimized));
                         OnPropertyChanged(nameof(IsRightPaneHostVisible));
                         OnPropertyChanged(nameof(PaneStructureSummary));
+                        OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                        OnPropertyChanged(nameof(ParentPaneModelsTop));
+                        OnPropertyChanged(nameof(ParentPaneModelsRight));
+                        OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                        OnPropertyChanged(nameof(ParentPaneModelsFloating));
+                    OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                    OnPropertyChanged(nameof(HasMinimizedParentTop));
+                    OnPropertyChanged(nameof(HasMinimizedParentRight));
+                    OnPropertyChanged(nameof(HasMinimizedParentBottom));
 
                         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                         _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -2227,19 +2477,28 @@ namespace Constellate.App
 
                     // No pane exists yet on this host; create a new generic parent pane.
                     var newId = $"parent.{normalizedHost}.{Panes.Count + 1}";
-                    Panes.Add(new PaneDescriptor(
+                    var newDescriptor = new PaneDescriptor(
                         newId,
                         "Parent Pane",
                         normalizedHost,
                         IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
-                        IsMinimized: false));
+                        IsMinimized: false);
+                    Panes.Add(newDescriptor);
 
-                    var hasTopVisible = Panes.Any(p =>
-                        !p.IsMinimized &&
-                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
-                    var hasLeftVisible = Panes.Any(p =>
-                        !p.IsMinimized &&
-                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+                    ParentPaneModels.Add(new ParentPaneModel
+                    {
+                        Id = newDescriptor.Id,
+                        Title = newDescriptor.Title,
+                        HostId = normalizedHost,
+                        IsMinimized = newDescriptor.IsMinimized,
+                        SplitCount = 1,
+                        SlideIndex = GetSlideIndexForHost(normalizedHost),
+                        FloatingWidth = 320,
+                        FloatingHeight = 240
+                    });
+
+                    var hasTopVisible = IsShellPaneOnTop;
+                    var hasLeftVisible = IsShellPaneOnLeft;
 
                     if (hasTopVisible && hasLeftVisible)
                     {
@@ -2263,8 +2522,18 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(IsShellPaneOnBottom));
                     OnPropertyChanged(nameof(IsShellPaneFloating));
                     OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    UpdateTopLeftOwnershipLayout();
                     OnPropertyChanged(nameof(IsRightPaneHostVisible));
                     OnPropertyChanged(nameof(PaneStructureSummary));
+                    OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                    OnPropertyChanged(nameof(ParentPaneModelsTop));
+                    OnPropertyChanged(nameof(ParentPaneModelsRight));
+                    OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsFloating));
+                    OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                    OnPropertyChanged(nameof(HasMinimizedParentTop));
+                    OnPropertyChanged(nameof(HasMinimizedParentRight));
+                    OnPropertyChanged(nameof(HasMinimizedParentBottom));
 
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -2275,25 +2544,97 @@ namespace Constellate.App
             _destroyParentPaneCommand = new RelayCommand(
                 parameter =>
                 {
+                    // Destroying a parent pane must also destroy its children and
+                    // any associated layout state for that pane.
                     if (Panes.Count == 0)
                     {
                         return;
                     }
 
-                    if (parameter is string hostId && !string.IsNullOrWhiteSpace(hostId))
+                    var removedParentIds = new HashSet<string>(StringComparer.Ordinal);
+
+                    if (parameter is string arg && !string.IsNullOrWhiteSpace(arg))
                     {
-                        var normalizedHost = NormalizeHostId(hostId);
-                        for (var i = Panes.Count - 1; i >= 0; i--)
+                        // Prefer treating the argument as a specific parent Id when possible.
+                        if (Panes.Any(p => string.Equals(p.Id, arg, StringComparison.Ordinal)))
                         {
-                            if (string.Equals(Panes[i].HostId, normalizedHost, StringComparison.Ordinal))
+                            for (var i = Panes.Count - 1; i >= 0; i--)
                             {
+                                var pane = Panes[i];
+                                if (!string.Equals(pane.Id, arg, StringComparison.Ordinal))
+                                {
+                                    continue;
+                                }
+
+                                removedParentIds.Add(pane.Id);
                                 Panes.RemoveAt(i);
+
+                                var model = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, pane.Id, StringComparison.Ordinal));
+                                if (model is not null)
+                                {
+                                    ParentPaneModels.Remove(model);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: treat as a host id and remove all parents on that host.
+                            var normalizedHost = NormalizeHostId(arg);
+                            for (var i = Panes.Count - 1; i >= 0; i--)
+                            {
+                                var pane = Panes[i];
+                                if (!string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                                {
+                                    continue;
+                                }
+
+                                removedParentIds.Add(pane.Id);
+                                Panes.RemoveAt(i);
+
+                                var model = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, pane.Id, StringComparison.Ordinal));
+                                if (model is not null)
+                                {
+                                    ParentPaneModels.Remove(model);
+                                }
                             }
                         }
                     }
                     else
                     {
+                        // No argument specified: remove all parents and all children.
+                        foreach (var pane in Panes)
+                        {
+                            removedParentIds.Add(pane.Id);
+                        }
+
                         Panes.Clear();
+                        ParentPaneModels.Clear();
+                    }
+
+                    if (removedParentIds.Count > 0)
+                    {
+                        // Remove legacy ChildPaneDescriptor children whose ParentId matches any
+                        // of the removed parents. For safety, also remove any children that still
+                        // have a host binding but no ParentId set and belonged to a removed host.
+                        for (var i = ChildPanes.Count - 1; i >= 0; i--)
+                        {
+                            var child = ChildPanes[i];
+                            if (removedParentIds.Contains(child.ParentId ?? string.Empty))
+                            {
+                                ChildPanes.RemoveAt(i);
+                            }
+                        }
+
+                        for (var i = ChildPaneModels.Count - 1; i >= 0; i--)
+                        {
+                            var child = ChildPaneModels[i];
+                            if (removedParentIds.Contains(child.ParentId ?? string.Empty))
+                            {
+                                ChildPaneModels.RemoveAt(i);
+                            }
+                        }
+
+                        RaiseChildPaneCollectionsChanged();
                     }
 
                     OnPropertyChanged(nameof(IsShellPaneOnLeft));
@@ -2303,6 +2644,15 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(IsShellPaneFloating));
                     OnPropertyChanged(nameof(IsShellPaneMinimized));
                     OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                    OnPropertyChanged(nameof(ParentPaneModelsTop));
+                    OnPropertyChanged(nameof(ParentPaneModelsRight));
+                    OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                    OnPropertyChanged(nameof(ParentPaneModelsFloating));
+                    OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                    OnPropertyChanged(nameof(HasMinimizedParentTop));
+                    OnPropertyChanged(nameof(HasMinimizedParentRight));
+                    OnPropertyChanged(nameof(HasMinimizedParentBottom));
                     OnPropertyChanged(nameof(PaneStructureSummary));
 
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
@@ -2448,9 +2798,49 @@ namespace Constellate.App
             }
         }
 
-        private void CreateChildPane(string? hostId)
+        /// <summary>
+        /// Create a new generic child pane. The parameter may be either:
+        /// - a ParentPaneModel.Id (preferred), in which case the child is owned by that parent, or
+        /// - a host id ("left"|"top"|"right"|"bottom"|"floating"), in which case we pick a parent
+        ///   on that host (or fall back to the first parent) and attach the child there.
+        /// This keeps child creation parent-centric while still supporting legacy host-based calls.
+        /// </summary>
+        private void CreateChildPane(string? parentOrHost)
         {
-            var normalizedHost = NormalizeHostId(hostId);
+            ParentPaneModel? parent = null;
+            string normalizedHost;
+
+            // First, treat the argument as a potential parent Id.
+            if (!string.IsNullOrWhiteSpace(parentOrHost))
+            {
+                parent = ParentPaneModels
+                    .FirstOrDefault(p =>
+                        string.Equals(p.Id, parentOrHost, StringComparison.Ordinal));
+            }
+
+            if (parent is not null)
+            {
+                normalizedHost = NormalizeHostId(parent.HostId);
+            }
+            else
+            {
+                // Fall back to treating it as a host id and selecting a parent on that host.
+                normalizedHost = NormalizeHostId(parentOrHost);
+
+                if (!string.IsNullOrWhiteSpace(parentOrHost))
+                {
+                    parent = ParentPaneModels
+                        .FirstOrDefault(p =>
+                            !p.IsMinimized &&
+                            string.Equals(p.HostId, normalizedHost, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            parent ??= ParentPaneModels.FirstOrDefault();
+            var parentId = parent?.Id;
+            var effectiveHost = parent?.HostId ?? normalizedHost;
+            var slideIndex = parent?.SlideIndex ?? GetSlideIndexForHost(effectiveHost);
+
             var nextOrder = ChildPanes.Count == 0
                 ? 0
                 : ChildPanes.Max(pane => pane.Order) + 1;
@@ -2463,10 +2853,11 @@ namespace Constellate.App
                 id,
                 title,
                 nextOrder,
-                normalizedHost,
+                effectiveHost,
                 ContainerIndex: 0,
                 IsMinimized: false,
-                SlideIndex: GetSlideIndexForHost(normalizedHost)));
+                SlideIndex: slideIndex,
+                ParentId: parentId));
 
             RaiseChildPaneCollectionsChanged();
 
@@ -2535,6 +2926,17 @@ namespace Constellate.App
 
             var normalizedHost = NormalizeHostId(hostId);
 
+            // Choose a parent pane entity for the target host from ParentPaneModels.
+            // This keeps children associated with a specific parent entity instead of
+            // being purely host-centric.
+            ParentPaneModel? parent = ParentPaneModels
+                .FirstOrDefault(p =>
+                    !p.IsMinimized &&
+                    string.Equals(p.HostId, normalizedHost, StringComparison.OrdinalIgnoreCase));
+            parent ??= ParentPaneModels.FirstOrDefault();
+            var parentId = parent?.Id;
+            var slideIndex = parent?.SlideIndex ?? GetSlideIndexForHost(normalizedHost);
+
             var index = -1;
             ChildPaneDescriptor current = default;
 
@@ -2556,7 +2958,7 @@ namespace Constellate.App
                 return;
             }
 
-            if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal))
+            if (string.Equals(current.ParentId, parentId, StringComparison.Ordinal))
             {
                 return;
             }
@@ -2572,7 +2974,8 @@ namespace Constellate.App
                 HostId = normalizedHost,
                 Order = nextOrder,
                 ContainerIndex = 0,
-                SlideIndex = GetSlideIndexForHost(normalizedHost)
+                SlideIndex = slideIndex,
+                ParentId = parentId
             };
 
             RaiseChildPaneCollectionsChanged();
@@ -2611,6 +3014,49 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
             OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
             OnPropertyChanged(nameof(PaneStructureSummary));
+
+            // Update per-parent child lists so each ParentPaneModel exposes
+            // its own VisibleChildrenPrimary0/1 and MinimizedChildren for
+            // the XAML templates rendered via ParentPaneModels* collections.
+            foreach (var parent in ParentPaneModels)
+            {
+                var hostId = NormalizeHostId(parent.HostId);
+                var parentId = parent.Id;
+                var slideIndex = parent.SlideIndex;
+
+                var visibleForParent = ChildPanes
+                    .Where(pane =>
+                        !pane.IsMinimized &&
+                        pane.SlideIndex == slideIndex &&
+                        (
+                            string.Equals(pane.ParentId, parentId, StringComparison.Ordinal) ||
+                            (string.IsNullOrWhiteSpace(pane.ParentId) &&
+                             string.Equals(pane.HostId, hostId, StringComparison.Ordinal))
+                        ))
+                    .OrderBy(pane => pane.Order)
+                    .ToArray();
+
+                parent.VisibleChildrenPrimary0 = visibleForParent
+                    .Where(pane => pane.ContainerIndex == 0)
+                    .ToArray();
+
+                parent.VisibleChildrenPrimary1 = visibleForParent
+                    .Where(pane => pane.ContainerIndex == 1)
+                    .ToArray();
+
+                var minimizedForParent = ChildPanes
+                    .Where(pane =>
+                        pane.IsMinimized &&
+                        (
+                            string.Equals(pane.ParentId, parentId, StringComparison.Ordinal) ||
+                            (string.IsNullOrWhiteSpace(pane.ParentId) &&
+                             string.Equals(pane.HostId, hostId, StringComparison.Ordinal))
+                        ))
+                    .OrderBy(pane => pane.Order)
+                    .ToArray();
+
+                parent.MinimizedChildren = minimizedForParent;
+            }
         }
 
         private int GetSlideIndexForHost(string hostId)
@@ -3570,7 +4016,7 @@ namespace Constellate.App
         /// if originHostId is null/unknown) to the <paramref name="targetHost"/>.
         /// This is the host-aware variant used by drag gestures.
         /// </summary>
-            public void MoveParentPaneToHost(string? originHostId, string targetHost)
+        public void MoveParentPaneToHost(string? originHostId, string targetHost)
         {
             if (Panes.Count == 0 || string.IsNullOrWhiteSpace(targetHost))
             {
@@ -3611,7 +4057,72 @@ namespace Constellate.App
                 return;
             }
 
+            // Update the parent pane's host.
             Panes[index] = current with { HostId = normalizedTarget, IsMinimized = false };
+
+            // Update or create the corresponding ParentPaneModel and, for floating host,
+            // persist its floating geometry from the current drag-shadow rectangle.
+            ParentPaneModel parentModel;
+            var existingModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, current.Id, StringComparison.Ordinal));
+            if (existingModel is not null)
+            {
+                existingModel.HostId = normalizedTarget;
+                existingModel.IsMinimized = false;
+                existingModel.SlideIndex = GetSlideIndexForHost(normalizedTarget);
+                parentModel = existingModel;
+            }
+            else
+            {
+                parentModel = new ParentPaneModel
+                {
+                    Id = current.Id,
+                    Title = current.Title,
+                    HostId = normalizedTarget,
+                    IsMinimized = false,
+                    SplitCount = 1,
+                    SlideIndex = GetSlideIndexForHost(normalizedTarget),
+                    FloatingWidth = 320,
+                    FloatingHeight = 240
+                };
+                ParentPaneModels.Add(parentModel);
+            }
+
+            if (string.Equals(normalizedTarget, "floating", StringComparison.Ordinal))
+            {
+                var left = ParentPaneDragShadowLeft;
+                var top = ParentPaneDragShadowTop;
+                var width = ParentPaneDragShadowWidth;
+                var height = ParentPaneDragShadowHeight;
+
+                if (width <= 0 || height <= 0)
+                {
+                    width = parentModel.FloatingWidth;
+                    height = parentModel.FloatingHeight;
+                }
+
+                parentModel.FloatingX = left;
+                parentModel.FloatingY = top;
+                parentModel.FloatingWidth = width;
+                parentModel.FloatingHeight = height;
+            }
+
+            // Ensure all children that belong to this parent follow it to the new host.
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var child = ChildPanes[i];
+                if (!string.Equals(child.ParentId, current.Id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                ChildPanes[i] = child with
+                {
+                    HostId = normalizedTarget,
+                    SlideIndex = GetSlideIndexForHost(normalizedTarget)
+                };
+            }
+
+            RaiseChildPaneCollectionsChanged();
 
             OnPropertyChanged(nameof(IsShellPaneOnLeft));
             OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -3621,6 +4132,15 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsRightPaneHostVisible));
             OnPropertyChanged(nameof(IsShellPaneMinimized));
             OnPropertyChanged(nameof(PaneStructureSummary));
+            OnPropertyChanged(nameof(ParentPaneModelsLeft));
+            OnPropertyChanged(nameof(ParentPaneModelsTop));
+            OnPropertyChanged(nameof(ParentPaneModelsRight));
+            OnPropertyChanged(nameof(ParentPaneModelsBottom));
+            OnPropertyChanged(nameof(ParentPaneModelsFloating));
+            OnPropertyChanged(nameof(HasMinimizedParentLeft));
+            OnPropertyChanged(nameof(HasMinimizedParentTop));
+            OnPropertyChanged(nameof(HasMinimizedParentRight));
+            OnPropertyChanged(nameof(HasMinimizedParentBottom));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
         }
@@ -3646,30 +4166,84 @@ namespace Constellate.App
             OnPropertyChanged(nameof(IsShellPaneOnBottom));
             OnPropertyChanged(nameof(IsShellPaneFloating));
             OnPropertyChanged(nameof(IsRightPaneHostVisible));
+            OnPropertyChanged(nameof(HasMinimizedParentLeft));
+            OnPropertyChanged(nameof(HasMinimizedParentTop));
+            OnPropertyChanged(nameof(HasMinimizedParentRight));
+            OnPropertyChanged(nameof(HasMinimizedParentBottom));
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
         }
 
         /// <summary>
-        /// Host-aware minimize helper. When <paramref name="hostId"/> is null or blank,
-        /// this falls back to the legacy single-pane behavior (first pane). When a host
-        /// is provided, it minimizes or restores the pane currently assigned to that host.
+        /// Minimize helper that can accept either a parent pane Id or a host id.
+        /// If the argument matches a PaneDescriptor.Id, only that parent is toggled;
+        /// otherwise it is treated as a host id and the first pane on that host is toggled.
         /// </summary>
-        public void SetParentPaneMinimized(string? hostId, bool minimized)
+        public void SetParentPaneMinimized(string? idOrHost, bool minimized)
         {
             if (Panes.Count == 0)
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(hostId))
+            if (string.IsNullOrWhiteSpace(idOrHost))
             {
                 SetShellPaneMinimized(minimized);
                 return;
             }
 
-            var normalizedHost = NormalizeHostId(hostId);
+            // First, try to treat the argument as a parent-pane Id.
+            var paneIndex = -1;
+            for (var i = 0; i < Panes.Count; i++)
+            {
+                if (string.Equals(Panes[i].Id, idOrHost, StringComparison.Ordinal))
+                {
+                    paneIndex = i;
+                    break;
+                }
+            }
+
+            if (paneIndex >= 0)
+            {
+                var current = Panes[paneIndex];
+                if (current.IsMinimized == minimized)
+                {
+                    return;
+                }
+
+                Panes[paneIndex] = current with { IsMinimized = minimized };
+
+                var parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, current.Id, StringComparison.Ordinal));
+                if (parentModel is not null)
+                {
+                    parentModel.IsMinimized = minimized;
+                }
+
+                OnPropertyChanged(nameof(IsShellPaneMinimized));
+                OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                OnPropertyChanged(nameof(IsShellPaneOnTop));
+                OnPropertyChanged(nameof(IsShellPaneOnRight));
+                OnPropertyChanged(nameof(IsShellPaneFloating));
+                OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                OnPropertyChanged(nameof(ParentPaneModelsTop));
+                OnPropertyChanged(nameof(ParentPaneModelsRight));
+                OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                OnPropertyChanged(nameof(ParentPaneModelsFloating));
+                OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                OnPropertyChanged(nameof(HasMinimizedParentTop));
+                OnPropertyChanged(nameof(HasMinimizedParentRight));
+                OnPropertyChanged(nameof(HasMinimizedParentBottom));
+                OnPropertyChanged(nameof(PaneStructureSummary));
+                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                UpdateTopLeftOwnershipLayout();
+                return;
+            }
+
+            // Fallback: treat as a host id (legacy behavior).
+            var normalizedHost = NormalizeHostId(idOrHost);
 
             for (var i = 0; i < Panes.Count; i++)
             {
@@ -3686,13 +4260,27 @@ namespace Constellate.App
 
                 Panes[i] = current with { IsMinimized = minimized };
 
+                var parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, current.Id, StringComparison.Ordinal));
+                if (parentModel is not null)
+                {
+                    parentModel.IsMinimized = minimized;
+                }
+
                 OnPropertyChanged(nameof(IsShellPaneMinimized));
                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
                 OnPropertyChanged(nameof(IsShellPaneOnTop));
                 OnPropertyChanged(nameof(IsShellPaneOnRight));
                 OnPropertyChanged(nameof(IsShellPaneFloating));
                 OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                OnPropertyChanged(nameof(IsShellPaneMinimized));
+                OnPropertyChanged(nameof(ParentPaneModelsLeft));
+                OnPropertyChanged(nameof(ParentPaneModelsTop));
+                OnPropertyChanged(nameof(ParentPaneModelsRight));
+                OnPropertyChanged(nameof(ParentPaneModelsBottom));
+                OnPropertyChanged(nameof(ParentPaneModelsFloating));
+                OnPropertyChanged(nameof(HasMinimizedParentLeft));
+                OnPropertyChanged(nameof(HasMinimizedParentTop));
+                OnPropertyChanged(nameof(HasMinimizedParentRight));
+                OnPropertyChanged(nameof(HasMinimizedParentBottom));
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
@@ -3716,13 +4304,8 @@ namespace Constellate.App
 
         private void UpdateTopLeftOwnershipLayout()
         {
-            var hasTop = Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "top", StringComparison.Ordinal));
-
-            var hasLeft = Panes.Any(p =>
-                !p.IsMinimized &&
-                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+            var hasTop = ParentPaneModelsTop.Count > 0;
+            var hasLeft = ParentPaneModelsLeft.Count > 0;
 
             if (!hasTop && !hasLeft)
             {
