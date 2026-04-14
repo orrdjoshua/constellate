@@ -318,6 +318,64 @@
       </Border.ContextMenu>
       <Grid>
         <Border Background="#121A23"
+
+  <!-- 3-column, 3-row layout:
+       - Left/right/top/bottom hosts are invisible parent-pane placeholders whose
+         free dimension can be resized via drag grips along their borders.
+       - Center host contains the 3D viewport.
+       - Floating host is an invisible overlay for future floating parent panes. -->
+  <Grid x:Name="RootGrid"
+        Background="#050911">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Left parent-pane host (reserved for future generic parent panes) -->
+    <Border x:Name="LeftPaneHost"
+            Grid.Row="{Binding LeftPaneRow}"
+            Grid.RowSpan="{Binding LeftPaneRowSpan}"
+            Grid.Column="0"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,1,0"
+            Padding="14"
+            MinWidth="260"
+            IsVisible="{Binding IsShellPaneOnLeft}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="left" />
+          <MenuItem Header="Destroy pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="left" />
+          <Separator />
+          <MenuItem Header="One column"
+                    Command="{Binding SetLeftPaneSplitCommand}"
+                    CommandParameter="1" />
+          <MenuItem Header="Two columns"
+                    Command="{Binding SetLeftPaneSplitCommand}"
+                    CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="left:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="left:next" />
+        </ContextMenu>
+      </Border.ContextMenu>
+      <Grid RowDefinitions="Auto,*">
+        <!-- Parent-pane header/chrome with label, Add Pane, minimize, destroy -->
+        <Border Grid.Row="0"
+                Background="#121A23"
                 CornerRadius="4"
                 Padding="6,4"
                 Margin="0,0,0,8">
@@ -348,6 +406,26 @@
                       Command="{Binding DestroyParentPaneCommand}" />
                       Command="{Binding DestroyParentPaneCommand}"
                       CommandParameter="floating" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="left" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="left" />
             </StackPanel>
           </DockPanel>
         </Border>
@@ -637,6 +715,1300 @@
             IsHitTestVisible="{Binding IsShellPaneOnBottom}" />
 
     <!-- Drag shadow overlay for parent-pane drag preview -->
+        <!-- Child-pane taskbar (minimized children) and visible child panes -->
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <!-- Taskbar strip for minimized child panes -->
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesLeft}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Visible child panes for Left host, arranged into two internal columns.
+               Column 0 and Column 1 are driven by ContainerIndex on ChildPaneDescriptor. -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="6">
+              <!-- Column 0 -->
+              <ItemsControl Grid.Column="0"
+                            ItemsSource="{Binding VisibleChildPanesLeftColumn0}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+
+                        <!-- Dummy child-pane body; real content will be provided by future pane types -->
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Column 1 -->
+              <ItemsControl Grid.Column="1"
+                            ItemsSource="{Binding VisibleChildPanesLeftColumn1}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+
+                        <!-- Dummy child-pane body; real content will be provided by future pane types -->
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </ScrollViewer>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Top parent-pane host (generic parent pane with child panes + taskbar) -->
+    <Border x:Name="TopPaneHost"
+            Grid.Column="{Binding TopPaneColumn}"
+            Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
+            Grid.Row="0"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,0,1"
+            Padding="10,6,10,4"
+            MinHeight="220"
+            IsVisible="{Binding IsShellPaneOnTop}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="top" />
+          <MenuItem Header="Destroy pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="top" />
+          <Separator />
+          <MenuItem Header="One row"
+                    Command="{Binding SetTopPaneSplitCommand}"
+                    CommandParameter="1" />
+          <MenuItem Header="Two rows"
+                    Command="{Binding SetTopPaneSplitCommand}"
+                    CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="top:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="top:next" />
+        </ContextMenu>
+      </Border.ContextMenu>
+      <Grid RowDefinitions="Auto,*">
+        <!-- Parent-pane header/chrome with label, Add Pane, minimize, destroy -->
+        <Border Grid.Row="0"
+                Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}"
+                      CommandParameter="top" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="top" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="top" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Child-pane taskbar (minimized children) and visible child panes for Top host -->
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <!-- Taskbar strip for minimized child panes on Top host -->
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesTop}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Visible child panes on Top host (dummy content for now) -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <Grid RowDefinitions="*,*"
+                  RowSpacing="6">
+              <!-- Row 0 -->
+              <ItemsControl Grid.Row="0"
+                            ItemsSource="{Binding VisibleChildPanesTopRow0}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+
+                        <!-- Dummy child-pane body; real content will be provided by future pane types -->
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Row 1 -->
+              <ItemsControl Grid.Row="1"
+                            ItemsSource="{Binding VisibleChildPanesTopRow1}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+
+                        <!-- Dummy child-pane body; real content will be provided by future pane types -->
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </ScrollViewer>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Right parent-pane host (reserved for future generic parent panes) -->
+    <Border x:Name="RightPaneHost"
+            Grid.RowSpan="3"
+            Grid.Column="2"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="1,0,0,0"
+            Padding="14"
+            MinWidth="260"
+            IsVisible="{Binding IsRightPaneHostVisible}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="right" />
+          <MenuItem Header="Destroy pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="right" />
+          <Separator />
+          <MenuItem Header="One column"
+                    Command="{Binding SetRightPaneSplitCommand}"
+                    CommandParameter="1" />
+          <MenuItem Header="Two columns"
+                    Command="{Binding SetRightPaneSplitCommand}"
+                    CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="right:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="right:next" />
+        </ContextMenu>
+      </Border.ContextMenu>
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}"
+                      CommandParameter="right" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="right" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="right" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesRight}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="6">
+              <!-- Right host column 0 -->
+              <ItemsControl Grid.Column="0"
+                            ItemsSource="{Binding VisibleChildPanesRightColumn0}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Right host column 1 -->
+              <ItemsControl Grid.Column="1"
+                            ItemsSource="{Binding VisibleChildPanesRightColumn1}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </ScrollViewer>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Center viewport host: pure 3D World -->
+    <Border x:Name="CenterViewportHost"
+            Grid.Column="1"
+            Grid.Row="1">
+      <rt:OpenTkViewportControl />
+    </Border>
+
+    <!-- Bottom parent-pane host (reserved for future generic parent panes) -->
+    <Border x:Name="BottomPaneHost"
+            Grid.Column="1"
+            Grid.Row="2"
+            Background="#0E141B"
+            BorderBrush="#2A394B"
+            BorderThickness="0,1,0,0"
+            Padding="10,6,10,10"
+            MinHeight="220"
+            IsVisible="{Binding IsShellPaneOnBottom}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="bottom" />
+          <MenuItem Header="Destroy pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="bottom" />
+          <Separator />
+          <MenuItem Header="One row"
+                    Command="{Binding SetBottomPaneSplitCommand}"
+                    CommandParameter="1" />
+          <MenuItem Header="Two rows"
+                    Command="{Binding SetBottomPaneSplitCommand}"
+                    CommandParameter="2" />
+          <Separator />
+          <MenuItem Header="Previous slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="bottom:prev" />
+          <MenuItem Header="Next slide"
+                    Command="{Binding SlideParentPaneCommand}"
+                    CommandParameter="bottom:next" />
+        </ContextMenu>
+      </Border.ContextMenu>
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}"
+                      CommandParameter="bottom" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="bottom" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="bottom" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesBottom}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <Grid RowDefinitions="*,*"
+                  RowSpacing="6">
+              <!-- Bottom host row 0 -->
+              <ItemsControl Grid.Row="0"
+                            ItemsSource="{Binding VisibleChildPanesBottomRow0}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Bottom host row 1 -->
+              <ItemsControl Grid.Row="1"
+                            ItemsSource="{Binding VisibleChildPanesBottomRow1}"
+                            x:CompileBindings="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Margin="0,0,0,6"
+                            Background="#151E28"
+                            CornerRadius="4">
+                      <Grid RowDefinitions="Auto,*">
+                        <DockPanel Grid.Row="0"
+                                   LastChildFill="False"
+                                   Background="#192531"
+                                   PointerPressed="OnChildPaneHeaderPointerPressed"
+                                   PointerReleased="OnChildPaneHeaderPointerReleased"
+                                   PointerMoved="OnChildPaneHeaderPointerMoved">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="12"
+                                     Foreground="#E5EDF7"
+                                     VerticalAlignment="Center"
+                                     DockPanel.Dock="Left" />
+                          <StackPanel Orientation="Horizontal"
+                                      Spacing="4"
+                                      HorizontalAlignment="Right"
+                                      DockPanel.Dock="Right">
+                            <Button Width="20"
+                                    Height="20"
+                                    Padding="0"
+                                    Content="–"
+                                    ToolTip.Tip="Minimize child pane"
+                                    Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding Id}" />
+                          </StackPanel>
+                          <DockPanel.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Move to Left"
+                                        Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Top"
+                                        Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Right"
+                                        Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Bottom"
+                                        Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                              <MenuItem Header="Move to Floating"
+                                        Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding Id}" />
+                            </ContextMenu>
+                          </DockPanel.ContextMenu>
+                        </DockPanel>
+                        <Border Grid.Row="1"
+                                Margin="6,4,6,8"
+                                Background="#101722"
+                                CornerRadius="2">
+                          <TextBlock Text="(empty child pane)"
+                                     Margin="6,4"
+                                     FontSize="11"
+                                     Foreground="#9BA8B7" />
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Grid>
+          </ScrollViewer>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Floating parent-pane host overlaying the viewport (for future floating panes) -->
+    <Border x:Name="FloatingPaneHost"
+            Grid.Column="1"
+            Grid.Row="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="40"
+            Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="0"
+            CornerRadius="8"
+            Padding="0"
+            IsVisible="{Binding IsShellPaneFloating}">
+      <Border.ContextMenu>
+        <ContextMenu>
+          <MenuItem Header="Minimize pane"
+                    Command="{Binding MinimizeShellPaneCommand}"
+                    CommandParameter="floating" />
+          <MenuItem Header="Destroy pane"
+                    Command="{Binding DestroyParentPaneCommand}"
+                    CommandParameter="floating" />
+        </ContextMenu>
+      </Border.ContextMenu>
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4"
+                Margin="0,0,0,8">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Parent Pane"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right">
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding CreateChildPaneCommand}"
+                      CommandParameter="floating" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding MinimizeShellPaneCommand}"
+                      CommandParameter="floating" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding DestroyParentPaneCommand}"
+                      CommandParameter="floating" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1"
+                    Spacing="6">
+          <ItemsControl ItemsSource="{Binding MinimizedChildPanesFloating}"
+                        x:CompileBindings="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Padding="6,2"
+                        MinWidth="72"
+                        Content="{Binding Title}"
+                        Command="{Binding DataContext.RestoreChildPaneFromTaskbarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding Id}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding VisibleChildPanesFloating}"
+                          x:CompileBindings="False">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,6"
+                          Background="#151E28"
+                          CornerRadius="4">
+                    <Grid RowDefinitions="Auto,*">
+                      <DockPanel Grid.Row="0"
+                                 LastChildFill="False"
+                                 Background="#192531"
+                                 PointerPressed="OnChildPaneHeaderPointerPressed"
+                                 PointerReleased="OnChildPaneHeaderPointerReleased"
+                                 PointerMoved="OnChildPaneHeaderPointerMoved">
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="12"
+                                   Foreground="#E5EDF7"
+                                   VerticalAlignment="Center"
+                                   DockPanel.Dock="Left" />
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="4"
+                                    HorizontalAlignment="Right"
+                                    DockPanel.Dock="Right">
+                          <Button Width="20"
+                                  Height="20"
+                                  Padding="0"
+                                  Content="–"
+                                  ToolTip.Tip="Minimize child pane"
+                                  Command="{Binding DataContext.MinimizeChildPaneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  CommandParameter="{Binding Id}" />
+                        </StackPanel>
+                        <DockPanel.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Move to Left"
+                                      Command="{Binding DataContext.MoveChildPaneToLeftHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding Id}" />
+                            <MenuItem Header="Move to Top"
+                                      Command="{Binding DataContext.MoveChildPaneToTopHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding Id}" />
+                            <MenuItem Header="Move to Right"
+                                      Command="{Binding DataContext.MoveChildPaneToRightHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding Id}" />
+                            <MenuItem Header="Move to Bottom"
+                                      Command="{Binding DataContext.MoveChildPaneToBottomHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding Id}" />
+                            <MenuItem Header="Move to Floating"
+                                      Command="{Binding DataContext.MoveChildPaneToFloatingHostCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      CommandParameter="{Binding Id}" />
+                          </ContextMenu>
+                        </DockPanel.ContextMenu>
+                      </DockPanel>
+                      <Border Grid.Row="1"
+                              Margin="6,4,6,8"
+                              Background="#101722"
+                              CornerRadius="2">
+                        <TextBlock Text="(empty child pane)"
+                                   Margin="6,4"
+                                   FontSize="11"
+                                   Foreground="#9BA8B7" />
+                      </Border>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Corner affordances: true 45° bisected triangular controls in each viewport corner.
+         Each corner draws a right-isosceles triangle offset slightly from the corner and
+         then bisects it; each half-triangle is a separate click target mapped to a host.
+         Top-left: left triangle = Left host, top triangle = Top host.
+         Top-right: top triangle = Top host, right triangle = Right host.
+         Bottom-left: left triangle = Left host, bottom triangle = Bottom host.
+         Bottom-right: bottom triangle = Bottom host, right triangle = Right host. -->
+
+    <!-- Top-left corner (origin at top-left of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Margin="6">
+      <!-- Left triangle (hosts Left pane) : A(0,0) M(7,7) B(0,14) -->
+      <Polygon x:Name="TopLeft_LeftTriangle"
+               Points="0,0 7,7 0,14"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="left">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Left pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Top triangle (hosts Top pane) : A(0,0) C(14,0) M(7,7) -->
+      <Polygon x:Name="TopLeft_TopTriangle"
+               Points="0,0 14,0 7,7"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="top">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Top pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Top-right corner (origin at top-right of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="6">
+      <!-- Top triangle (hosts Top pane) : A(22,0) C(8,0) M(15,7) in local space -->
+      <Polygon x:Name="TopRight_TopTriangle"
+               Points="22,0 8,0 15,7"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="top">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Top pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Right triangle (hosts Right pane) : A(22,0) M(15,7) B(22,14) -->
+      <Polygon x:Name="TopRight_RightTriangle"
+               Points="22,0 15,7 22,14"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="right">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Right pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Bottom-left corner (origin at bottom-left of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Margin="6">
+      <!-- Left triangle (hosts Left pane) : A(0,22) M(7,15) B(0,8) -->
+      <Polygon x:Name="BottomLeft_LeftTriangle"
+               Points="0,22 7,15 0,8"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="left">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Left pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Bottom triangle (hosts Bottom pane) : A(0,22) C(14,22) M(7,15) -->
+      <Polygon x:Name="BottomLeft_BottomTriangle"
+               Points="0,22 14,22 7,15"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="bottom">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Bottom pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Bottom-right corner (origin at bottom-right of viewport) -->
+    <Canvas Grid.RowSpan="3"
+            Grid.ColumnSpan="3"
+            Width="22"
+            Height="22"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="6">
+      <!-- Bottom triangle (hosts Bottom pane) : A(22,22) C(8,22) M(15,15) -->
+      <Polygon x:Name="BottomRight_BottomTriangle"
+               Points="22,22 8,22 15,15"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="bottom">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Bottom pane" />
+        </ToolTip.Tip>
+      </Polygon>
+      <!-- Right triangle (hosts Right pane) : A(22,22) M(15,15) B(22,8) -->
+      <Polygon x:Name="BottomRight_RightTriangle"
+               Points="22,22 15,15 22,8"
+               Fill="#60313A46"
+               Stroke="#E5EDF7"
+               StrokeThickness="1.2"
+               Cursor="Hand"
+               Tag="right">
+        <ToolTip.Tip>
+          <TextBlock Text="Create or restore Right pane" />
+        </ToolTip.Tip>
+      </Polygon>
+    </Canvas>
+
+    <!-- Corner intersection hit targets between Top and Left/Right panes.
+         Double-clicking either top-corner intersection border toggles which
+         pane \"owns\" the corners (Top full-width vs Left full-height). -->
+    <Border x:Name="TopLeftIntersectionHit"
+            Grid.Row="0"
+            Grid.Column="0"
+            Width="10"
+            Height="10"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="0,0,2,2"
+            IsVisible="{Binding IsShellPaneOnTop}"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
+
+    <Border x:Name="TopRightIntersectionHit"
+            Grid.Row="0"
+            Grid.Column="2"
+            Width="10"
+            Height="10"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Bottom"
+            Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="2,0,0,2"
+            IsVisible="{Binding IsShellPaneOnTop}"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
+
+    <!-- Parent-pane resize grips: resize along the free dimension for each dock edge.
+         These grips are only hit-testable when the corresponding parent pane is visible. -->
+
+    <!-- Left pane resize grip (horizontal resize for left host) -->
+    <Border x:Name="LeftPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="0"
+            HorizontalAlignment="Right"
+            Width="8"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnLeft}"
+            IsVisible="{Binding IsShellPaneOnLeft}" />
+
+    <!-- Right pane resize grip (horizontal resize for right host) -->
+    <Border x:Name="RightPaneResizeGrip"
+            Grid.Row="1"
+            Grid.Column="2"
+            HorizontalAlignment="Left"
+            Width="8"
+            Background="Transparent"
+            Cursor="SizeWestEast"
+            IsHitTestVisible="{Binding IsShellPaneOnRight}"
+            IsVisible="{Binding IsShellPaneOnRight}" />
+
+    <!-- Top pane resize grip (vertical resize for top host) -->
+    <Border x:Name="TopPaneResizeGrip"
+            Grid.Row="0"
+            Grid.Column="1"
+            VerticalAlignment="Bottom"
+            Height="8"
+            Background="Transparent"
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnTop}"
+            IsVisible="{Binding IsShellPaneOnTop}" />
+
+    <!-- Bottom pane resize grip (vertical resize for bottom host) -->
+    <Border x:Name="BottomPaneResizeGrip"
+            Grid.Row="2"
+            Grid.Column="1"
+            VerticalAlignment="Top"
+            Height="8"
+            Background="Transparent"
+            Cursor="SizeNorthSouth"
+            IsHitTestVisible="{Binding IsShellPaneOnBottom}"
+            IsVisible="{Binding IsShellPaneOnBottom}" />
+
+    <!-- Drag shadow overlays for parent and child pane drag previews -->
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
             IsHitTestVisible="False">
@@ -649,6 +2021,15 @@
               BorderBrush="#80FFFFFF"
               BorderThickness="2"
               CornerRadius="4" />
+      <Border IsVisible="{Binding IsChildPaneDragShadowVisible}"
+              Canvas.Left="{Binding ChildPaneDragShadowLeft}"
+              Canvas.Top="{Binding ChildPaneDragShadowTop}"
+              Width="{Binding ChildPaneDragShadowWidth}"
+              Height="{Binding ChildPaneDragShadowHeight}"
+              Background="#4040C0FF"
+              BorderBrush="#80FFFFFF"
+              BorderThickness="1.5"
+              CornerRadius="3" />
     </Canvas>
   </Grid>
 </Window>

@@ -35,6 +35,10 @@ namespace Constellate.App
         private double _initialTopHeight;
         private double _initialBottomHeight;
         private Grid? _rootGrid;
+        private bool _isChildPaneDragging;
+        private Point _childDragStartPoint;
+        private string? _childDragPaneId;
+        private string? _childDragOriginHostId;
 
         public MainWindow()
         {
@@ -153,6 +157,86 @@ namespace Constellate.App
             Wire("BottomLeft_BottomTriangle");
             Wire("BottomRight_BottomTriangle");
             Wire("BottomRight_RightTriangle");
+        }
+
+        private void ComputeChildPaneDragShadowRect(
+            string hostId,
+            Point pointer,
+            out double left,
+            out double top,
+            out double width,
+            out double height)
+        {
+            var normalized = MainWindowViewModel.NormalizeHostId(hostId);
+            var windowBounds = Bounds;
+            var windowWidth = windowBounds.Width;
+            var windowHeight = windowBounds.Height;
+
+            const double defaultWidth = 260.0;
+            const double defaultHeight = 160.0;
+            const double margin = 12.0;
+
+            Rect hostRect;
+
+            Border? host = null;
+            switch (normalized)
+            {
+                case "left":
+                    host = this.FindControl<Border>("LeftPaneHost");
+                    break;
+                case "top":
+                    host = this.FindControl<Border>("TopPaneHost");
+                    break;
+                case "right":
+                    host = this.FindControl<Border>("RightPaneHost");
+                    break;
+                case "bottom":
+                    host = this.FindControl<Border>("BottomPaneHost");
+                    break;
+                case "floating":
+                    host = this.FindControl<Border>("FloatingPaneHost");
+                    break;
+            }
+
+            if (host is not null && host.IsVisible)
+            {
+                hostRect = host.Bounds;
+            }
+            else
+            {
+                hostRect = new Rect(0, 0, windowWidth, windowHeight);
+            }
+
+            if (string.Equals(normalized, "floating", StringComparison.Ordinal))
+            {
+                width = defaultWidth;
+                height = defaultHeight;
+                left = pointer.X - (width / 2.0);
+                top = pointer.Y - (height / 2.0);
+
+                left = Math.Clamp(left, 0, Math.Max(0, windowWidth - width));
+                top = Math.Clamp(top, 0, Math.Max(0, windowHeight - height));
+                return;
+            }
+
+            width = Math.Min(defaultWidth, Math.Max(120.0, hostRect.Width - (2 * margin)));
+            height = Math.Min(defaultHeight, Math.Max(80.0, hostRect.Height - (2 * margin)));
+
+            left = hostRect.X + ((hostRect.Width - width) / 2.0);
+            top = hostRect.Y + margin;
+
+            left = Math.Clamp(left, 0, Math.Max(0, windowWidth - width));
+            top = Math.Clamp(top, 0, Math.Max(0, windowHeight - height));
+        }
+
+        private void OnTopCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ToggleTopCornerOwnership();
+            }
+
+            e.Handled = true;
         }
 
         private static string GetTargetHostForPoint(Point point, double width, double height)
@@ -302,6 +386,7 @@ namespace Constellate.App
             var height = Bounds.Height;
             if (width <= 0 || height <= 0)
             {
+                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
                 vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
                 _dragOriginHostId = null;
                 return;
@@ -354,6 +439,103 @@ namespace Constellate.App
                 out var shadowHeight);
 
             vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
+        }
+
+        private void OnChildPaneHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            if (sender is not Control header || header.DataContext is not ChildPaneDescriptor descriptor)
+            {
+                return;
+            }
+
+            _isChildPaneDragging = true;
+            _childDragStartPoint = e.GetPosition(this);
+            _childDragPaneId = descriptor.Id;
+            _childDragOriginHostId = descriptor.HostId;
+
+            try { e.Pointer.Capture(this); } catch { }
+        }
+
+        private void OnChildPaneHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isChildPaneDragging)
+            {
+                return;
+            }
+
+            _isChildPaneDragging = false;
+
+            try { e.Pointer.Capture(null); } catch { }
+
+            var paneId = _childDragPaneId;
+            var originHost = _childDragOriginHostId;
+            _childDragPaneId = null;
+            _childDragOriginHostId = null;
+
+            if (string.IsNullOrWhiteSpace(paneId) || DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            var releasePoint = e.GetPosition(this);
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
+
+            if (!string.IsNullOrWhiteSpace(originHost) &&
+                string.Equals(
+                    MainWindowViewModel.NormalizeHostId(originHost),
+                    MainWindowViewModel.NormalizeHostId(targetHost),
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            vm.MoveChildPaneToHost(paneId, targetHost);
+        }
+
+        private void OnChildPaneHeaderPointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isChildPaneDragging)
+            {
+                return;
+            }
+
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            var currentPoint = e.GetPosition(this);
+            var width = Bounds.Width;
+            var height = Bounds.Height;
+
+            if (width <= 0 || height <= 0)
+            {
+                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
+                return;
+            }
+
+            var targetHost = GetTargetHostForPoint(currentPoint, width, height);
+            ComputeChildPaneDragShadowRect(
+                targetHost,
+                currentPoint,
+                out var left,
+                out var top,
+                out var shadowWidth,
+                out var shadowHeight);
+
+            vm.SetChildPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
         }
 
         private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -503,12 +685,23 @@ namespace Constellate.App
         string Title,
         int Order,
         bool IsMinimized = false);
+        string HostId,
+        int ContainerIndex = 0,
+        bool IsMinimized = false,
+        int SlideIndex = 0);
 
     public sealed record ShellLayoutDescriptor(
         string HostId,
         bool IsMinimized,
         string? SavedHostId = null,
         bool SavedIsMinimized = false);
+        bool SavedIsMinimized = false,
+        int LeftSlideIndex = 0,
+        int TopSlideIndex = 0,
+        int RightSlideIndex = 0,
+        int BottomSlideIndex = 0,
+        IReadOnlyList<PaneDescriptor>? ParentPanes = null,
+        IReadOnlyList<ChildPaneDescriptor>? ChildPanes = null);
 
     public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
@@ -519,6 +712,7 @@ namespace Constellate.App
         private const string ShellLayoutFileName = "shell-layout.json";
         private readonly IDisposable[] _eventSubscriptions;
         private readonly ShellSceneState _shellScene = EngineServices.ShellScene;
+        private bool _isTopCornerOwnedByTop;
 
         private RelayCommand _focusFirstNodeCommand;
         private RelayCommand _selectFirstNodeCommand;
@@ -586,6 +780,83 @@ namespace Constellate.App
         private RelayCommand _dockSettingsChildPaneCommand;
         private RelayCommand _destroyParentPaneCommand;
         private RelayCommand _createOrRestoreParentPaneCommand;
+        private readonly RelayCommand _focusFirstNodeCommand;
+        private readonly RelayCommand _selectFirstNodeCommand;
+        private readonly RelayCommand _focusFirstPanelCommand;
+        private readonly RelayCommand _selectFirstPanelCommand;
+        private readonly RelayCommand _activateNavigateModeCommand;
+        private readonly RelayCommand _activateMoveModeCommand;
+        private readonly RelayCommand _activateMarqueeModeCommand;
+        private readonly RelayCommand _createDemoNodeCommand;
+        private readonly RelayCommand _nudgeFocusedLeftCommand;
+        private readonly RelayCommand _nudgeFocusedRightCommand;
+        private readonly RelayCommand _nudgeFocusedUpCommand;
+        private readonly RelayCommand _nudgeFocusedDownCommand;
+        private readonly RelayCommand _nudgeFocusedForwardCommand;
+        private readonly RelayCommand _nudgeFocusedBackCommand;
+        private readonly RelayCommand _growFocusedNodeCommand;
+        private readonly RelayCommand _shrinkFocusedNodeCommand;
+        private readonly RelayCommand _applyTrianglePrimitiveCommand;
+        private readonly RelayCommand _applySquarePrimitiveCommand;
+        private readonly RelayCommand _applyDiamondPrimitiveCommand;
+        private readonly RelayCommand _applyPentagonPrimitiveCommand;
+        private readonly RelayCommand _applyHexagonPrimitiveCommand;
+        private readonly RelayCommand _applyCubePrimitiveCommand;
+        private readonly RelayCommand _applyTetrahedronPrimitiveCommand;
+        private readonly RelayCommand _applySpherePrimitiveCommand;
+        private readonly RelayCommand _applyBoxPrimitiveCommand;
+        private readonly RelayCommand _applyBlueAppearanceCommand;
+        private readonly RelayCommand _applyVioletAppearanceCommand;
+        private readonly RelayCommand _applyGreenAppearanceCommand;
+        private readonly RelayCommand _increaseOpacityCommand;
+        private readonly RelayCommand _decreaseOpacityCommand;
+        private readonly RelayCommand _connectFocusedNodeCommand;
+        private readonly RelayCommand _groupSelectionCommand;
+        private readonly RelayCommand _unlinkFocusedNodeCommand;
+        private readonly RelayCommand _saveBookmarkCommand;
+        private readonly RelayCommand _addSelectionToActiveGroupCommand;
+        private readonly RelayCommand _removeSelectionFromActiveGroupCommand;
+        private readonly RelayCommand _deleteActiveGroupCommand;
+        private readonly RelayCommand _restoreLatestBookmarkCommand;
+        private readonly RelayCommand _undoLastCommand;
+        private readonly RelayCommand _deleteFocusedNodeCommand;
+        private readonly RelayCommand _attachDemoPanelCommand;
+        private readonly RelayCommand _attachLabelPaneletteCommand;
+        private readonly RelayCommand _attachDetailMetadataPaneletteCommand;
+        private readonly RelayCommand _homeViewCommand;
+        private readonly RelayCommand _centerFocusedNodeCommand;
+        private readonly RelayCommand _frameSelectionCommand;
+        private readonly RelayCommand _enterFocusedNodeCommand;
+        private readonly RelayCommand _exitNodeCommand;
+        private readonly RelayCommand _clearLinksCommand;
+        private readonly RelayCommand _clearSelectionCommand;
+        private readonly RelayCommand _applyBackgroundDeepSpaceCommand;
+        private readonly RelayCommand _applyBackgroundDuskCommand;
+        private readonly RelayCommand _applyBackgroundPaperCommand;
+        private readonly RelayCommand _minimizeShellPaneCommand;
+        private readonly RelayCommand _restoreShellPaneCommand;
+        private readonly RelayCommand _resetLayoutToDefaultCommand;
+        private readonly RelayCommand _saveLayoutPresetCommand;
+        private readonly RelayCommand _restoreLayoutPresetCommand;
+        private readonly RelayCommand _createChildPaneCommand;
+        private readonly RelayCommand _minimizeChildPaneCommand;
+        private readonly RelayCommand _restoreChildPaneFromTaskbarCommand;
+        private readonly RelayCommand _moveChildPaneUpCommand;
+        private readonly RelayCommand _moveChildPaneDownCommand;
+        private readonly RelayCommand _floatSettingsChildPaneCommand;
+        private readonly RelayCommand _dockSettingsChildPaneCommand;
+        private readonly RelayCommand _moveChildPaneToLeftHostCommand;
+        private readonly RelayCommand _moveChildPaneToTopHostCommand;
+        private readonly RelayCommand _moveChildPaneToRightHostCommand;
+        private readonly RelayCommand _moveChildPaneToBottomHostCommand;
+        private readonly RelayCommand _moveChildPaneToFloatingHostCommand;
+        private readonly RelayCommand _destroyParentPaneCommand;
+        private readonly RelayCommand _createOrRestoreParentPaneCommand;
+        private readonly RelayCommand _setTopPaneSplitCommand;
+        private readonly RelayCommand _setRightPaneSplitCommand;
+        private readonly RelayCommand _setBottomPaneSplitCommand;
+        private readonly RelayCommand _slideParentPaneCommand;
+        private readonly RelayCommand _setLeftPaneSplitCommand;
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
@@ -608,6 +879,11 @@ namespace Constellate.App
         private double _parentPaneDragShadowTop;
         private double _parentPaneDragShadowWidth;
         private double _parentPaneDragShadowHeight;
+        private bool _isChildPaneDragShadowVisible;
+        private double _childPaneDragShadowLeft;
+        private double _childPaneDragShadowTop;
+        private double _childPaneDragShadowWidth;
+        private double _childPaneDragShadowHeight;
         private bool _mouseLeaveClearsFocus = EngineServices.Settings.MouseLeaveClearsFocus;
         private float _groupOverlayOpacity = EngineServices.Settings.GroupOverlayOpacity;
         private float _nodeHighlightOpacity = EngineServices.Settings.NodeHighlightOpacity;
@@ -620,6 +896,14 @@ namespace Constellate.App
         private float _linkOpacity = EngineServices.Settings.LinkOpacity;
         private float _paneletteBackgroundIntensity = EngineServices.Settings.PaneletteBackgroundIntensity;
         private float _commandSurfaceOverlayOpacity = EngineServices.Settings.CommandSurfaceOverlayOpacity;
+        private int _leftPaneRow = 0;
+        private int _leftPaneRowSpan = 3;
+        private int _topPaneColumn = 1;
+        private int _topPaneColumnSpan = 1;
+        private int _leftSlideIndex;
+        private int _topSlideIndex;
+        private int _rightSlideIndex;
+        private int _bottomSlideIndex;
 
         public ObservableCollection<EngineCapability> Capabilities { get; } =
             new(EngineServices.Capabilities.GetAll());
@@ -664,10 +948,20 @@ namespace Constellate.App
                     new ChildPaneDescriptor("shell.settings", "Settings", 1),
                     new ChildPaneDescriptor("shell.developer", "Developer Readouts", 2),
                     new ChildPaneDescriptor("shell.capabilities", "Engine Capabilities", 3)
+                    new ChildPaneDescriptor("child.1", "Pane 1", 0, "left"),
+                    new ChildPaneDescriptor("child.2", "Pane 2", 1, "left"),
+                    new ChildPaneDescriptor("child.3", "Pane 3", 2, "left"),
+                           new ChildPaneDescriptor("child.4", "Pane 4", 3, "left")
                 });
 
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
             ChildPanes
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesOrdered =>
+            ChildPanes
+                .Where(pane => !pane.IsMinimized)
                 .OrderBy(pane => pane.Order)
                 .ToArray();
 
@@ -676,6 +970,205 @@ namespace Constellate.App
 
         public IEnumerable<ChildPaneDescriptor> MinimizedChildPanes =>
             ChildPanesOrdered.Where(pane => pane.IsMinimized);
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeft =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _leftSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesLeftColumn1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "left", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _leftSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesRightColumn0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "right", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _rightSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesRightColumn1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "right", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _rightSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesBottomRow0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _bottomSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesBottomRow1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _bottomSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesLeft =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "left", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTop =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "top", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTopRow0 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 0 &&
+                    pane.SlideIndex == _topSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesTopRow1 =>
+            ChildPanes
+                .Where(pane =>
+                    string.Equals(pane.HostId, "top", StringComparison.Ordinal) &&
+                    !pane.IsMinimized &&
+                    pane.ContainerIndex == 1 &&
+                    pane.SlideIndex == _topSlideIndex)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesTop =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "top", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesRight =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "right", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesRight =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "right", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesBottom =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesBottom =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "bottom", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IReadOnlyList<ChildPaneDescriptor> VisibleChildPanesFloating =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "floating", StringComparison.Ordinal) && !pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public IEnumerable<ChildPaneDescriptor> MinimizedChildPanesFloating =>
+            ChildPanes
+                .Where(pane => string.Equals(pane.HostId, "floating", StringComparison.Ordinal) && pane.IsMinimized)
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+        public int LeftPaneRow
+        {
+            get => _leftPaneRow;
+            set
+            {
+                if (_leftPaneRow == value)
+                {
+                    return;
+                }
+
+                _leftPaneRow = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int LeftPaneRowSpan
+        {
+            get => _leftPaneRowSpan;
+            set
+            {
+                if (_leftPaneRowSpan == value)
+                {
+                    return;
+                }
+
+                    _leftPaneRowSpan = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int TopPaneColumn
+        {
+            get => _topPaneColumn;
+            set
+            {
+                if (_topPaneColumn == value)
+                {
+                    return;
+                }
+
+                _topPaneColumn = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int TopPaneColumnSpan
+        {
+            get => _topPaneColumnSpan;
+            set
+            {
+                if (_topPaneColumnSpan == value)
+                {
+                    return;
+                }
+
+                _topPaneColumnSpan = value;
+                OnPropertyChanged();
+            }
+        }
 
         public bool IsShellCurrentChildVisible => !IsChildPaneMinimized("shell.current");
         public bool IsShellSettingsChildVisible => !IsChildPaneMinimized("shell.settings") && !IsSettingsChildFloating;
@@ -789,6 +1282,7 @@ namespace Constellate.App
         public ICommand ResetLayoutToDefaultCommand => _resetLayoutToDefaultCommand;
         public ICommand SaveLayoutPresetCommand => _saveLayoutPresetCommand;
         public ICommand RestoreLayoutPresetCommand => _restoreLayoutPresetCommand;
+        public ICommand CreateChildPaneCommand => _createChildPaneCommand;
         public ICommand MinimizeChildPaneCommand => _minimizeChildPaneCommand;
         public ICommand RestoreChildPaneFromTaskbarCommand => _restoreChildPaneFromTaskbarCommand;
         public ICommand MoveChildPaneUpCommand => _moveChildPaneUpCommand;
@@ -797,6 +1291,18 @@ namespace Constellate.App
         public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
         public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
         public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
+        public ICommand MoveChildPaneToLeftHostCommand => _moveChildPaneToLeftHostCommand;
+        public ICommand MoveChildPaneToTopHostCommand => _moveChildPaneToTopHostCommand;
+        public ICommand MoveChildPaneToRightHostCommand => _moveChildPaneToRightHostCommand;
+        public ICommand MoveChildPaneToBottomHostCommand => _moveChildPaneToBottomHostCommand;
+        public ICommand MoveChildPaneToFloatingHostCommand => _moveChildPaneToFloatingHostCommand;
+        public ICommand DestroyParentPaneCommand => _destroyParentPaneCommand;
+        public ICommand CreateOrRestoreParentPaneCommand => _createOrRestoreParentPaneCommand;
+        public ICommand SetTopPaneSplitCommand => _setTopPaneSplitCommand;
+        public ICommand SetRightPaneSplitCommand => _setRightPaneSplitCommand;
+        public ICommand SetBottomPaneSplitCommand => _setBottomPaneSplitCommand;
+        public ICommand SlideParentPaneCommand => _slideParentPaneCommand;
+        public ICommand SetLeftPaneSplitCommand => _setLeftPaneSplitCommand;
 
         public bool IsCurrentStateSectionExpanded
         {
@@ -874,6 +1380,128 @@ namespace Constellate.App
         {
             get => _isCapabilitiesSectionExpanded;
             set => SetExpansionState(ref _isCapabilitiesSectionExpanded, value);
+        }
+
+        public bool IsSettingsChildFloating
+        {
+            get => _isSettingsChildFloating;
+            set
+            {
+                if (_isSettingsChildFloating == value)
+                {
+                    return;
+                }
+
+                _isSettingsChildFloating = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            }
+        }
+
+        public bool IsParentPaneDragShadowVisible
+        {
+            get => _isParentPaneDragShadowVisible;
+            private set
+            {
+                if (_isParentPaneDragShadowVisible == value)
+                {
+                    return;
+                }
+
+                _isParentPaneDragShadowVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double ParentPaneDragShadowLeft
+        {
+            get => _parentPaneDragShadowLeft;
+            private set { if (Math.Abs(_parentPaneDragShadowLeft - value) > double.Epsilon) { _parentPaneDragShadowLeft = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowTop
+        {
+            get => _parentPaneDragShadowTop;
+            private set { if (Math.Abs(_parentPaneDragShadowTop - value) > double.Epsilon) { _parentPaneDragShadowTop = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowWidth
+        {
+            get => _parentPaneDragShadowWidth;
+            private set { if (Math.Abs(_parentPaneDragShadowWidth - value) > double.Epsilon) { _parentPaneDragShadowWidth = value; OnPropertyChanged(); } }
+        }
+
+        public double ParentPaneDragShadowHeight
+        {
+            get => _parentPaneDragShadowHeight;
+            private set { if (Math.Abs(_parentPaneDragShadowHeight - value) > double.Epsilon) { _parentPaneDragShadowHeight = value; OnPropertyChanged(); } }
+        }
+
+        public bool IsChildPaneDragShadowVisible
+        {
+            get => _isChildPaneDragShadowVisible;
+            private set
+            {
+                if (_isChildPaneDragShadowVisible == value)
+                {
+                    return;
+                }
+
+                _isChildPaneDragShadowVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double ChildPaneDragShadowLeft
+        {
+            get => _childPaneDragShadowLeft;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowLeft - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowLeft = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowTop
+        {
+            get => _childPaneDragShadowTop;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowTop - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowTop = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowWidth
+        {
+            get => _childPaneDragShadowWidth;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowWidth - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowWidth = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double ChildPaneDragShadowHeight
+        {
+            get => _childPaneDragShadowHeight;
+            private set
+            {
+                if (Math.Abs(_childPaneDragShadowHeight - value) > double.Epsilon)
+                {
+                    _childPaneDragShadowHeight = value;
+                    OnPropertyChanged();
+                }
+            }
         }
 
         public bool IsSettingsChildFloating
@@ -1357,6 +1985,833 @@ namespace Constellate.App
 
                     var attachmentCount = _shellScene.GetPanelAttachments().Count;
                     var viewRef = $"panelette.label.{attachmentCount + 1}";
+
+                    SendCommand(
+                        CommandNames.AttachPanel,
+                        new AttachPanelPayload(
+                            focusedNode.Id.ToString(),
+                            viewRef,
+                            LocalOffset: new Vector3(0f, -0.18f, 0.1f),
+                            Size: new Vector2(0.92f, 0.28f),
+                            Anchor: "bottom",
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "label",
+                            PaneletteTier: 1));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+
+            _attachDetailMetadataPaneletteCommand = new RelayCommand(
+                _ =>
+                {
+                    var focusedNode = _shellScene.GetFocusedNode();
+                    if (focusedNode is null)
+                    {
+                        return;
+                    }
+
+                    var attachmentCount = _shellScene.GetPanelAttachments().Count;
+                    var viewRef = $"panelette.meta.detail.{attachmentCount + 1}";
+
+                    SendCommand(
+                        CommandNames.AttachPanel,
+                        new AttachPanelPayload(
+                            focusedNode.Id.ToString(),
+                            viewRef,
+                            LocalOffset: new Vector3(0f, 0.26f, 0.16f),
+                            Size: new Vector2(1.35f, 0.82f),
+                            Anchor: "top",
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "metadata",
+                            PaneletteTier: 2,
+                            CommandSurface: new PanelCommandSurfaceMetadataPayload(
+                                SurfaceName: "node.detail",
+                                SurfaceGroup: "primary",
+                                CommandIds: ["Engine.PromotePaneletteToShell"])));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+
+            _clearLinksCommand = new RelayCommand(
+                _ =>
+                {
+                    SendCommand<object?>(CommandNames.ClearLinks, null);
+                },
+                _ => _shellScene.GetLinks().Count > 0);
+
+            _clearSelectionCommand = new RelayCommand(
+                _ =>
+                {
+                    SendCommand<object?>(CommandNames.ClearSelection, null);
+                },
+                _ => _shellScene.GetSelectedNodeIds().Count > 0 || _shellScene.GetSelectedPanels().Count > 0);
+
+            _applyBackgroundDeepSpaceCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("DeepSpace"));
+            _applyBackgroundDuskCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("Dusk"));
+            _applyBackgroundPaperCommand = new RelayCommand(
+                _ => ApplyBackgroundPreset("Paper"));
+
+            _createChildPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    var hostId = parameter as string;
+                    CreateChildPane(hostId);
+                });
+
+            _minimizeChildPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        SetChildPaneMinimized(id, true);
+                    }
+                });
+
+            _restoreChildPaneFromTaskbarCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        SetChildPaneMinimized(id, false);
+                    }
+                });
+
+            _minimizeShellPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    var hostId = parameter as string;
+                    SetParentPaneMinimized(hostId, true);
+                },
+                _ => Panes.Count > 0 && Panes.Any(p => !p.IsMinimized));
+
+            _restoreShellPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    var hostId = parameter as string;
+                    SetParentPaneMinimized(hostId, false);
+                },
+                _ => Panes.Any(p => p.IsMinimized));
+
+            _resetLayoutToDefaultCommand = new RelayCommand(
+                _ =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    var current = Panes[0];
+                    var normalizedHost = "left";
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = false };
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                });
+
+            _setLeftPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("left", splits);
+                });
+
+            _saveLayoutPresetCommand = new RelayCommand(
+                _ =>
+                {
+                    try
+                    {
+                        if (Panes.Count == 0)
+                        {
+                            return;
+                        }
+
+                        var current = Panes[0];
+                        var normalizedHost = NormalizeHostId(current.HostId);
+                        var isMinimized = current.IsMinimized;
+
+                        ShellLayoutDescriptor descriptor;
+                        if (File.Exists(ShellLayoutFileName))
+                        {
+                            var existingJson = File.ReadAllText(ShellLayoutFileName);
+                            var existing = JsonSerializer.Deserialize<ShellLayoutDescriptor>(existingJson, JsonOptions);
+                            descriptor = existing is null
+                                ? new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized)
+                                : existing with { SavedHostId = normalizedHost, SavedIsMinimized = isMinimized };
+                        }
+                        else
+                        {
+                            descriptor = new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized);
+                        }
+
+                        var json = JsonSerializer.Serialize(descriptor, JsonOptions);
+                        File.WriteAllText(ShellLayoutFileName, json);
+                    }
+                    catch
+                    {
+                    }
+                });
+
+            _restoreLayoutPresetCommand = new RelayCommand(
+                _ =>
+                {
+                    try
+                    {
+                        if (Panes.Count == 0 || !File.Exists(ShellLayoutFileName))
+                        {
+                            return;
+                        }
+
+                        var json = File.ReadAllText(ShellLayoutFileName);
+                        var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
+                        if (descriptor is null || string.IsNullOrWhiteSpace(descriptor.SavedHostId))
+                        {
+                            return;
+                        }
+
+                        var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
+                        var current = Panes[0];
+                        Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.SavedIsMinimized };
+
+                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                        OnPropertyChanged(nameof(IsShellPaneOnTop));
+                        OnPropertyChanged(nameof(IsShellPaneOnRight));
+                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                        OnPropertyChanged(nameof(IsShellPaneFloating));
+                        OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                        OnPropertyChanged(nameof(PaneStructureSummary));
+                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                        SaveShellLayout();
+                    }
+                    catch
+                    {
+                    }
+                });
+
+            _moveChildPaneUpCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPane(id, -1);
+                    }
+                },
+                parameter =>
+                {
+                    if (parameter is not string id || string.IsNullOrWhiteSpace(id))
+                    {
+                        return false;
+                    }
+
+                    return CanMoveChildPane(id, -1);
+                });
+
+            _moveChildPaneDownCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPane(id, 1);
+                    }
+                },
+                parameter =>
+                {
+                    if (parameter is not string id || string.IsNullOrWhiteSpace(id))
+                    {
+                        return false;
+                    }
+
+                    return CanMoveChildPane(id, 1);
+                });
+
+            _floatSettingsChildPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    // Ensure the settings child is not minimized when floating.
+                    SetChildPaneMinimized("shell.settings", false);
+                    IsSettingsChildFloating = true;
+                },
+                _ => !IsSettingsChildFloating);
+
+            _dockSettingsChildPaneCommand = new RelayCommand(
+                _ =>
+                {
+                    IsSettingsChildFloating = false;
+                },
+                _ => IsSettingsChildFloating);
+
+            _moveChildPaneToLeftHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "left");
+                    }
+                });
+
+            _moveChildPaneToTopHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "top");
+                    }
+                });
+
+            _moveChildPaneToRightHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "right");
+                    }
+                });
+
+            _moveChildPaneToBottomHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "bottom");
+                    }
+                });
+
+            _moveChildPaneToFloatingHostCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        MoveChildPaneToHost(id, "floating");
+                    }
+                });
+
+            _createOrRestoreParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is not string hostId || string.IsNullOrWhiteSpace(hostId))
+                    {
+                        return;
+                    }
+
+                    var normalizedHost = NormalizeHostId(hostId);
+
+                    var hadTopVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
+                    var hadLeftVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+                    // If a parent pane already exists on this host:
+                    // - if minimized, restore it;
+                    // - if visible, nothing to do.
+                    for (var i = 0; i < Panes.Count; i++)
+                    {
+                        var pane = Panes[i];
+                        if (!string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        if (!pane.IsMinimized)
+                        {
+                            return;
+                        }
+
+                        Panes[i] = pane with { IsMinimized = false };
+
+                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                        OnPropertyChanged(nameof(IsShellPaneOnTop));
+                        OnPropertyChanged(nameof(IsShellPaneOnRight));
+                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                        OnPropertyChanged(nameof(IsShellPaneFloating));
+                        OnPropertyChanged(nameof(IsShellPaneMinimized));
+                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                        OnPropertyChanged(nameof(PaneStructureSummary));
+
+                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                            UpdateTopLeftOwnershipLayout();
+                        _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                        SaveShellLayout();
+                        return;
+                    }
+
+                    // No pane exists yet on this host; create a new generic parent pane.
+                    var newId = $"parent.{normalizedHost}.{Panes.Count + 1}";
+                    Panes.Add(new PaneDescriptor(
+                        newId,
+                        "Parent Pane",
+                        normalizedHost,
+                        IsFloating: string.Equals(normalizedHost, "floating", StringComparison.Ordinal),
+                        IsMinimized: false));
+
+                    var hasTopVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "top", StringComparison.Ordinal));
+                    var hasLeftVisible = Panes.Any(p =>
+                        !p.IsMinimized &&
+                        string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+                    if (hasTopVisible && hasLeftVisible)
+                    {
+                        if (string.Equals(normalizedHost, "top", StringComparison.Ordinal) &&
+                            !hadTopVisible && hadLeftVisible)
+                        {
+                            _isTopCornerOwnedByTop = false;
+                        }
+                        else if (string.Equals(normalizedHost, "left", StringComparison.Ordinal) &&
+                                 !hadLeftVisible && hadTopVisible)
+                        {
+                            _isTopCornerOwnedByTop = true;
+                        }
+                    }
+
+                    UpdateTopLeftOwnershipLayout();
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                    SaveShellLayout();
+                },
+                _ => true);
+
+            _destroyParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (Panes.Count == 0)
+                    {
+                        return;
+                    }
+
+                    if (parameter is string hostId && !string.IsNullOrWhiteSpace(hostId))
+                    {
+                        var normalizedHost = NormalizeHostId(hostId);
+                        for (var i = Panes.Count - 1; i >= 0; i--)
+                        {
+                            if (string.Equals(Panes[i].HostId, normalizedHost, StringComparison.Ordinal))
+                            {
+                                Panes.RemoveAt(i);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Panes.Clear();
+                    }
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                    _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+                },
+                _ => Panes.Count > 0);
+
+            _setTopPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("top", splits);
+                });
+
+            _setRightPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("right", splits);
+                });
+
+            _setBottomPaneSplitCommand = new RelayCommand(
+                parameter =>
+                {
+                    var splits = 1;
+                    if (parameter is string s && int.TryParse(s, out var parsed) && parsed >= 1)
+                    {
+                        splits = Math.Min(parsed, 3);
+                    }
+
+                    ApplyChildPaneSplitsForHost("bottom", splits);
+                });
+
+            _slideParentPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is not string arg || string.IsNullOrWhiteSpace(arg))
+                    {
+                        return;
+                    }
+
+                    SlideParentPane(arg);
+                });
+
+                    SendCommand(
+                        CommandNames.AttachPanel,
+                        new AttachPanelPayload(
+                                focusedNode.Id.ToString(),
+                            viewRef,
+                            LocalOffset: new Vector3(0f, 0.18f, 0.15f),
+                            Size: new Vector2(1.05f, 0.62f),
+                            Anchor: "top",
+                            IsVisible: true,
+                            SurfaceKind: "panelette",
+                            PaneletteKind: "metadata",
+                                PaneletteTier: 1,
+                            CommandSurface: new PanelCommandSurfaceMetadataPayload(
+                                SurfaceName: "node.quick",
+                                SurfaceGroup: "primary",
+                                    CommandIds: [CommandNames.Focus, CommandNames.Select, CommandNames.CenterOnNode, "Engine.PromotePaneletteToShell"])));
+                },
+                _ => _shellScene.GetFocusedNode() is not null);
+            LoadShellLayout();
+            RefreshFromEngineState();
+            UpdateTopLeftOwnershipLayout();
+        }
+
+        /// <summary>
+        /// Toggle which pane \"owns\" the top-left/right corners when both Top and Left
+        /// parent panes are visible: either Left is full-height and Top is center-only
+        /// (default), or Top spans the full top width and Left starts below it.
+        /// </summary>
+        public void ToggleTopCornerOwnership()
+        {
+            var hasTop = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.Ordinal));
+
+            var hasLeft = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+            if (!hasTop || !hasLeft)
+            {
+                return;
+            }
+
+            _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
+            UpdateTopLeftOwnershipLayout();
+        }
+
+        /// <summary>
+        /// Update the drag-shadow rectangle used to preview parent-pane docking/floating.
+        /// When <paramref name="visible"/> is false, the rect values are ignored and the
+        /// shadow is hidden.
+        /// </summary>
+        public void SetParentPaneDragShadow(bool visible, double left, double top, double width, double height)
+        {
+            IsParentPaneDragShadowVisible = visible;
+
+            if (!visible)
+            {
+                return;
+            }
+
+            ParentPaneDragShadowLeft = left;
+            ParentPaneDragShadowTop = top;
+            ParentPaneDragShadowWidth = width;
+            ParentPaneDragShadowHeight = height;
+        }
+
+        /// <summary>
+        /// Update the drag-shadow rectangle used to preview child-pane movement across
+        /// parent hosts. When <paramref name="visible"/> is false, the rect values are
+        /// ignored and the shadow is hidden.
+        /// </summary>
+        public void SetChildPaneDragShadow(bool visible, double left, double top, double width, double height)
+        {
+            IsChildPaneDragShadowVisible = visible;
+
+            if (!visible)
+            {
+                return;
+            }
+
+            ChildPaneDragShadowLeft = left;
+            ChildPaneDragShadowTop = top;
+            ChildPaneDragShadowWidth = width;
+            ChildPaneDragShadowHeight = height;
+        }
+
+        private void SetChildPaneMinimized(string id, bool minimized)
+        {
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var current = ChildPanes[i];
+                if (!string.Equals(current.Id, id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (current.IsMinimized == minimized)
+                {
+                    return;
+                }
+
+                ChildPanes[i] = current with { IsMinimized = minimized };
+
+                RaiseChildPaneCollectionsChanged();
+                return;
+            }
+        }
+
+        private void CreateChildPane(string? hostId)
+        {
+            var normalizedHost = NormalizeHostId(hostId);
+            var nextOrder = ChildPanes.Count == 0
+                ? 0
+                : ChildPanes.Max(pane => pane.Order) + 1;
+
+            var labelIndex = ChildPanes.Count + 1;
+            var id = $"child.{labelIndex}";
+            var title = $"Pane {labelIndex}";
+
+            ChildPanes.Add(new ChildPaneDescriptor(
+                id,
+                title,
+                nextOrder,
+                normalizedHost,
+                ContainerIndex: 0,
+                IsMinimized: false,
+                SlideIndex: GetSlideIndexForHost(normalizedHost)));
+
+            RaiseChildPaneCollectionsChanged();
+
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+        }
+
+        private bool CanMoveChildPane(string id, int delta)
+        {
+            var ordered = ChildPanesOrdered.ToList();
+            var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            var newIndex = index + delta;
+            return newIndex >= 0 && newIndex < ordered.Count;
+        }
+
+        private void MoveChildPane(string id, int delta)
+        {
+            var ordered = ChildPanesOrdered.ToList();
+            var index = ordered.FindIndex(pane => string.Equals(pane.Id, id, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return;
+            }
+
+            var newIndex = index + delta;
+            if (newIndex < 0 || newIndex >= ordered.Count)
+            {
+                return;
+            }
+
+            var a = ordered[index];
+            var b = ordered[newIndex];
+
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var current = ChildPanes[i];
+                if (string.Equals(current.Id, a.Id, StringComparison.Ordinal))
+                {
+                    ChildPanes[i] = current with { Order = b.Order };
+                }
+                else if (string.Equals(current.Id, b.Id, StringComparison.Ordinal))
+                {
+                    ChildPanes[i] = current with { Order = a.Order };
+                }
+            }
+
+            RaiseChildPaneCollectionsChanged();
+
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+            _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
+            _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        }
+
+        public void MoveChildPaneToHost(string id, string hostId)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            var normalizedHost = NormalizeHostId(hostId);
+
+            var index = -1;
+            ChildPaneDescriptor current = default;
+
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var pane = ChildPanes[i];
+                if (!string.Equals(pane.Id, id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                index = i;
+                current = pane;
+                break;
+            }
+
+            if (index < 0)
+            {
+                return;
+            }
+
+            if (string.Equals(current.HostId, normalizedHost, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var nextOrder = ChildPanes
+                .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                .Select(pane => pane.Order)
+                .DefaultIfEmpty(-1)
+                .Max() + 1;
+
+            ChildPanes[index] = current with
+            {
+                HostId = normalizedHost,
+                Order = nextOrder,
+                ContainerIndex = 0,
+                SlideIndex = GetSlideIndexForHost(normalizedHost)
+            };
+
+            RaiseChildPaneCollectionsChanged();
+        }
+
+        private void RaiseChildPaneCollectionsChanged()
+        {
+            OnPropertyChanged(nameof(ChildPanesOrdered));
+            OnPropertyChanged(nameof(VisibleChildPanesOrdered));
+            OnPropertyChanged(nameof(HasMinimizedChildPanes));
+            OnPropertyChanged(nameof(MinimizedChildPanes));
+            OnPropertyChanged(nameof(VisibleChildPanesLeft));
+            OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+            OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+            OnPropertyChanged(nameof(MinimizedChildPanesLeft));
+            OnPropertyChanged(nameof(VisibleChildPanesTop));
+            OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+            OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+            OnPropertyChanged(nameof(MinimizedChildPanesTop));
+            OnPropertyChanged(nameof(VisibleChildPanesRight));
+            OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+            OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+            OnPropertyChanged(nameof(MinimizedChildPanesRight));
+            OnPropertyChanged(nameof(VisibleChildPanesBottom));
+            OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+            OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
+            OnPropertyChanged(nameof(MinimizedChildPanesBottom));
+            OnPropertyChanged(nameof(VisibleChildPanesRight));
+            OnPropertyChanged(nameof(MinimizedChildPanesRight));
+            OnPropertyChanged(nameof(VisibleChildPanesBottom));
+            OnPropertyChanged(nameof(MinimizedChildPanesBottom));
+            OnPropertyChanged(nameof(VisibleChildPanesFloating));
+            OnPropertyChanged(nameof(MinimizedChildPanesFloating));
+            OnPropertyChanged(nameof(IsShellCurrentChildVisible));
+            OnPropertyChanged(nameof(IsShellSettingsChildVisible));
+            OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
+            OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+            OnPropertyChanged(nameof(PaneStructureSummary));
+        }
+
+        private int GetSlideIndexForHost(string hostId)
+        {
+            var normalized = NormalizeHostId(hostId);
+            return normalized switch
+            {
+                "top" => _topSlideIndex,
+                "right" => _rightSlideIndex,
+                "bottom" => _bottomSlideIndex,
+                _ => _leftSlideIndex
+            };
+        }
+
+        private void SlideParentPane(string arg)
+        {
+            var parts = arg.Split(':', 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+            {
+                return;
+            }
+
+            var host = NormalizeHostId(parts[0]);
+            var delta = string.Equals(parts[1], "next", StringComparison.OrdinalIgnoreCase) ? 1 : -1;
+
+            switch (host)
+            {
+                case "left":
+                    _leftSlideIndex = Math.Max(0, _leftSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesLeft));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                    break;
+                case "top":
+                    _topSlideIndex = Math.Max(0, _topSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesTop));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                    break;
+                case "right":
+                    _rightSlideIndex = Math.Max(0, _rightSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesRight));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                    break;
+                case "bottom":
+                    _bottomSlideIndex = Math.Max(0, _bottomSlideIndex + delta);
+                    OnPropertyChanged(nameof(VisibleChildPanesBottom));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
+                    break;
+            }
+        }
 
                     SendCommand(
                         CommandNames.AttachPanel,
@@ -2195,6 +3650,44 @@ namespace Constellate.App
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
             _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        private void ApplyChildPaneSplitsForHost(string hostId, int splits)
+        {
+            var normalizedHost = NormalizeHostId(hostId);
+            if (splits <= 0)
+            {
+                splits = 1;
+            }
+
+            splits = Math.Min(splits, 3);
+
+            var ordered = ChildPanes
+                .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                .OrderBy(pane => pane.Order)
+                .ToArray();
+
+            if (ordered.Length == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < ordered.Length; i++)
+            {
+                var pane = ordered[i];
+                var newIndex = i % splits;
+
+                for (var j = 0; j < ChildPanes.Count; j++)
+                {
+                    if (!string.Equals(ChildPanes[j].Id, pane.Id, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    ChildPanes[j] = ChildPanes[j] with { ContainerIndex = newIndex };
+                    break;
+                }
+            }
+
+            RaiseChildPaneCollectionsChanged();
         }
 
         public string FocusSummary
@@ -3112,6 +4605,7 @@ namespace Constellate.App
             }
 
             Panes[index] = current with { HostId = normalizedTarget, IsMinimized = false };
+
             OnPropertyChanged(nameof(IsShellPaneOnLeft));
             OnPropertyChanged(nameof(IsShellPaneOnTop));
             OnPropertyChanged(nameof(IsShellPaneOnRight));
@@ -3197,6 +4691,7 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                UpdateTopLeftOwnershipLayout();
                 SaveShellLayout();
                 return;
             }
@@ -3213,6 +4708,61 @@ namespace Constellate.App
             return normalized is "left" or "top" or "right" or "bottom" or "floating"
                 ? normalized
                 : "left";
+        }
+
+        private void UpdateTopLeftOwnershipLayout()
+        {
+            var hasTop = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "top", StringComparison.Ordinal));
+
+            var hasLeft = Panes.Any(p =>
+                !p.IsMinimized &&
+                string.Equals(p.HostId, "left", StringComparison.Ordinal));
+
+            if (!hasTop && !hasLeft)
+            {
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+                return;
+            }
+
+            if (hasTop && !hasLeft)
+            {
+                _isTopCornerOwnedByTop = true;
+                LeftPaneRow = 1;
+                LeftPaneRowSpan = 2;
+                TopPaneColumn = 0;
+                TopPaneColumnSpan = 2;
+                return;
+            }
+
+            if (!hasTop && hasLeft)
+            {
+                _isTopCornerOwnedByTop = false;
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+                return;
+            }
+
+            if (_isTopCornerOwnedByTop)
+            {
+                LeftPaneRow = 1;
+                LeftPaneRowSpan = 2;
+                TopPaneColumn = 0;
+                TopPaneColumnSpan = 2;
+            }
+            else
+            {
+                LeftPaneRow = 0;
+                LeftPaneRowSpan = 3;
+                TopPaneColumn = 1;
+                TopPaneColumnSpan = 1;
+            }
         }
 
         private void LoadShellLayout()
@@ -3239,6 +4789,40 @@ namespace Constellate.App
                 var normalizedHost = NormalizeHostId(descriptor.HostId);
                 var current = Panes[0];
                 Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+                _leftSlideIndex = descriptor.LeftSlideIndex;
+                _topSlideIndex = descriptor.TopSlideIndex;
+                _rightSlideIndex = descriptor.RightSlideIndex;
+                _bottomSlideIndex = descriptor.BottomSlideIndex;
+
+                // Restore parent panes if present; otherwise fall back to legacy single-pane HostId/IsMinimized.
+                if (descriptor.ParentPanes is { Count: > 0 })
+                {
+                    Panes.Clear();
+                    foreach (var parent in descriptor.ParentPanes)
+                    {
+                        var normalizedHost = NormalizeHostId(parent.HostId);
+                        Panes.Add(parent with { HostId = normalizedHost });
+                    }
+                }
+                else if (Panes.Count > 0)
+                {
+                    var normalizedHost = NormalizeHostId(descriptor.HostId);
+                    var current = Panes[0];
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
+                }
+
+                // Restore child panes if present; otherwise keep any seeded dummy panes.
+                if (descriptor.ChildPanes is { Count: > 0 })
+                {
+                    ChildPanes.Clear();
+                    foreach (var child in descriptor.ChildPanes)
+                    {
+                        var normalizedHost = NormalizeHostId(child.HostId);
+                        ChildPanes.Add(child with { HostId = normalizedHost });
+                    }
+
+                    RaiseChildPaneCollectionsChanged();
+                }
 
                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
                 OnPropertyChanged(nameof(IsShellPaneOnTop));
@@ -3251,6 +4835,26 @@ namespace Constellate.App
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
             _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                OnPropertyChanged(nameof(PaneStructureSummary));
+                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                _restoreShellPaneCommand.RaiseCanExecuteChanged();
+                _destroyParentPaneCommand.RaiseCanExecuteChanged();
+                UpdateTopLeftOwnershipLayout();
+
+                // Ensure slide-index–filtered views are refreshed even when only slide indices change.
+                OnPropertyChanged(nameof(VisibleChildPanesLeft));
+                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                OnPropertyChanged(nameof(VisibleChildPanesTop));
+                OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+                OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                OnPropertyChanged(nameof(VisibleChildPanesRight));
+                OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+                OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                OnPropertyChanged(nameof(VisibleChildPanesBottom));
+                OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+                OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
             }
             catch
             {
@@ -3287,6 +4891,28 @@ namespace Constellate.App
                 var descriptor = existing is null
                     ? new ShellLayoutDescriptor(normalizedHost, current.IsMinimized)
                     : existing with { HostId = normalizedHost, IsMinimized = current.IsMinimized };
+                // Preserve legacy HostId/IsMinimized semantics using the first parent pane when present.
+                var hostId = existing?.HostId ?? "left";
+                var isMinimized = existing?.IsMinimized ?? false;
+
+                if (Panes.Count > 0)
+                {
+                    var primary = Panes[0];
+                    hostId = NormalizeHostId(primary.HostId);
+                    isMinimized = primary.IsMinimized;
+                }
+
+                var descriptor = new ShellLayoutDescriptor(
+                    HostId: hostId,
+                    IsMinimized: isMinimized,
+                    SavedHostId: existing?.SavedHostId,
+                    SavedIsMinimized: existing?.SavedIsMinimized ?? false,
+                    LeftSlideIndex: _leftSlideIndex,
+                    TopSlideIndex: _topSlideIndex,
+                    RightSlideIndex: _rightSlideIndex,
+                    BottomSlideIndex: _bottomSlideIndex,
+                    ParentPanes: Panes.ToArray(),
+                    ChildPanes: ChildPanes.ToArray());
 
                 var json = JsonSerializer.Serialize(descriptor, JsonOptions);
                 File.WriteAllText(ShellLayoutFileName, json);
@@ -3580,6 +5206,10 @@ namespace Constellate.App
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();
             _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
             _destroyParentPaneCommand.RaiseCanExecuteChanged();
+            _setLeftPaneSplitCommand.RaiseCanExecuteChanged();
+            _setTopPaneSplitCommand.RaiseCanExecuteChanged();
+            _setRightPaneSplitCommand.RaiseCanExecuteChanged();
+            _setBottomPaneSplitCommand.RaiseCanExecuteChanged();
         }
 
         private void SetExpansionState(ref bool field, bool value, [CallerMemberName] string? propertyName = null)
