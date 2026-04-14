@@ -140,7 +140,7 @@
                Column 0 and Column 1 are driven by ContainerIndex on ChildPaneDescriptor. -->
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <Grid ColumnDefinitions="*,*"
+            <Grid ColumnDefinitions="*,Auto"
                   ColumnSpacing="6">
               <!-- Column 0 -->
               <ItemsControl Grid.Column="0"
@@ -391,7 +391,7 @@
           <!-- Visible child panes on Top host (dummy content for now) -->
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <Grid RowDefinitions="*,*"
+            <Grid RowDefinitions="*,Auto"
                   RowSpacing="6">
               <!-- Row 0 -->
               <ItemsControl Grid.Row="0"
@@ -637,7 +637,7 @@
 
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <Grid ColumnDefinitions="*,*"
+            <Grid ColumnDefinitions="*,Auto"
                   ColumnSpacing="6">
               <!-- Right host column 0 -->
               <ItemsControl Grid.Column="0"
@@ -885,7 +885,7 @@
 
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <Grid RowDefinitions="*,*"
+            <Grid RowDefinitions="*,Auto"
                   RowSpacing="6">
               <!-- Bottom host row 0 -->
               <ItemsControl Grid.Row="0"
