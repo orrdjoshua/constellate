@@ -103,6 +103,7 @@ namespace Constellate.App
                 leftResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
                 leftResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
                 leftResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+                leftResizeGrip.PointerCaptureLost += PaneResizeGrip_OnPointerCaptureLost;
             }
 
             var rightResizeGrip = this.FindControl<Border>("RightPaneResizeGrip");
@@ -112,6 +113,7 @@ namespace Constellate.App
                 rightResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
                 rightResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
                 rightResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+                rightResizeGrip.PointerCaptureLost += PaneResizeGrip_OnPointerCaptureLost;
             }
 
             var topResizeGrip = this.FindControl<Border>("TopPaneResizeGrip");
@@ -121,6 +123,7 @@ namespace Constellate.App
                 topResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
                 topResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
                 topResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+                topResizeGrip.PointerCaptureLost += PaneResizeGrip_OnPointerCaptureLost;
             }
 
             var bottomResizeGrip = this.FindControl<Border>("BottomPaneResizeGrip");
@@ -130,6 +133,7 @@ namespace Constellate.App
                 bottomResizeGrip.PointerPressed += PaneResizeGrip_OnPointerPressed;
                 bottomResizeGrip.PointerReleased += PaneResizeGrip_OnPointerReleased;
                 bottomResizeGrip.PointerMoved += PaneResizeGrip_OnPointerMoved;
+                bottomResizeGrip.PointerCaptureLost += PaneResizeGrip_OnPointerCaptureLost;
             }
 
             // Wire 45° bisected triangular corner affordances to the generic
@@ -589,6 +593,17 @@ namespace Constellate.App
 
             try { e.Pointer.Capture(null); } catch { }
             e.Handled = true;
+        }
+
+        private void PaneResizeGrip_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (!_isPaneResizing)
+            {
+                return;
+            }
+
+            _isPaneResizing = false;
+            _resizeEdge = null;
         }
 
         private void PaneResizeGrip_OnPointerMoved(object? sender, PointerEventArgs e)
