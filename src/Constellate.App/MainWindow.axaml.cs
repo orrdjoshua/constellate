@@ -700,7 +700,8 @@ namespace Constellate.App
         string HostId,
         int ContainerIndex = 0,
         bool IsMinimized = false,
-        int SlideIndex = 0);
+        int SlideIndex = 0,
+        string? ParentId = null);
 
     public sealed record ShellLayoutDescriptor(
         string HostId,
@@ -720,7 +721,6 @@ namespace Constellate.App
         {
             IncludeFields = true
         };
-        private const string ShellLayoutFileName = "shell-layout.json";
         private readonly IDisposable[] _eventSubscriptions;
         private readonly ShellSceneState _shellScene = EngineServices.ShellScene;
         private bool _isTopCornerOwnedByTop;
@@ -805,6 +805,7 @@ namespace Constellate.App
 
         private string _lastActivitySummary = "Last Activity: app started";
         private readonly Queue<string> _commandHistory = new();
+        private ShellLayoutDescriptor? _savedLayout;
         private bool _isCurrentStateSectionExpanded = true;
         private bool _isCommandSurfaceSectionExpanded = true;
         private bool _isSelectionFocusGroupExpanded = true;
@@ -886,14 +887,7 @@ namespace Constellate.App
                 });
 
         public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } =
-            new(
-                new[]
-                {
-                    new ChildPaneDescriptor("child.1", "Pane 1", 0, "left"),
-                    new ChildPaneDescriptor("child.2", "Pane 2", 1, "left"),
-                    new ChildPaneDescriptor("child.3", "Pane 3", 2, "left"),
-                           new ChildPaneDescriptor("child.4", "Pane 4", 3, "left")
-                });
+            new();
 
         public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
             ChildPanes
@@ -1999,7 +1993,6 @@ namespace Constellate.App
                     OnPropertyChanged(nameof(PaneStructureSummary));
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
-                    SaveShellLayout();
                 });
 
             _setLeftPaneSplitCommand = new RelayCommand(
@@ -2017,75 +2010,70 @@ namespace Constellate.App
             _saveLayoutPresetCommand = new RelayCommand(
                 _ =>
                 {
-                    try
+                    if (Panes.Count == 0)
                     {
-                        if (Panes.Count == 0)
-                        {
-                            return;
-                        }
-
-                        var current = Panes[0];
-                        var normalizedHost = NormalizeHostId(current.HostId);
-                        var isMinimized = current.IsMinimized;
-
-                        ShellLayoutDescriptor descriptor;
-                        if (File.Exists(ShellLayoutFileName))
-                        {
-                            var existingJson = File.ReadAllText(ShellLayoutFileName);
-                            var existing = JsonSerializer.Deserialize<ShellLayoutDescriptor>(existingJson, JsonOptions);
-                            descriptor = existing is null
-                                ? new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized)
-                                : existing with { SavedHostId = normalizedHost, SavedIsMinimized = isMinimized };
-                        }
-                        else
-                        {
-                            descriptor = new ShellLayoutDescriptor(normalizedHost, isMinimized, normalizedHost, isMinimized);
-                        }
-
-                        var json = JsonSerializer.Serialize(descriptor, JsonOptions);
-                        File.WriteAllText(ShellLayoutFileName, json);
+                        return;
                     }
-                    catch
-                    {
-                    }
+
+                    var current = Panes[0];
+                    var normalizedHost = NormalizeHostId(current.HostId);
+                    var isMinimized = current.IsMinimized;
+
+                    _savedLayout = new ShellLayoutDescriptor(
+                        HostId: normalizedHost,
+                        IsMinimized: isMinimized,
+                        SavedHostId: normalizedHost,
+                        SavedIsMinimized: isMinimized,
+                        LeftSlideIndex: _leftSlideIndex,
+                        TopSlideIndex: _topSlideIndex,
+                        RightSlideIndex: _rightSlideIndex,
+                        BottomSlideIndex: _bottomSlideIndex,
+                        ParentPanes: Panes.ToArray(),
+                        ChildPanes: ChildPanes.ToArray());
                 });
 
             _restoreLayoutPresetCommand = new RelayCommand(
                 _ =>
                 {
-                    try
+                    if (Panes.Count == 0 || _savedLayout is null || string.IsNullOrWhiteSpace(_savedLayout.Value.SavedHostId))
                     {
-                        if (Panes.Count == 0 || !File.Exists(ShellLayoutFileName))
-                        {
-                            return;
-                        }
-
-                        var json = File.ReadAllText(ShellLayoutFileName);
-                        var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
-                        if (descriptor is null || string.IsNullOrWhiteSpace(descriptor.SavedHostId))
-                        {
-                            return;
-                        }
-
-                        var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
-                        var current = Panes[0];
-                        Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.SavedIsMinimized };
-
-                        OnPropertyChanged(nameof(IsShellPaneOnLeft));
-                        OnPropertyChanged(nameof(IsShellPaneOnTop));
-                        OnPropertyChanged(nameof(IsShellPaneOnRight));
-                        OnPropertyChanged(nameof(IsShellPaneOnBottom));
-                        OnPropertyChanged(nameof(IsShellPaneFloating));
-                        OnPropertyChanged(nameof(IsShellPaneMinimized));
-                        OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                        OnPropertyChanged(nameof(PaneStructureSummary));
-                        _minimizeShellPaneCommand.RaiseCanExecuteChanged();
-                        _restoreShellPaneCommand.RaiseCanExecuteChanged();
-                        SaveShellLayout();
+                        return;
                     }
-                    catch
-                    {
-                    }
+
+                    var descriptor = _savedLayout.Value;
+                    var normalizedHost = NormalizeHostId(descriptor.SavedHostId);
+                    var current = Panes[0];
+                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.SavedIsMinimized };
+
+                    _leftSlideIndex = descriptor.LeftSlideIndex;
+                    _topSlideIndex = descriptor.TopSlideIndex;
+                    _rightSlideIndex = descriptor.RightSlideIndex;
+                    _bottomSlideIndex = descriptor.BottomSlideIndex;
+
+                    OnPropertyChanged(nameof(IsShellPaneOnLeft));
+                    OnPropertyChanged(nameof(IsShellPaneOnTop));
+                    OnPropertyChanged(nameof(IsShellPaneOnRight));
+                    OnPropertyChanged(nameof(IsShellPaneOnBottom));
+                    OnPropertyChanged(nameof(IsShellPaneFloating));
+                    OnPropertyChanged(nameof(IsShellPaneMinimized));
+                    OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                    OnPropertyChanged(nameof(PaneStructureSummary));
+                    _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+                    _restoreShellPaneCommand.RaiseCanExecuteChanged();
+
+                    // Refresh child-pane projections for updated slide indices.
+                    OnPropertyChanged(nameof(VisibleChildPanesLeft));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                    OnPropertyChanged(nameof(VisibleChildPanesTop));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                    OnPropertyChanged(nameof(VisibleChildPanesRight));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
+                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottom));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
+                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
                 });
 
             _moveChildPaneUpCommand = new RelayCommand(
@@ -2281,7 +2269,6 @@ namespace Constellate.App
                     _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                     _restoreShellPaneCommand.RaiseCanExecuteChanged();
                     _destroyParentPaneCommand.RaiseCanExecuteChanged();
-                    SaveShellLayout();
                 },
                 _ => true);
 
@@ -2371,7 +2358,6 @@ namespace Constellate.App
                     SlideParentPane(arg);
                 });
 
-            LoadShellLayout();
             RefreshFromEngineState();
             UpdateTopLeftOwnershipLayout();
         }
@@ -3574,7 +3560,7 @@ namespace Constellate.App
             return [];
         }
 
-        public void MoveShellPaneToHost(string hostId)
+            public void MoveParentPaneToHost(string hostId)
         {
             MoveParentPaneToHost(null, hostId);
         }
@@ -3584,7 +3570,7 @@ namespace Constellate.App
         /// if originHostId is null/unknown) to the <paramref name="targetHost"/>.
         /// This is the host-aware variant used by drag gestures.
         /// </summary>
-        public void MoveParentPaneToHost(string? originHostId, string targetHost)
+            public void MoveParentPaneToHost(string? originHostId, string targetHost)
         {
             if (Panes.Count == 0 || string.IsNullOrWhiteSpace(targetHost))
             {
@@ -3637,7 +3623,6 @@ namespace Constellate.App
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
-            SaveShellLayout();
         }
 
         public void SetShellPaneMinimized(bool minimized)
@@ -3664,7 +3649,6 @@ namespace Constellate.App
             OnPropertyChanged(nameof(PaneStructureSummary));
             _minimizeShellPaneCommand.RaiseCanExecuteChanged();
             _restoreShellPaneCommand.RaiseCanExecuteChanged();
-            SaveShellLayout();
         }
 
         /// <summary>
@@ -3706,14 +3690,13 @@ namespace Constellate.App
                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
                 OnPropertyChanged(nameof(IsShellPaneOnTop));
                 OnPropertyChanged(nameof(IsShellPaneOnRight));
-                OnPropertyChanged(nameof(IsShellPaneOnBottom));
                 OnPropertyChanged(nameof(IsShellPaneFloating));
                 OnPropertyChanged(nameof(IsRightPaneHostVisible));
+                OnPropertyChanged(nameof(IsShellPaneMinimized));
                 OnPropertyChanged(nameof(PaneStructureSummary));
                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
                 UpdateTopLeftOwnershipLayout();
-                SaveShellLayout();
                 return;
             }
         }
@@ -3788,135 +3771,14 @@ namespace Constellate.App
 
         private void LoadShellLayout()
         {
-            try
-            {
-                if (!File.Exists(ShellLayoutFileName))
-                {
-                    return;
-                }
-
-                var json = File.ReadAllText(ShellLayoutFileName);
-                var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
-                if (descriptor is null)
-                {
-                    return;
-                }
-
-                _leftSlideIndex = descriptor.LeftSlideIndex;
-                _topSlideIndex = descriptor.TopSlideIndex;
-                _rightSlideIndex = descriptor.RightSlideIndex;
-                _bottomSlideIndex = descriptor.BottomSlideIndex;
-
-                // Restore parent panes if present; otherwise fall back to legacy single-pane HostId/IsMinimized.
-                if (descriptor.ParentPanes is { Count: > 0 })
-                {
-                    Panes.Clear();
-                    foreach (var parent in descriptor.ParentPanes)
-                    {
-                        var normalizedHost = NormalizeHostId(parent.HostId);
-                        Panes.Add(parent with { HostId = normalizedHost });
-                    }
-                }
-                else if (Panes.Count > 0)
-                {
-                    var normalizedHost = NormalizeHostId(descriptor.HostId);
-                    var current = Panes[0];
-                    Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
-                }
-
-                // Restore child panes if present; otherwise keep any seeded dummy panes.
-                if (descriptor.ChildPanes is { Count: > 0 })
-                {
-                    ChildPanes.Clear();
-                    foreach (var child in descriptor.ChildPanes)
-                    {
-                        var normalizedHost = NormalizeHostId(child.HostId);
-                        ChildPanes.Add(child with { HostId = normalizedHost });
-                    }
-
-                    RaiseChildPaneCollectionsChanged();
-                }
-
-                OnPropertyChanged(nameof(IsShellPaneOnLeft));
-                OnPropertyChanged(nameof(IsShellPaneOnTop));
-                OnPropertyChanged(nameof(IsShellPaneOnRight));
-                OnPropertyChanged(nameof(IsShellPaneOnBottom));
-                OnPropertyChanged(nameof(IsShellPaneFloating));
-                OnPropertyChanged(nameof(IsShellPaneMinimized));
-                OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                OnPropertyChanged(nameof(PaneStructureSummary));
-                _minimizeShellPaneCommand.RaiseCanExecuteChanged();
-                _restoreShellPaneCommand.RaiseCanExecuteChanged();
-                _destroyParentPaneCommand.RaiseCanExecuteChanged();
-                UpdateTopLeftOwnershipLayout();
-
-                // Ensure slide-index–filtered views are refreshed even when only slide indices change.
-                OnPropertyChanged(nameof(VisibleChildPanesLeft));
-                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
-                OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
-                OnPropertyChanged(nameof(VisibleChildPanesTop));
-                OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
-                OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
-                OnPropertyChanged(nameof(VisibleChildPanesRight));
-                OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
-                OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
-                OnPropertyChanged(nameof(VisibleChildPanesBottom));
-                OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
-                OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
-            }
-            catch
-            {
-            }
+            // No-op: shell-layout.json persistence has been removed. Layout is now
+            // treated as in-memory/editor-only until a dedicated data layer exists.
         }
 
         private void SaveShellLayout()
         {
-            try
-            {
-                ShellLayoutDescriptor? existing = null;
-
-                if (File.Exists(ShellLayoutFileName))
-                {
-                    try
-                    {
-                        var existingJson = File.ReadAllText(ShellLayoutFileName);
-                        existing = JsonSerializer.Deserialize<ShellLayoutDescriptor>(existingJson, JsonOptions);
-                    }
-                    catch
-                    {
-                        existing = null;
-                    }
-                }
-
-                // Preserve legacy HostId/IsMinimized semantics using the first parent pane when present.
-                var hostId = existing?.HostId ?? "left";
-                var isMinimized = existing?.IsMinimized ?? false;
-
-                if (Panes.Count > 0)
-                {
-                    var primary = Panes[0];
-                    hostId = NormalizeHostId(primary.HostId);
-                    isMinimized = primary.IsMinimized;
-                }
-
-                var descriptor = new ShellLayoutDescriptor(
-                    HostId: hostId,
-                    IsMinimized: isMinimized,
-                    SavedHostId: existing?.SavedHostId,
-                    SavedIsMinimized: existing?.SavedIsMinimized ?? false,
-                    LeftSlideIndex: _leftSlideIndex,
-                    TopSlideIndex: _topSlideIndex,
-                    RightSlideIndex: _rightSlideIndex,
-                    BottomSlideIndex: _bottomSlideIndex,
-                    ParentPanes: Panes.ToArray(),
-                    ChildPanes: ChildPanes.ToArray());
-
-                var json = JsonSerializer.Serialize(descriptor, JsonOptions);
-                File.WriteAllText(ShellLayoutFileName, json);
-            }
-            catch
-            {
-            }
+            // No-op: shell-layout.json persistence has been removed. This stub remains
+            // only to keep older call-sites compiling while D11B refactors complete.
         }
 
         private void RefreshFromEngineState()
