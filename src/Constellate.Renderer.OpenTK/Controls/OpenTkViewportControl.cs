@@ -431,41 +431,6 @@ namespace Constellate.Renderer.OpenTK.Controls
                 Lerp(a.B, b.B));
         }
 
-        private void DrawHud(DrawingContext ctx, Rect bounds)
-        {
-            try
-            {
-                var order = _forcePvmOrder ? "P*V*M" : "M*V*P";
-                var tf = new Typeface("Segoe UI");
-                var renderSnapshot = GetRenderSceneSnapshot();
-                var panelSummary = renderSnapshot.PanelSurfaces.Length == 0
-                    ? "panels=0"
-                    : $"panels={renderSnapshot.PanelSurfaces.Length} first={renderSnapshot.PanelSurfaces[0].ViewRef}";
-                var linkSummary = $"links={renderSnapshot.Links.Length}";
-                var groupSummary = renderSnapshot.ActiveGroupId is { Length: > 0 } activeId
-                    ? $"groups={renderSnapshot.Groups.Length} active={activeId}"
-                    : $"groups={renderSnapshot.Groups.Length}";
-                var info =
-                    $"cam yaw={_cam.Yaw:0.00} pitch={_cam.Pitch:0.00} dist={_cam.Distance:0.00}\n" +
-                    $"order={order} depth={!_noDepth} clear={!_noClear} {panelSummary} {linkSummary} {groupSummary}";
-
-                var ft = new FormattedText(
-                    info,
-                    CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    tf,
-                    12,
-                    Brushes.White);
-
-                var bg = new Rect(8, 8, 560, 38);
-                ctx.DrawRectangle(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), null, bg);
-                ctx.DrawText(ft, new Point(12, 12));
-            }
-            catch
-            {
-            }
-        }
-
         private void DrawNodeInteractionOverlays(DrawingContext ctx, Rect bounds)
         {
             try
