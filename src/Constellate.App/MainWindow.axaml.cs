@@ -573,7 +573,7 @@ namespace Constellate.App
                     break;
             }
 
-            try { e.Pointer.Capture(this); } catch { }
+            try { e.Pointer.Capture(grip); } catch { }
             e.Handled = true;
         }
 
@@ -2672,7 +2672,7 @@ namespace Constellate.App
                 splits = 1;
             }
 
-            splits = Math.Min(splits, 3);
+            splits = Math.Min(splits, 2);
 
             var ordered = ChildPanes
                 .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))

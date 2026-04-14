@@ -264,11 +264,6 @@ namespace Constellate.Renderer.OpenTK.Controls
             {
                 DrawMarqueeOverlay(ctx);
             }
-            
-            if (_diagVerbose)
-            {
-                DrawHud(ctx, bounds);
-            }
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
