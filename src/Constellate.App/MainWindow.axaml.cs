@@ -3086,29 +3086,40 @@ namespace Constellate.App
             {
                 case "left":
                     _leftSlideIndex = Math.Max(0, _leftSlideIndex + delta);
-                    OnPropertyChanged(nameof(VisibleChildPanesLeft));
-                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn0));
-                    OnPropertyChanged(nameof(VisibleChildPanesLeftColumn1));
+                    foreach (var parent in ParentPaneModels.Where(p =>
+                                 string.Equals(NormalizeHostId(p.HostId), "left", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        parent.SlideIndex = _leftSlideIndex;
+                    }
                     break;
                 case "top":
                     _topSlideIndex = Math.Max(0, _topSlideIndex + delta);
-                    OnPropertyChanged(nameof(VisibleChildPanesTop));
-                    OnPropertyChanged(nameof(VisibleChildPanesTopRow0));
-                    OnPropertyChanged(nameof(VisibleChildPanesTopRow1));
+                    foreach (var parent in ParentPaneModels.Where(p =>
+                                 string.Equals(NormalizeHostId(p.HostId), "top", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        parent.SlideIndex = _topSlideIndex;
+                    }
                     break;
                 case "right":
                     _rightSlideIndex = Math.Max(0, _rightSlideIndex + delta);
-                    OnPropertyChanged(nameof(VisibleChildPanesRight));
-                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn0));
-                    OnPropertyChanged(nameof(VisibleChildPanesRightColumn1));
+                    foreach (var parent in ParentPaneModels.Where(p =>
+                                 string.Equals(NormalizeHostId(p.HostId), "right", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        parent.SlideIndex = _rightSlideIndex;
+                    }
                     break;
                 case "bottom":
                     _bottomSlideIndex = Math.Max(0, _bottomSlideIndex + delta);
-                    OnPropertyChanged(nameof(VisibleChildPanesBottom));
-                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow0));
-                    OnPropertyChanged(nameof(VisibleChildPanesBottomRow1));
+                    foreach (var parent in ParentPaneModels.Where(p =>
+                                 string.Equals(NormalizeHostId(p.HostId), "bottom", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        parent.SlideIndex = _bottomSlideIndex;
+                    }
                     break;
             }
+
+            // Recompute per-parent child projections for the new slide index.
+            RaiseChildPaneCollectionsChanged();
         }
 
         private void ApplyChildPaneSplitsForHost(string hostId, int splits)
