@@ -1,25 +1,15 @@
 diff a/src/Constellate.App/MainWindow.axaml.cs b/src/Constellate.App/MainWindow.axaml.cs	(rejected hunks)
-@@ -2668,22 +2668,23 @@
-                 var json = File.ReadAllText(ShellLayoutFileName);
-                 var descriptor = JsonSerializer.Deserialize<ShellLayoutDescriptor>(json, JsonOptions);
-                 if (descriptor is null)
-                 {
-                     return;
-                 }
+@@ -2462,12 +2462,6 @@
+                                 {
+                                     continue;
+                                 }
  
-                 var normalizedHost = NormalizeHostId(descriptor.HostId);
-                 var current = Panes[0];
-                 Panes[0] = current with { HostId = normalizedHost, IsMinimized = descriptor.IsMinimized };
- 
-                 OnPropertyChanged(nameof(IsShellPaneOnLeft));
-                 OnPropertyChanged(nameof(IsShellPaneOnTop));
-                 OnPropertyChanged(nameof(IsShellPaneOnRight));
-                 OnPropertyChanged(nameof(IsShellPaneOnBottom));
-                 OnPropertyChanged(nameof(IsShellPaneFloating));
-                 OnPropertyChanged(nameof(IsShellPaneMinimized));
-+                OnPropertyChanged(nameof(IsRightPaneHostVisible));
-                 OnPropertyChanged(nameof(PaneStructureSummary));
-                 _minimizeShellPaneCommand.RaiseCanExecuteChanged();
-                 _restoreShellPaneCommand.RaiseCanExecuteChanged();
-             _destroyParentPaneCommand.RaiseCanExecuteChanged();
-             }
+                                 removedParentIds.Add(pane.Id);
+-                                Panes.RemoveAt(i);
+-
+-                                var model = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, pane.Id, StringComparison.Ordinal));
+-                                if (model is not null)
+-                                {
+-                                    ParentPaneModels.Remove(model);
+-                                }
++                                ParentPaneModels.RemoveAt(i);

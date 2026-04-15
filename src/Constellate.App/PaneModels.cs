@@ -91,8 +91,16 @@ namespace Constellate.App
 
                 _isMinimized = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(HasExpandedContent));
             }
         }
+
+        /// <summary>
+        /// Convenience flag for XAML: true when the parent pane should show its
+        /// expanded content area (children, taskbar, etc.). When false, only the
+        /// header/chrome should be visible (used for minimize-to-header semantics).
+        /// </summary>
+        public bool HasExpandedContent => !_isMinimized;
 
         /// <summary>
         /// Convenience: true when HostId == "floating" (case-insensitive).

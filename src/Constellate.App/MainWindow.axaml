@@ -155,7 +155,8 @@
                       Background="#121A23"
                       CornerRadius="4"
                       Padding="6,4"
-                      Margin="0,0,0,8">
+                        Margin="0,0,0,8"
+                        DoubleTapped="OnFloatingParentHeaderDoubleTapped">
                 <DockPanel LastChildFill="False">
                   <!-- PaneDescriptor.Title -->
                   <TextBlock Text="{Binding Title}"
@@ -1239,8 +1240,11 @@
                   </DockPanel>
                 </Border>
 
+                <!-- Expanded content (taskbar + child panes) is hidden when the
+                     parent is minimized so floating panes collapse to a header bar. -->
                 <StackPanel Grid.Row="1"
-                            Spacing="6">
+                            Spacing="6"
+                            IsVisible="{Binding HasExpandedContent}">
                   <!-- Taskbar strip for minimized child panes on Floating host -->
                   <ItemsControl ItemsSource="{Binding MinimizedChildren}">
                     <ItemsControl.ItemsPanel>
