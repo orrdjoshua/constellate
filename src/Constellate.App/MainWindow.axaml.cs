@@ -152,7 +152,6 @@ namespace Constellate.App
                 }
             }
 
-            Wire("TopLeft_LeftTriangle");
             Wire("TopLeft_TopTriangle");
             Wire("TopRight_TopTriangle");
             Wire("TopRight_RightTriangle");
@@ -706,7 +705,6 @@ namespace Constellate.App
         string Id,
         string Title,
         int Order,
-        string HostId,
         int ContainerIndex = 0,
         bool IsMinimized = false,
         int SlideIndex = 0,
@@ -1913,7 +1911,6 @@ namespace Constellate.App
                     _rightSlideIndex = 0;
                     _bottomSlideIndex = 0;
 
-                    SyncChildHostIdsFromParents();
                     RaiseParentPaneLayoutChanged(includeChildRefresh: true);
                 });
 
@@ -2158,7 +2155,6 @@ namespace Constellate.App
                         existingParent.HostId = normalizedHost;
                         existingParent.IsMinimized = false;
                         existingParent.SlideIndex = GetSlideIndexForHost(normalizedHost);
-                        SyncChildHostIdsFromParents();
                         RaiseParentPaneLayoutChanged(includeChildRefresh: true);
                         return;
                     }
@@ -2451,7 +2447,6 @@ namespace Constellate.App
             }
 
             var parentId = parent.Id;
-            var effectiveHost = parent.HostId;
             var slideIndex = parent.SlideIndex;
 
             var nextOrder = ChildPanes.Count == 0
@@ -2466,7 +2461,6 @@ namespace Constellate.App
                 id,
                 title,
                 nextOrder,
-                effectiveHost,
                 ContainerIndex: 0,
                 IsMinimized: false,
                 SlideIndex: slideIndex,
@@ -2582,14 +2576,13 @@ namespace Constellate.App
             }
 
             var nextOrder = ChildPanes
-                .Where(pane => string.Equals(pane.HostId, normalizedHost, StringComparison.Ordinal))
+                .Where(pane => string.Equals(pane.ParentId, parentId, StringComparison.Ordinal))
                 .Select(pane => pane.Order)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
 
             ChildPanes[index] = current with
             {
-                HostId = normalizedHost,
                 Order = nextOrder,
                 ContainerIndex = 0,
                 SlideIndex = slideIndex,
@@ -3630,7 +3623,7 @@ namespace Constellate.App
 
             // Prefer the pane currently on the origin host; fall back to the first parent
             // to preserve legacy single-pane behavior if origin is unknown.
-            var parentModel = !string.IsNullOrWhiteSpace(originHostId)
+            ParentPaneModel? parentModel = !string.IsNullOrWhiteSpace(originHostId)
                 ? ParentPaneModels.FirstOrDefault(p =>
                     string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal))
                 : ParentPaneModels.FirstOrDefault();
@@ -3669,7 +3662,6 @@ namespace Constellate.App
                 parentModel.FloatingHeight = height;
             }
 
-            SyncChildHostIdsFromParents();
             RaiseParentPaneLayoutChanged(includeChildRefresh: true);
         }
 
@@ -3758,27 +3750,6 @@ namespace Constellate.App
                 FloatingWidth = 320,
                 FloatingHeight = 240
             };
-        }
-
-        private void SyncChildHostIdsFromParents()
-        {
-            var hostByParentId = ParentPaneModels.ToDictionary(
-                parent => parent.Id,
-                parent => NormalizeHostId(parent.HostId),
-                StringComparer.Ordinal);
-
-            for (var i = 0; i < ChildPanes.Count; i++)
-            {
-                var child = ChildPanes[i];
-                if (string.IsNullOrWhiteSpace(child.ParentId) ||
-                    !hostByParentId.TryGetValue(child.ParentId, out var parentHost) ||
-                    string.Equals(child.HostId, parentHost, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                ChildPanes[i] = child with { HostId = parentHost };
-            }
         }
 
         private void RaiseParentPaneLayoutChanged(bool includeChildRefresh = false)
