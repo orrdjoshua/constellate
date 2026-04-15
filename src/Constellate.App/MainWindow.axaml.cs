@@ -464,7 +464,9 @@ namespace Constellate.App
             _isChildPaneDragging = true;
             _childDragStartPoint = e.GetPosition(this);
             _childDragPaneId = descriptor.Id;
-            _childDragOriginHostId = descriptor.HostId;
+            _childDragOriginHostId = DataContext is MainWindowViewModel vm
+                ? vm.GetHostIdForChildPane(descriptor.Id)
+                : null;
 
             try { e.Pointer.Capture(this); } catch { }
         }
@@ -3662,7 +3664,6 @@ namespace Constellate.App
                 parentModel.FloatingHeight = height;
             }
 
-            RaiseParentPaneLayoutChanged(includeChildRefresh: true);
         }
 
         public void SetShellPaneMinimized(bool minimized)
@@ -3731,6 +3732,26 @@ namespace Constellate.App
             return normalized is "left" or "top" or "right" or "bottom" or "floating"
                 ? normalized
                 : "left";
+        }
+
+        public string GetHostIdForChildPane(string childPaneId)
+        {
+            if (string.IsNullOrWhiteSpace(childPaneId))
+            {
+                return "left";
+            }
+
+            var child = ChildPanes.FirstOrDefault(pane =>
+                string.Equals(pane.Id, childPaneId, StringComparison.Ordinal));
+            if (child is null || string.IsNullOrWhiteSpace(child.ParentId))
+            {
+                return "left";
+            }
+
+            var parent = ParentPaneModels.FirstOrDefault(pane =>
+                string.Equals(pane.Id, child.ParentId, StringComparison.Ordinal));
+
+            return parent is null ? "left" : NormalizeHostId(parent.HostId);
         }
 
         private ParentPaneModel CreateParentPaneModel(string hostId)
