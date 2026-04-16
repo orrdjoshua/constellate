@@ -73,9 +73,9 @@ namespace Constellate.App
 
             if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
             {
-                // Convert the final shadow rect from window coordinates to FloatingPaneHost-relative coordinates.
-                var floatingHost = this.FindControl<Border>("FloatingPaneHost");
-                var hostRect = floatingHost is not null ? floatingHost.Bounds : Bounds;
+                // Convert the final shadow rect from window coordinates to CenterViewportHost-relative coordinates.
+                var centerHost = this.FindControl<Border>("CenterViewportHost");
+                var hostRect = centerHost is not null ? centerHost.Bounds : Bounds;
 
                 // Use the last preview rect held in the VM; if missing, synthesize a reasonable size.
                 var leftWin = vm.ParentPaneDragShadowLeft;
@@ -94,20 +94,34 @@ namespace Constellate.App
                     topWin = releasePoint.Y - (shadowH / 2.0);
                 }
 
-                // Translate to floating-host-relative coordinates and clamp inside it.
-                var relLeft = leftWin - hostRect.X;
-                var relTop = topWin - hostRect.Y;
-                var minLeft = 0.0;
-                var minTop = 0.0;
-                var maxLeft = Math.Max(0, hostRect.Width - shadowW);
-                var maxTop = Math.Max(0, hostRect.Height - shadowH);
-                relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
-                relTop = Math.Clamp(relTop, minTop, maxTop);
+                // Translate Window-space (leftWin, topWin) into CenterViewportHost-local coordinates.
+                double relLeft = leftWin, relTop = topWin;
+                if (centerHost is not null)
+                {
+                    var localPt = this.TranslatePoint(new Point(leftWin, topWin), centerHost);
+                    if (localPt is { } p)
+                    {
+                        relLeft = p.X;
+                        relTop = p.Y;
+                    }
+                }
+
+                // Clamp inside CenterViewportHost bounds (visible even when no floating parents yet).
+                {
+                    var minLeft = 0.0;
+                    var minTop = 0.0;
+                    var maxLeft = Math.Max(0, hostRect.Width - shadowW);
+                    var maxTop = Math.Max(0, hostRect.Height - shadowH);
+                    relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
+                    relTop = Math.Clamp(relTop, minTop, maxTop);
+                }
 
                 try
                 {
-                    Console.WriteLine($"[FloatingDrop] originHost={_dragOriginHostId} hostRect=({hostRect.X:0},{hostRect.Y:0},{hostRect.Width:0},{hostRect.Height:0}) " +
-                                      $"shadowWin=({leftWin:0},{topWin:0},{shadowW:0},{shadowH:0}) rel=({relLeft:0},{relTop:0})");
+                    Console.WriteLine(
+                        $"[FloatingDrop] originHost={_dragOriginHostId} centerHostRect=({hostRect.X:0},{hostRect.Y:0},{hostRect.Width:0},{hostRect.Height:0}) " +
+                        $"shadowWin=({leftWin:0},{topWin:0},{shadowW:0},{shadowH:0}) rel=({relLeft:0},{relTop:0})"
+                    );
                 }
                 catch { }
 

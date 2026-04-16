@@ -341,21 +341,17 @@
               <Canvas />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemContainerStyle>
-            <Style Selector="ContentPresenter">
-              <Setter Property="Canvas.Left" Value="{Binding FloatingX}"/>
-              <Setter Property="Canvas.Top" Value="{Binding FloatingY}"/>
-              <Setter Property="Width" Value="{Binding FloatingWidth}"/>
-              <Setter Property="Height" Value="{Binding FloatingHeight}"/>
-            </Style>
-          </ItemsControl.ItemContainerStyle>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <!-- Parent pane fills the container configured by ItemContainerStyle -->
-              <Border DoubleTapped="OnFloatingParentHeaderDoubleTapped"
+              <!-- Position and size the floating parent pane directly on the template root -->
+              <Border Canvas.Left="{Binding FloatingX}"
+                      Canvas.Top="{Binding FloatingY}"
+                      Width="{Binding FloatingWidth}"
+                      Height="{Binding FloatingHeight}"
+                      DoubleTapped="OnFloatingParentHeaderDoubleTapped"
                       Background="Transparent"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch">
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top">
                 <ctrl:ParentPaneView />
               </Border>
             </DataTemplate>
@@ -369,19 +365,15 @@
               <Canvas />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemContainerStyle>
-            <Style Selector="ContentPresenter">
-              <Setter Property="Canvas.Left" Value="{Binding FloatingX}"/>
-              <Setter Property="Canvas.Top" Value="{Binding FloatingY}"/>
-              <Setter Property="Width" Value="{Binding FloatingWidth}"/>
-              <Setter Property="Height" Value="{Binding FloatingHeight}"/>
-            </Style>
-          </ItemsControl.ItemContainerStyle>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="app:ChildPaneDescriptor">
-              <Border Background="Transparent"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch">
+              <Border Canvas.Left="{Binding FloatingX}"
+                      Canvas.Top="{Binding FloatingY}"
+                      Width="{Binding FloatingWidth}"
+                      Height="{Binding FloatingHeight}"
+                      Background="Transparent"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top">
                 <ctrl:ChildPaneView />
               </Border>
             </DataTemplate>
