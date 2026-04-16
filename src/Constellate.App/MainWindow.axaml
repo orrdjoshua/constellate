@@ -546,7 +546,13 @@
             Background="#80223366"
             CornerRadius="4"
             Padding="6">
-      <TextBlock Text="{Binding PaneStructureSummary}" Foreground="#FFFFFF" FontSize="11"/>
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding VmId, StringFormat=VM:\ {0}}"
+                   Foreground="#FFFFFF" FontSize="11"/>
+        <TextBlock Text="{Binding ParentPaneCount, StringFormat=panes:\ {0}\ \|\ ticks:\ {Binding LayoutChangeCount}}"
+                   Foreground="#FFFFFF" FontSize="11"/>
+        <TextBlock Text="{Binding PaneStructureSummary}" Foreground="#FFFFFF" FontSize="11"/>
+      </StackPanel>
     </Border>
 
     <Canvas Grid.RowSpan="3"

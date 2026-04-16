@@ -59,8 +59,9 @@ namespace Constellate.App
                 e.Handled = true;
 
                 var afterCount = vm.ParentPaneModels.Count;
-                Debug.WriteLine($"[CornerAff] Executed CreateOrRestore(host='{hostId}'), after ParentPaneModels={afterCount} | " +
-                                $"Visible: L={vm.IsShellPaneOnLeft} T={vm.IsShellPaneOnTop} R={vm.IsShellPaneOnRight} B={vm.IsShellPaneOnBottom} F={vm.IsShellPaneFloating}");
+                Debug.WriteLine($"[CornerAff] Executed CreateOrRestore(host='{hostId}'), vmId={vm.VmId} " +
+                                $"after ParentPaneModels={afterCount} | Visible: " +
+                                $"L={vm.IsShellPaneOnLeft} T={vm.IsShellPaneOnTop} R={vm.IsShellPaneOnRight} B={vm.IsShellPaneOnBottom} F={vm.IsShellPaneFloating}");
             }
             else
             {

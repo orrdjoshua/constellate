@@ -260,6 +260,10 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(HasMinimizedParentRight));
         OnPropertyChanged(nameof(HasMinimizedParentBottom));
         OnPropertyChanged(nameof(PaneStructureSummary));
+        // Bump a visible counter and surface current parent count for HUD diagnostics.
+        LayoutChangeCount = LayoutChangeCount + 1;
+        OnPropertyChanged(nameof(LayoutChangeCount));
+        OnPropertyChanged(nameof(ParentPaneCount));
 
         Debug.WriteLine($"[PaneLayout] Visible hosts: " +
                         $"L={IsShellPaneOnLeft} T={IsShellPaneOnTop} R={IsShellPaneOnRight} B={IsShellPaneOnBottom} F={IsShellPaneFloating} | " +

@@ -178,6 +178,7 @@ public sealed partial class MainWindowViewModel
     private int _topSlideIndex;
     private int _rightSlideIndex;
     private int _bottomSlideIndex;
+    private int _layoutChangeCount;
 
     // Collections + capability list
     public ObservableCollection<EngineCapability> Capabilities { get; } = new(EngineServices.Capabilities.GetAll());
@@ -353,6 +354,29 @@ public sealed partial class MainWindowViewModel
         private set { if (Math.Abs(_childPaneDragShadowHeight - value) > double.Epsilon) { _childPaneDragShadowHeight = value; OnPropertyChanged(); } }
     }
 
+    /// <summary>
+    /// Increments on each RaiseParentPaneLayoutChanged to verify UI-binding and change-notification flow.
+    /// </summary>
+    public int LayoutChangeCount
+    {
+        get => _layoutChangeCount;
+        private set
+        {
+            if (_layoutChangeCount == value) return;
+            _layoutChangeCount = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// A stable (per-instance) VM identifier for quick visual/log correlation.
+    /// </summary>
+    public string VmId => GetHashCode().ToString("X");
+
+    /// <summary>
+    /// Current number of parent panes in this VM instance.
+    /// </summary>
+    public int ParentPaneCount => ParentPaneModels.Count;
     // Settings child floating flag
     public bool IsSettingsChildFloating
     {
