@@ -284,6 +284,42 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
+    /// Set geometry for a floating child pane (ParentId == null). Used by FloatingPaneLayer resize grips.
+    /// </summary>
+    public void SetFloatingChildGeometry(string id, double x, double y, double width, double height)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return;
+        var idx = -1;
+        ChildPaneDescriptor? current = null;
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (!string.Equals(c.Id, id, StringComparison.Ordinal)) continue;
+            idx = i;
+            current = c;
+            break;
+        }
+        if (idx < 0 || current is null) return;
+        // Only adjust if floating (ParentId == null)
+        if (current.ParentId is not null) return;
+
+        var fx = Math.Max(0, x);
+        var fy = Math.Max(0, y);
+        var fw = Math.Max(80.0, width);
+        var fh = Math.Max(80.0, height);
+
+        ChildPanes[idx] = current with
+        {
+            FloatingX = fx,
+            FloatingY = fy,
+            FloatingWidth = fw,
+            FloatingHeight = fh
+        };
+
+        RaiseChildPaneCollectionsChanged();
+    }
+
+    /// <summary>
     /// Returns the first expanded parent pane hosted on the given host (left/top/right/bottom),
     /// or null if none exists. Normalizes host id.
     /// </summary>

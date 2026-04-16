@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Input;
 
 namespace Constellate.App.Controls
 {
@@ -182,19 +183,21 @@ namespace Constellate.App.Controls
                     Width = Math.Max(80, child.FloatingWidth),
                     Height = Math.Max(80, child.FloatingHeight),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                    Child = new ChildPaneView
-                    {
-                        DataContext = child
-                    }
+                    VerticalAlignment = VerticalAlignment.Stretch
                 };
+
+                // Content host + grips overlay
+                var grid = new Grid();
+                grid.Children.Add(new ChildPaneView { DataContext = child });
+                chrome.Child = grid;
+                AttachResizeGrips(chrome, isParent: false, parent: null, child: child);
 
                 Canvas.SetLeft(chrome, Math.Max(0, child.FloatingX));
                 Canvas.SetTop(chrome, Math.Max(0, child.FloatingY));
-                chrome.ZIndex = _zCounter++;
+                try { chrome.ZIndex = _zCounter++; } catch { }
                 chrome.PointerPressed += (_, __) =>
                 {
-                    chrome.ZIndex = _zCounter++;
+                    try { chrome.ZIndex = _zCounter++; } catch { }
                 };
                 _canvas.Children.Add(chrome);
             }
@@ -212,22 +215,143 @@ namespace Constellate.App.Controls
                     Width = Math.Max(80, parent.FloatingWidth),
                     Height = Math.Max(80, parent.FloatingHeight),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                    Child = new ParentPaneView
-                    {
-                        DataContext = parent
-                    }
+                    VerticalAlignment = VerticalAlignment.Stretch
                 };
+
+                // Content host + grips overlay
+                var grid = new Grid();
+                grid.Children.Add(new ParentPaneView { DataContext = parent });
+                chrome.Child = grid;
+                AttachResizeGrips(chrome, isParent: true, parent: parent, child: null);
 
                 Canvas.SetLeft(chrome, Math.Max(0, parent.FloatingX));
                 Canvas.SetTop(chrome, Math.Max(0, parent.FloatingY));
-                chrome.ZIndex = _zCounter++;
+                try { chrome.ZIndex = _zCounter++; } catch { }
                 chrome.PointerPressed += (_, __) =>
                 {
-                    chrome.ZIndex = _zCounter++;
+                    try { chrome.ZIndex = _zCounter++; } catch { }
                 };
                 _canvas.Children.Add(chrome);
             }
+        }
+
+        // Adds 8 resize grips (N,S,E,W + NW,NE,SW,SE) to the floating chrome.
+        private void AttachResizeGrips(Border chrome, bool isParent, ParentPaneModel? parent, ChildPaneDescriptor? child)
+        {
+            if (_canvas is null) return;
+            if (chrome.Child is not Panel panel) return;
+
+            void AddGrip(HorizontalAlignment ha, VerticalAlignment va, double w, double h, StandardCursorType cursor,
+                         bool left, bool top, bool right, bool bottom)
+            {
+                var grip = new Border
+                {
+                    Background = Brushes.Transparent,
+                    HorizontalAlignment = ha,
+                    VerticalAlignment = va,
+                    Width = w > 0 ? w : double.NaN,
+                    Height = h > 0 ? h : double.NaN,
+                    Cursor = new Cursor(cursor)
+                };
+                grip.PointerPressed += (s, e) =>
+                {
+                    TryBringToFront(chrome);
+                    if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+                    try { e.Pointer.Capture(grip); } catch { }
+                    var start = e.GetPosition(_canvas);
+                    var container = _canvas.Bounds;
+
+                    double ix = Canvas.GetLeft(chrome);
+                    double iy = Canvas.GetTop(chrome);
+                    double iw = chrome.Bounds.Width;
+                    double ih = chrome.Bounds.Height;
+                    const double minW = 80.0;
+                    const double minH = 80.0;
+
+                    void OnMove(object? _, PointerEventArgs args)
+                    {
+                        if (!ReferenceEquals(args.Pointer.Captured, grip)) return;
+                        var p = args.GetPosition(_canvas);
+                        var dx = p.X - start.X;
+                        var dy = p.Y - start.Y;
+
+                        double nx = ix, ny = iy, nw = iw, nh = ih;
+                        if (left)
+                        {
+                            nx = Math.Clamp(ix + dx, 0, ix + iw - minW);
+                            nw = Math.Max(minW, (ix + iw) - nx);
+                        }
+                        if (top)
+                        {
+                            ny = Math.Clamp(iy + dy, 0, iy + ih - minH);
+                            nh = Math.Max(minH, (iy + ih) - ny);
+                        }
+                        if (right)
+                        {
+                            nw = Math.Clamp(iw + dx, minW, Math.Max(minW, container.Width - ix));
+                        }
+                        if (bottom)
+                        {
+                            nh = Math.Clamp(ih + dy, minH, Math.Max(minH, container.Height - iy));
+                        }
+
+                        // Clamp position so rect remains inside container
+                        nx = Math.Clamp(nx, 0, Math.Max(0, container.Width - nw));
+                        ny = Math.Clamp(ny, 0, Math.max(0, container.Height - nh));
+
+                        Canvas.SetLeft(chrome, nx);
+                        Canvas.SetTop(chrome, ny);
+                        chrome.Width = nw;
+                        chrome.Height = nh;
+
+                        // Commit back to models
+                        if (isParent && parent is not null)
+                        {
+                            parent.FloatingX = nx;
+                            parent.FloatingY = ny;
+                            parent.FloatingWidth = nw;
+                            parent.FloatingHeight = nh;
+                        }
+                        else if (!isParent && child is not null)
+                        {
+                            // Route via VM to update immutable record in collection
+                            if (this.VisualRoot is MainWindow mw && mw.DataContext is MainWindowViewModel vm)
+                            {
+                                vm.SetFloatingChildGeometry(child.Id, nx, ny, nw, nh);
+                            }
+                        }
+                    }
+
+                    void OnRelease(object? _, PointerReleasedEventArgs args2)
+                    {
+                        try { args2.Pointer.Capture(null); } catch { }
+                        grip.PointerMoved -= OnMove;
+                        grip.PointerReleased -= OnRelease;
+                    }
+
+                    grip.PointerMoved += OnMove;
+                    grip.PointerReleased += OnRelease;
+                    e.Handled = true;
+                };
+
+                panel.Children.Add(grip);
+            }
+
+            // Edges
+            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Top,    0, 6,  StandardCursorType.SizeNorthSouth, false, true,  false, false);
+            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, 0, 6,  StandardCursorType.SizeNorthSouth, false, false, false, true);
+            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Stretch,6, 0,  StandardCursorType.SizeWestEast,   true,  false, false, false);
+            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Stretch,6, 0,  StandardCursorType.SizeWestEast,   false, false, true,  false);
+            // Corners
+            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Top,    10,10, StandardCursorType.SizeNorthWestSouthEast, true,  true,  false, false);
+            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Top,    10,10, StandardCursorType.SizeNorthEastSouthWest, false, true,  true,  false);
+            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Bottom, 10,10, StandardCursorType.SizeNorthEastSouthWest, true,  false, false, true );
+            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Bottom, 10,10, StandardCursorType.SizeNorthWestSouthEast, false, false, true,  true );
+        }
+
+        private void TryBringToFront(Control chrome)
+        {
+            try { chrome.ZIndex = _zCounter++; } catch { }
         }
     }
 }
