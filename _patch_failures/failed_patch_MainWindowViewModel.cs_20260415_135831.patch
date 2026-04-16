@@ -1,0 +1,21 @@
+--- a/CONSTELLATE/src/Constellate.App/ViewModels/MainWindowViewModel.cs
++++ b/CONSTELLATE/src/Constellate.App/ViewModels/MainWindowViewModel.cs
+@@ -48,7 +48,18 @@
+         }
+     }
+ 
++    /// <summary>
++    /// Helper for expansion-state properties to update the backing field and raise OnPropertyChanged.
++    /// </summary>
++    private void SetExpansionState(ref bool backingField, bool value, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
++    {
++        if (backingField == value)
++            return;
++
++        backingField = value;
++        OnPropertyChanged(propertyName);
++    }
+ 
+     private bool IsInteractionMode(string mode) =>
+         string.Equals(
+             _shellScene.GetInteractionMode(),

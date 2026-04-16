@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:app="clr-namespace:Constellate.App"
+             xmlns:ctrl="clr-namespace:Constellate.App.Controls"
+             x:Class="Constellate.App.Controls.ParentPaneView"
+             x:DataType="app:ParentPaneModel">
+  <Border Background="#121A23" CornerRadius="4" Padding="6" >
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
+      <!-- Parent header chrome -->
+      <Border Grid.Row="0" Background="#121A23" CornerRadius="4" Padding="6,4">
+        <DockPanel LastChildFill="False">
+          <TextBlock Text="{Binding Title}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="#E5EDF7"
+                     VerticalAlignment="Center"
+                     DockPanel.Dock="Left" />
+          <StackPanel Orientation="Horizontal"
+                      Spacing="4"
+                      HorizontalAlignment="Right"
+                      DockPanel.Dock="Right">
+            <Button Width="22"
+                    Height="22"
+                    Padding="0"
+                    Content="+"
+                    ToolTip.Tip="Add child pane"
+                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).CreateChildPaneCommand}"
+                    CommandParameter="{Binding Id}" />
+            <Button Width="22"
+                    Height="22"
+                    Padding="0"
+                    Content="–"
+                    ToolTip.Tip="Minimize pane"
+                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeShellPaneCommand}"
+                    CommandParameter="{Binding Id}" />
+            <Button Width="22"
+                    Height="22"
+                    Padding="0"
+                    Content="×"
+                    ToolTip.Tip="Destroy pane"
+                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
+                    CommandParameter="{Binding Id}" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- Minimized children taskbar (visible only when expanded) -->
+      <ctrl:MinimizedChildTaskbarView Grid.Row="1" IsVisible="{Binding HasExpandedContent}"/>
+
+      <!-- Visible children (visible only when expanded) -->
+      <ScrollViewer Grid.Row="2"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    IsVisible="{Binding HasExpandedContent}">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <ItemsControl Grid.Column="0" ItemsSource="{Binding VisibleChildrenPrimary0}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="app:ChildPaneDescriptor">
+                <Border Margin="0,0,0,6" Background="#151E28" CornerRadius="4">
+                  <ctrl:ChildPaneView/>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <ItemsControl Grid.Column="1" ItemsSource="{Binding VisibleChildrenPrimary1}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="app:ChildPaneDescriptor">
+                <Border Margin="0,0,0,6" Background="#151E28" CornerRadius="4">
+                  <ctrl:ChildPaneView/>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Grid>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>
