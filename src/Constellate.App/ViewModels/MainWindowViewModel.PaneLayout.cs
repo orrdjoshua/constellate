@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace Constellate.App;
@@ -153,6 +154,49 @@ public sealed partial class MainWindowViewModel
         UpdateBottomOwnershipLayout();
     }
 
+    public void SetParentSplitCount(string? parentId, int count)
+    {
+        if (string.IsNullOrWhiteSpace(parentId)) return;
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null) return;
+
+        parent.SplitCount = Math.Max(1, Math.Min(3, count));
+        RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+    }
+
+    public void SetParentSlideIndex(string? parentId, int index)
+    {
+        if (string.IsNullOrWhiteSpace(parentId)) return;
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null) return;
+
+        parent.SlideIndex = Math.Clamp(index, 0, 2);
+        RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+    }
+
+    /// <summary>
+    /// Persist preferred-size ratios for a given lane by child id. Ratios should already be normalized, but we normalize defensively.
+    /// </summary>
+    public void UpdateLanePreferredRatios(string parentId, int laneIndex, IEnumerable<(string childId, double ratio)> updates)
+    {
+        var map = updates?.ToDictionary(x => x.childId, x => Math.Max(0.01, x.ratio), StringComparer.Ordinal) ?? new Dictionary<string, double>(StringComparer.Ordinal);
+        var sum = map.Values.Sum();
+        if (sum <= 1e-6) return;
+        foreach (var kv in map.Keys.ToArray())
+        {
+            map[kv] = map[kv] / sum;
+        }
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (string.Equals(c.ParentId, parentId, StringComparison.Ordinal) && c.ContainerIndex == laneIndex)
+            {
+                if (map.TryGetValue(c.Id, out var r))
+                    ChildPanes[i] = c with { PreferredSizeRatio = Math.Clamp(r, 0.05, 0.95) };
+            }
+        }
+        RaiseChildPaneCollectionsChanged();
+    }
     // Toggle top-right ownership (existing behavior expanded to generalized updater)
     private void ApplyChildPaneSplitsForHost(string hostId, int splits)
     {
@@ -256,6 +300,36 @@ public sealed partial class MainWindowViewModel
                 .ToArray();
 
             parent.MinimizedChildren = minimizedForParent;
+
+            // PLAN-061: compute orientation-aware lanes per parent
+            // Left/Right → vertical child flow (columns side-by-side); Top/Bottom → horizontal child flow (rows stacked)
+            var host = NormalizeHostId(parent.HostId);
+            var isVerticalFlow = string.Equals(host, "left", StringComparison.Ordinal) || string.Equals(host, "right", StringComparison.Ordinal);
+            var splitCount = Math.Max(1, Math.Min(3, parent.SplitCount));
+
+            // Build lanes 0..splitCount-1 for the current slide; extra container indices are ignored in v1 (future: paging lanes)
+            var lanes = new List<LaneView>(capacity: splitCount);
+            for (int laneIdx = 0; laneIdx < splitCount; laneIdx++)
+            {
+                var laneChildren = visibleForParent.Where(c => c.ContainerIndex == laneIdx).ToArray();
+                // Compute normalized ratios via helper, then construct with ParentId set
+                var laneComputed = LaneView.Create(
+                    laneIdx,
+                    isVerticalFlow,
+                    laneChildren,
+                    ratioSelector: c => c.PreferredSizeRatio);
+                var laneViewFinal = new LaneView
+                {
+                    ParentId = parentId,
+                    LaneIndex = laneIdx,
+                    Children = laneChildren,
+                    Ratios = laneComputed.Ratios,
+                    IsVerticalFlow = isVerticalFlow,
+                    IsVerticalScroll = isVerticalFlow
+                };
+                lanes.Add(laneViewFinal);
+            }
+            parent.LanesVisible = lanes;
         }
     }
 

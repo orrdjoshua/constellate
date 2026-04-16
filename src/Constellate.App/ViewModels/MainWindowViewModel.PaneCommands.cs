@@ -284,6 +284,143 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
+    /// Returns the first expanded parent pane hosted on the given host (left/top/right/bottom),
+    /// or null if none exists. Normalizes host id.
+    /// </summary>
+    public ParentPaneModel? GetFirstExpandedParentOnHost(string hostId)
+    {
+        var normalized = NormalizeHostId(hostId);
+        return ParentPaneModels.FirstOrDefault(p =>
+            !p.IsMinimized &&
+            string.Equals(NormalizeHostId(p.HostId), normalized, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Returns the count of non-minimized children in the specified lane for the parent's current SlideIndex.
+    /// </summary>
+    public int GetChildrenCountInLaneForCurrentSlide(string parentId, int laneIndex)
+    {
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null) return 0;
+        var slideIndex = parent.SlideIndex;
+        return ChildPanes.Count(c =>
+            !c.IsMinimized &&
+            string.Equals(c.ParentId, parentId, StringComparison.Ordinal) &&
+            c.SlideIndex == slideIndex &&
+            c.ContainerIndex == laneIndex);
+    }
+
+    /// <summary>
+    /// Place a child into a specific parent/lane at a target insert index for the parent's current SlideIndex.
+    /// If the child belongs to a different parent or slide, it is moved accordingly. All visible children
+    /// (non-minimized) for that parent/slide are then reindexed with sequential Orders lane-major to ensure stability.
+    /// </summary>
+    public void PlaceChildInParentLane(string childId, string parentId, int laneIndex, int insertIndex)
+    {
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null) return;
+        var slideIndex = parent.SlideIndex;
+
+        // Snapshot visible children for this parent/slide (exclude minimized)
+        var visible = ChildPanes
+            .Where(c => !c.IsMinimized &&
+                        string.Equals(c.ParentId, parentId, StringComparison.Ordinal) &&
+                        c.SlideIndex == slideIndex)
+            .OrderBy(c => c.Order)
+            .ToList();
+
+        // Find (or synthesize) the moving child in the full collection
+        var idxGlobal = -1;
+        ChildPaneDescriptor? moving = null;
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (string.Equals(c.Id, childId, StringComparison.Ordinal))
+            {
+                idxGlobal = i;
+                moving = c;
+                break;
+            }
+        }
+        if (idxGlobal < 0 || moving is null)
+        {
+            return;
+        }
+
+        // If child belongs to a different parent/slide, project it here first
+        if (!string.Equals(moving.ParentId, parentId, StringComparison.Ordinal) || moving.SlideIndex != slideIndex)
+        {
+            moving = moving with
+            {
+                ParentId = parentId,
+                SlideIndex = slideIndex
+            };
+        }
+
+        // Remove from visible snapshot if present
+        visible.RemoveAll(c => string.Equals(c.Id, childId, StringComparison.Ordinal));
+
+        // Build per-lane lists (0..SplitCount-1), keep existing order within each lane
+        var splitCount = Math.Max(1, Math.Min(3, parent.SplitCount));
+        var lanes = new List<List<ChildPaneDescriptor>>(capacity: splitCount);
+        for (int li = 0; li < splitCount; li++)
+        {
+            lanes.Add(visible.Where(c => c.ContainerIndex == li).OrderBy(c => c.Order).ToList());
+        }
+
+        // Clamp insert index to [0..count] for the target lane and insert
+        var targetLane = Math.Clamp(laneIndex, 0, splitCount - 1);
+        var laneList = lanes[targetLane];
+        var clampedInsert = Math.Clamp(insertIndex, 0, laneList.Count);
+
+        moving = moving with { ContainerIndex = targetLane };
+        laneList.Insert(clampedInsert, moving);
+
+        // Reindex Orders lane-major across all lanes to ensure unique sequential ordering
+        var reindexed = new List<ChildPaneDescriptor>();
+        for (int li = 0; li < splitCount; li++)
+        {
+            foreach (var c in lanes[li])
+            {
+                if (c.ContainerIndex != li)
+                {
+                    reindexed.Add(c with { ContainerIndex = li });
+                }
+                else
+                {
+                    reindexed.Add(c);
+                }
+            }
+        }
+
+        // Write back updated children for this parent/slide (visible ones). Preserve minimized and other parents intact.
+        int nextOrder = 0;
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (!string.Equals(c.ParentId, parentId, StringComparison.Ordinal) || c.SlideIndex != slideIndex || c.IsMinimized)
+            {
+                continue;
+            }
+
+            // If this is the moving child, its new values are in 'reindexed' list; otherwise find updated peer
+            var updated = reindexed.FirstOrDefault(x => string.Equals(x.Id, c.Id, StringComparison.Ordinal));
+            if (updated is not null)
+            {
+                ChildPanes[i] = updated with { Order = nextOrder++ };
+            }
+        }
+
+        // If the child was not previously visible on this parent/slide (moved from elsewhere), ensure it's in the global list
+        if (!ChildPanes.Any(c => string.Equals(c.Id, moving.Id, StringComparison.Ordinal)))
+        {
+            ChildPanes.Add(moving with { Order = nextOrder++ });
+        }
+
+        RaiseChildPaneCollectionsChanged();
+    }
+
+    /// <summary>
     /// Commit a move to the floating host with explicit geometry. The coordinates (x,y)
     /// must already be relative to the CenterViewportHost (the floating layer’s Canvas origin).
     /// </summary>

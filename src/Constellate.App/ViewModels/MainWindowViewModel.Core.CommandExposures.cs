@@ -83,4 +83,18 @@ public sealed partial class MainWindowViewModel
     public ICommand SetBottomPaneSplitCommand => _setBottomPaneSplitCommand;
     public ICommand SlideParentPaneCommand => _slideParentPaneCommand;
     public ICommand SetLeftPaneSplitCommand => _setLeftPaneSplitCommand;
+
+    // New per-parent split/slide controls (ParentPaneView header)
+    public ICommand SetParentSplitTo1Command => _setParentSplitTo1Command;
+    public ICommand SetParentSplitTo2Command => _setParentSplitTo2Command;
+    public ICommand SetParentSplitTo3Command => _setParentSplitTo3Command;
+
+    public ICommand SetParentSlideTo1Command => _setParentSlideTo1Command;
+    public ICommand SetParentSlideTo2Command => _setParentSlideTo2Command;
+    public ICommand SetParentSlideTo3Command => _setParentSlideTo3Command;
+
+    // Header chrome stubs
+    public ICommand RenamePaneCommand => _renamePaneCommand;
+    public ICommand AddCommandBarButtonCommand => _addCommandBarButtonCommand;
+    public ICommand RemoveCommandBarButtonCommand => _removeCommandBarButtonCommand;
 }

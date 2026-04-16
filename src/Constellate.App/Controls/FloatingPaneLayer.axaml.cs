@@ -25,6 +25,7 @@ namespace Constellate.App.Controls
         private NotifyCollectionChangedEventHandler? _parentCollectionChangedHandler;
         private NotifyCollectionChangedEventHandler? _childCollectionChangedHandler;
         private readonly Dictionary<ParentPaneModel, PropertyChangedEventHandler> _parentHandlers = new();
+        private int _zCounter = 1;
 
         public FloatingPaneLayer()
         {
@@ -169,7 +170,8 @@ namespace Constellate.App.Controls
 
             foreach (var child in ChildPanes ?? Enumerable.Empty<ChildPaneDescriptor>())
             {
-                if (child.IsMinimized || child.ParentId is not null)
+                // Only render parentless (floating) children; include minimized so header chrome remains visible
+                if (child.ParentId is not null)
                 {
                     continue;
                 }
@@ -189,12 +191,17 @@ namespace Constellate.App.Controls
 
                 Canvas.SetLeft(chrome, Math.Max(0, child.FloatingX));
                 Canvas.SetTop(chrome, Math.Max(0, child.FloatingY));
+                chrome.ZIndex = _zCounter++;
+                chrome.PointerPressed += (_, __) =>
+                {
+                    chrome.ZIndex = _zCounter++;
+                };
                 _canvas.Children.Add(chrome);
             }
 
             foreach (var parent in ParentPanes ?? Enumerable.Empty<ParentPaneModel>())
             {
-                if (parent.IsMinimized || !string.Equals(parent.HostId, "floating", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(parent.HostId, "floating", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -214,6 +221,11 @@ namespace Constellate.App.Controls
 
                 Canvas.SetLeft(chrome, Math.Max(0, parent.FloatingX));
                 Canvas.SetTop(chrome, Math.Max(0, parent.FloatingY));
+                chrome.ZIndex = _zCounter++;
+                chrome.PointerPressed += (_, __) =>
+                {
+                    chrome.ZIndex = _zCounter++;
+                };
                 _canvas.Children.Add(chrome);
             }
         }

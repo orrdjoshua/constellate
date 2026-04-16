@@ -115,6 +115,18 @@ public sealed partial class MainWindowViewModel
     private readonly RelayCommand _slideParentPaneCommand;
     private readonly RelayCommand _setLeftPaneSplitCommand;
 
+    // New per-parent split/slide commands (ParentPaneView header)
+    private readonly RelayCommand _setParentSplitTo1Command;
+    private readonly RelayCommand _setParentSplitTo2Command;
+    private readonly RelayCommand _setParentSplitTo3Command;
+    private readonly RelayCommand _setParentSlideTo1Command;
+    private readonly RelayCommand _setParentSlideTo2Command;
+    private readonly RelayCommand _setParentSlideTo3Command;
+
+    // Header chrome context menu stubs
+    private readonly RelayCommand _renamePaneCommand;
+    private readonly RelayCommand _addCommandBarButtonCommand;
+    private readonly RelayCommand _removeCommandBarButtonCommand;
     // Activity + history
     private string _lastActivitySummary = "Last Activity: app started";
     private readonly Queue<string> _commandHistory = new();

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace Constellate.App
@@ -23,11 +24,12 @@ namespace Constellate.App
         private double _floatingY;
         private double _floatingWidth = 320;
         private double _floatingHeight = 240;
-        private int _splitCount = 1;
+        private int[] _splitCounts = new int[] { 1, 1, 1 }; // per-slide split counts (SlideIndex 0..2)
         private int _slideIndex;
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary0 = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary1 = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<ChildPaneDescriptor> _minimizedChildren = Array.Empty<ChildPaneDescriptor>();
+        private IReadOnlyList<LaneView> _lanesVisible = Array.Empty<LaneView>();
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -72,6 +74,8 @@ namespace Constellate.App
                 _hostId = normalized;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsFloating));
+                OnPropertyChanged(nameof(IsHostLeftOrRight));
+                OnPropertyChanged(nameof(IsHostTopOrBottom));
             }
         }
 
@@ -171,20 +175,25 @@ namespace Constellate.App
 
         /// <summary>
         /// Number of internal split columns/rows in the parent’s AdjustableDimension.
-        /// Currently 1 or 2 for v1; capped higher in future if needed.
+        /// For v1.1, this is stored per slide (SlideIndex 0..2) to allow unique split counts per slide.
         /// </summary>
         public int SplitCount
         {
-            get => _splitCount;
+            get
+            {
+                var idx = Math.Clamp(SlideIndex, 0, 2);
+                return Math.Max(1, Math.Min(3, _splitCounts[idx]));
+            }
             set
             {
-                var clamped = Math.Max(1, value);
-                if (_splitCount == clamped)
+                var idx = Math.Clamp(SlideIndex, 0, 2);
+                var clamped = Math.Max(1, Math.Min(3, value));
+                if (_splitCounts[idx] == clamped)
                 {
                     return;
                 }
 
-                _splitCount = clamped;
+                _splitCounts[idx] = clamped;
                 OnPropertyChanged();
             }
         }
@@ -197,7 +206,10 @@ namespace Constellate.App
             get => _slideIndex;
             set
             {
-                var clamped = Math.Max(0, value);
+                // Support 3 slides: indices 0..2
+                var clamped = value;
+                if (clamped < 0) clamped = 0;
+                if (clamped > 2) clamped = 2;
                 if (_slideIndex == clamped)
                 {
                     return;
@@ -251,6 +263,31 @@ namespace Constellate.App
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        /// Orientation-aware lane set (columns for Left/Right; rows for Top/Bottom) for the current slide.
+        /// Computed by the ViewModel and consumed by ParentPaneView.
+        /// </summary>
+        public IReadOnlyList<LaneView> LanesVisible
+        {
+            get => _lanesVisible;
+            set
+            {
+                _lanesVisible = value ?? Array.Empty<LaneView>();
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Convenience flags for XAML templates deciding lane stacking orientation.
+        /// </summary>
+        public bool IsHostLeftOrRight =>
+            string.Equals(HostId, "left", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(HostId, "right", StringComparison.OrdinalIgnoreCase);
+
+        public bool IsHostTopOrBottom =>
+            string.Equals(HostId, "top", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(HostId, "bottom", StringComparison.OrdinalIgnoreCase);
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -399,6 +436,59 @@ namespace Constellate.App
             }
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    /// <summary>
+    /// Projection for one visible lane inside a ParentPane:
+    /// - LaneIndex: 0..SplitCount-1
+    /// - IsVerticalFlow: true for Left/Right (children stacked top→bottom)
+    /// - IsHorizontalFlow: true for Top/Bottom (children stacked left→right)
+    /// - IsVerticalScroll / IsHorizontalScroll: per-lane scrollbar orientation
+    /// - Children: ordered list of child descriptors in this lane (filtered by SlideIndex and ContainerIndex)
+    /// - Ratios: normalized (sum≈1.0) proportional sizes along the free dimension for each child (clamped [0.05..0.95], uniform fallback)
+    /// </summary>
+    public sealed class LaneView
+    {
+        public string ParentId { get; init; } = string.Empty;
+        public int LaneIndex { get; init; }
+        public bool IsVerticalFlow { get; init; }
+        public bool IsHorizontalFlow => !IsVerticalFlow;
+        public bool IsVerticalScroll { get; init; }
+        public bool IsHorizontalScroll => !IsVerticalScroll;
+        public IReadOnlyList<ChildPaneDescriptor> Children { get; init; } = Array.Empty<ChildPaneDescriptor>();
+        public IReadOnlyList<double> Ratios { get; init; } = Array.Empty<double>();
+
+        public static LaneView Create(
+            int laneIndex,
+            bool isVerticalFlow,
+            IEnumerable<ChildPaneDescriptor> children,
+            Func<ChildPaneDescriptor, double> ratioSelector)
+        {
+            var arr = (children ?? Array.Empty<ChildPaneDescriptor>()).ToArray();
+            var raw = arr.Select(ratioSelector).Select(r => Math.Clamp(r, 0.05, 0.95)).ToArray();
+            double sum = raw.Sum();
+            double[] norm;
+            if (sum <= 1e-6 || raw.All(d => d <= 0))
+            {
+                // Fallback to uniform
+                var n = Math.Max(1, arr.Length);
+                norm = Enumerable.Repeat(1.0 / n, n).ToArray();
+            }
+            else
+            {
+                norm = raw.Select(r => r / sum).ToArray();
+            }
+
+            return new LaneView
+            {
+                ParentId = string.Empty, // will be set by VM when creating lanes
+                LaneIndex = laneIndex,
+                IsVerticalFlow = isVerticalFlow,
+                IsVerticalScroll = isVerticalFlow, // vertical flow → vertical scroll; horizontal flow → horizontal scroll
+                Children = arr,
+                Ratios = norm
+            };
         }
     }
 }

@@ -142,20 +142,6 @@
           <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="left" />
-          <Separator />
-          <MenuItem Header="One column"
-                    Command="{Binding SetLeftPaneSplitCommand}"
-                    CommandParameter="1" />
-          <MenuItem Header="Two columns"
-                    Command="{Binding SetLeftPaneSplitCommand}"
-                    CommandParameter="2" />
-          <Separator />
-          <MenuItem Header="Previous slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="left:prev" />
-          <MenuItem Header="Next slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="left:next" />
         </ContextMenu>
       </Border.ContextMenu>
 
@@ -187,20 +173,6 @@
           <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="top" />
-          <Separator />
-          <MenuItem Header="One row"
-                    Command="{Binding SetTopPaneSplitCommand}"
-                    CommandParameter="1" />
-          <MenuItem Header="Two rows"
-                    Command="{Binding SetTopPaneSplitCommand}"
-                    CommandParameter="2" />
-          <Separator />
-          <MenuItem Header="Previous slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="top:prev" />
-          <MenuItem Header="Next slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="top:next" />
         </ContextMenu>
       </Border.ContextMenu>
 
@@ -232,20 +204,6 @@
           <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="right" />
-          <Separator />
-          <MenuItem Header="One column"
-                    Command="{Binding SetRightPaneSplitCommand}"
-                    CommandParameter="1" />
-          <MenuItem Header="Two columns"
-                    Command="{Binding SetRightPaneSplitCommand}"
-                    CommandParameter="2" />
-          <Separator />
-          <MenuItem Header="Previous slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="right:prev" />
-          <MenuItem Header="Next slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="right:next" />
         </ContextMenu>
       </Border.ContextMenu>
 
@@ -284,20 +242,6 @@
           <MenuItem Header="Destroy pane"
                     Command="{Binding DestroyParentPaneCommand}"
                     CommandParameter="bottom" />
-          <Separator />
-          <MenuItem Header="One row"
-                    Command="{Binding SetBottomPaneSplitCommand}"
-                    CommandParameter="1" />
-          <MenuItem Header="Two rows"
-                    Command="{Binding SetBottomPaneSplitCommand}"
-                    CommandParameter="2" />
-          <Separator />
-          <MenuItem Header="Previous slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="bottom:prev" />
-          <MenuItem Header="Next slide"
-                    Command="{Binding SlideParentPaneCommand}"
-                    CommandParameter="bottom:next" />
         </ContextMenu>
       </Border.ContextMenu>
 

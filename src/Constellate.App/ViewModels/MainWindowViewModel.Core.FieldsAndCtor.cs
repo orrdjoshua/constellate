@@ -704,6 +704,51 @@ namespace Constellate.App
                 SlideParentPane(arg);
             });
 
+            // Per-parent split controls (1..3)
+            _setParentSplitTo1Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSplitCount(id, 1); });
+            _setParentSplitTo2Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSplitCount(id, 2); });
+            _setParentSplitTo3Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSplitCount(id, 3); });
+
+            // Per-parent slide controls (1..3) — indices 0..2
+            _setParentSlideTo1Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSlideIndex(id, 0); });
+            _setParentSlideTo2Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSlideIndex(id, 1); });
+            _setParentSlideTo3Command = new RelayCommand(
+                parameter => { if (parameter is string id && !string.IsNullOrWhiteSpace(id)) SetParentSlideIndex(id, 2); });
+
+            // Header chrome stubs (Rename/Add/Remove CommandBar button)
+            _renamePaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    var target = parameter as string ?? "(unknown)";
+                    _lastActivitySummary = $"Last Activity: Rename Pane… requested for '{target}' @ {DateTimeOffset.Now:HH:mm:ss}";
+                    OnPropertyChanged(nameof(LastActivitySummary));
+                },
+                _ => true);
+
+            _addCommandBarButtonCommand = new RelayCommand(
+                parameter =>
+                {
+                    var target = parameter as string ?? "(unknown)";
+                    _lastActivitySummary = $"Last Activity: Add CommandBar Button… requested for '{target}' @ {DateTimeOffset.Now:HH:mm:ss}";
+                    OnPropertyChanged(nameof(LastActivitySummary));
+                },
+                _ => true);
+
+            _removeCommandBarButtonCommand = new RelayCommand(
+                parameter =>
+                {
+                    // For now we only receive the pane id; later we can pass a button id as CommandParameter.
+                    var target = parameter as string ?? "(unknown)";
+                    _lastActivitySummary = $"Last Activity: Remove CommandBar Button… requested for '{target}' @ {DateTimeOffset.Now:HH:mm:ss}";
+                    OnPropertyChanged(nameof(LastActivitySummary));
+                },
+                _ => true);
+
             // Initial state refresh after command wiring
             RefreshFromEngineState();
             // Ownership depends on visible top/left

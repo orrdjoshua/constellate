@@ -4,36 +4,86 @@
              xmlns:app="clr-namespace:Constellate.App"
              x:Class="Constellate.App.Controls.ChildPaneView"
              x:DataType="app:ChildPaneDescriptor">
+  <UserControl.Resources>
+    <app:BooleanNotConverter x:Key="BooleanNotConverter"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="Border#ChildLabelArea:pointerover">
+      <Setter Property="BorderBrush" Value="#3A4C61"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border#ChildEmptyHeaderArea:pointerover">
+      <Setter Property="BorderBrush" Value="#3A4C61"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+  </UserControl.Styles>
   <Border Background="#151E28" CornerRadius="4">
     <Grid RowDefinitions="Auto,*">
-      <!-- Header: forwards pointer events to MainWindow via control code-behind wrappers -->
-      <DockPanel Grid.Row="0"
-                 LastChildFill="False"
-                 Background="#192531"
-                 PointerPressed="Header_OnPointerPressed"
-                 PointerReleased="Header_OnPointerReleased"
-                 PointerMoved="Header_OnPointerMoved">
-        <TextBlock Text="{Binding Title}"
-                   FontSize="12"
-                   Foreground="#E5EDF7"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Margin="6,4"/>
-        <StackPanel Orientation="Horizontal"
-                    Spacing="4"
-                    HorizontalAlignment="Right"
-                    DockPanel.Dock="Right"
-                    Margin="4,2,6,2">
-          <Button Width="20"
-                  Height="20"
-                  Padding="0"
-                  Content="–"
-                  ToolTip.Tip="Minimize child pane"
-                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
-                  CommandParameter="{Binding Id}" />
-        </StackPanel>
+      <!-- Header chrome: Label | Empty Header | CommandBar -->
+      <Border Grid.Row="0" Background="#192531" Padding="4,2">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+          <!-- Label area (drag origin + rename) -->
+          <Border x:Name="ChildLabelArea"
+                  Grid.Column="0"
+                  Background="Transparent"
+                  BorderBrush="Transparent"
+                  BorderThickness="1"
+                  Padding="4,0"
+                  PointerPressed="Header_OnPointerPressed"
+                  PointerReleased="Header_OnPointerReleased"
+                  PointerMoved="Header_OnPointerMoved">
+            <Border.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Rename Pane…"
+                          Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RenamePaneCommand}"
+                          CommandParameter="{Binding Id}" />
+              </ContextMenu>
+            </Border.ContextMenu>
+            <TextBlock Text="{Binding Title}"
+                       FontSize="12"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"/>
+          </Border>
 
-        <DockPanel.ContextMenu>
+          <!-- Empty header area (double-tap => minimize; drag origin) -->
+          <Border x:Name="ChildEmptyHeaderArea"
+                  Grid.Column="1"
+                  Background="#16222E"
+                  Opacity="0.65"
+                  CornerRadius="3"
+                  BorderBrush="Transparent"
+                  BorderThickness="1"
+                  DoubleTapped="EmptyHeader_OnDoubleTapped"
+                  PointerPressed="Header_OnPointerPressed"
+                  PointerReleased="Header_OnPointerReleased"
+                  PointerMoved="Header_OnPointerMoved">
+            <Border.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Add CommandBar Button…"
+                          Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).AddCommandBarButtonCommand}"
+                          CommandParameter="{Binding Id}"/>
+              </ContextMenu>
+            </Border.ContextMenu>
+          </Border>
+
+          <!-- CommandBar (default: minimize) -->
+          <StackPanel Grid.Column="2"
+                      Orientation="Horizontal"
+                      Spacing="4"
+                      HorizontalAlignment="Right"
+                      Margin="0,0,2,0">
+            <Button Width="20"
+                    Height="20"
+                    Padding="0"
+                    Content="–"
+                    Foreground="#E5EDF7"
+                    Background="#233142"
+                    ToolTip.Tip="Minimize child pane"
+                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                    CommandParameter="{Binding Id}" />
+          </StackPanel>
+        </Grid>
+        <Border.ContextMenu>
           <ContextMenu>
             <MenuItem Header="Move to Left"
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToLeftHostCommand}"
@@ -51,15 +101,16 @@
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToFloatingHostCommand}"
                       CommandParameter="{Binding Id}" />
           </ContextMenu>
-        </DockPanel.ContextMenu>
-      </DockPanel>
+        </Border.ContextMenu>
+      </Border>
 
       <!-- Body placeholder -->
       <Border Grid.Row="1"
               Margin="6,4,6,8"
               Background="#101722"
               CornerRadius="2"
-              Padding="6">
+              Padding="6"
+              IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
         <TextBlock Text="(empty child pane)" Foreground="#9BA8B7" FontSize="11"/>
       </Border>
     </Grid>

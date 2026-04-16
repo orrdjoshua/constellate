@@ -1,0 +1,21 @@
+using System;
+using System.Globalization;
+using Avalonia.Data.Converters;
+
+namespace Constellate.App
+{
+    public sealed class BooleanNotConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is bool b) return !b;
+            return true; // default visible if not a bool
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is bool b) return !b;
+            return false;
+        }
+    }
+}

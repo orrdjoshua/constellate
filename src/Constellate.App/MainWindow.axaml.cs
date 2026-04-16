@@ -167,6 +167,22 @@ namespace Constellate.App
             OnChildPaneHeaderPointerMoved(sender, e);
         }
 
+        // Public wrappers to allow ParentPaneView to forward pointer events for parent-pane header drags.
+        public void ForwardParentHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            OnParentPaneHeaderPointerPressed(sender, e);
+        }
+
+        public void ForwardParentHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            OnParentPaneHeaderPointerReleased(sender, e);
+        }
+
+        public void ForwardParentHeaderPointerMoved(object? sender, PointerEventArgs e)
+        {
+            OnParentPaneHeaderPointerMoved(sender, e);
+        }
+
         private void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (_rootGrid is null) return;
