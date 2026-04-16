@@ -253,6 +253,42 @@ public sealed partial class MainWindowViewModel
         RaiseChildPaneCollectionsChanged();
     }
 
+    /// <summary>
+    /// Commit a move to the floating host with explicit geometry. The coordinates (x,y)
+    /// must already be relative to the CenterViewportHost (the floating layer’s Canvas origin).
+    /// </summary>
+    public void MoveParentPaneToFloating(string? originHostId, double x, double y, double width, double height)
+    {
+        if (ParentPaneModels.Count == 0)
+        {
+            return;
+        }
+
+        var normalizedOrigin = NormalizeHostId(originHostId);
+        // Prefer the pane currently on the origin host; fall back to the first parent.
+        ParentPaneModel? parentModel = !string.IsNullOrWhiteSpace(originHostId)
+            ? ParentPaneModels.FirstOrDefault(p =>
+                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal))
+            : ParentPaneModels.FirstOrDefault();
+
+        if (parentModel is null)
+        {
+            return;
+        }
+
+        parentModel.HostId = "floating";
+        parentModel.IsMinimized = false;
+        // Preserve current slide index semantics (not used by floating host, but kept for consistency)
+        parentModel.SlideIndex = GetSlideIndexForHost("floating");
+
+        parentModel.FloatingX = Math.Max(0, x);
+        parentModel.FloatingY = Math.Max(0, y);
+        parentModel.FloatingWidth = Math.Max(80.0, width);
+        parentModel.FloatingHeight = Math.Max(80.0, height);
+
+        RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+    }
+
     public void MoveParentPaneToHost(string hostId)
     {
         MoveParentPaneToHost(null, hostId);

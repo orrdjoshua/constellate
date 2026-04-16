@@ -12,12 +12,7 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
-    // Ownership flags
-    /// <summary>
-    /// Toggle which pane "owns" the top-left/right corners when both Top and Left
-    /// parent panes are visible: either Left is full-height and Top is center-only
-    /// (default), or Top spans the full top width and Left starts below it.
-    /// </summary>
+    // Top-left corner toggle
     public void ToggleTopCornerOwnership()
     {
         var hasTop = ParentPaneModelsTop.Count > 0;
@@ -29,10 +24,10 @@ public sealed partial class MainWindowViewModel
         }
 
         _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
-        UpdateTopLeftOwnershipLayout();
+        UpdateLeftOwnershipLayout();
+        UpdateTopOwnershipLayout();
     }
-
-    private bool _isTopCornerOwnedByTop;
+    // Right-side (top-right) ownership
     private bool _isTopRightCornerOwnedByTop;
 
     // Right host placement properties to support top-right ownership swap
@@ -41,11 +36,17 @@ public sealed partial class MainWindowViewModel
     public int RightPaneRow { get => _rightPaneRow; set { if (_rightPaneRow != value) { _rightPaneRow = value; OnPropertyChanged(); } } }
     public int RightPaneRowSpan { get => _rightPaneRowSpan; set { if (_rightPaneRowSpan != value) { _rightPaneRowSpan = value; OnPropertyChanged(); } } }
 
-    /// <summary>
-    /// Update the drag-shadow rectangle used to preview parent-pane docking/floating.
-    /// When <paramref name="visible"/> is false, the rect values are ignored and the
-    /// shadow is hidden.
-    /// </summary>
+    // Bottom-corner ownership flags
+    private bool _isBottomLeftCornerOwnedByBottom;
+    private bool _isBottomRightCornerOwnedByBottom;
+
+    // Bottom host column binding (mirrors Top)
+    private int _bottomPaneColumn = 1;
+    private int _bottomPaneColumnSpan = 1;
+    public int BottomPaneColumn { get => _bottomPaneColumn; set { if (_bottomPaneColumn != value) { _bottomPaneColumn = value; OnPropertyChanged(); } } }
+    public int BottomPaneColumnSpan { get => _bottomPaneColumnSpan; set { if (_bottomPaneColumnSpan != value) { _bottomPaneColumnSpan = value; OnPropertyChanged(); } } }
+
+    // Drag shadow update helpers (unchanged)
     public void SetParentPaneDragShadow(bool visible, double left, double top, double width, double height)
     {
         IsParentPaneDragShadowVisible = visible;
@@ -80,7 +81,6 @@ public sealed partial class MainWindowViewModel
         ChildPaneDragShadowWidth = width;
         ChildPaneDragShadowHeight = height;
     }
-
     private int GetSlideIndexForHost(string hostId)
     {
         var normalized = NormalizeHostId(hostId);
@@ -144,6 +144,16 @@ public sealed partial class MainWindowViewModel
         RaiseChildPaneCollectionsChanged();
     }
 
+    // Toggle bottom-left ownership
+    public void ToggleBottomLeftCornerOwnership()
+    {
+        if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsLeft.Count == 0) return;
+        _isBottomLeftCornerOwnedByBottom = !_isBottomLeftCornerOwnedByBottom;
+        UpdateLeftOwnershipLayout();
+        UpdateBottomOwnershipLayout();
+    }
+
+    // Toggle top-right ownership (existing behavior expanded to generalized updater)
     private void ApplyChildPaneSplitsForHost(string hostId, int splits)
     {
         var normalizedHost = NormalizeHostId(hostId);
@@ -275,8 +285,10 @@ public sealed partial class MainWindowViewModel
         LayoutChangeCount = LayoutChangeCount + 1;
         OnPropertyChanged(nameof(LayoutChangeCount));
         OnPropertyChanged(nameof(ParentPaneCount));
-        UpdateTopLeftOwnershipLayout();
-
+        UpdateLeftOwnershipLayout();
+        UpdateRightOwnershipLayout();
+        UpdateTopOwnershipLayout();
+        UpdateBottomOwnershipLayout();
         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
         _restoreShellPaneCommand.RaiseCanExecuteChanged();
         _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
@@ -291,39 +303,179 @@ public sealed partial class MainWindowViewModel
     {
         var hasTop = ParentPaneModelsTop.Count > 0;
         var hasRight = ParentPaneModelsRight.Count > 0;
+        var hasBottom = ParentPaneModelsBottom.Count > 0;
         if (!hasTop || !hasRight)
         {
             return;
         }
 
         _isTopRightCornerOwnedByTop = !_isTopRightCornerOwnedByTop;
-        UpdateTopRightOwnershipLayout();
+        UpdateRightOwnershipLayout();
+        UpdateTopOwnershipLayout();
     }
 
-    private void UpdateTopRightOwnershipLayout()
+    // Toggle bottom-right ownership
+    public void ToggleBottomRightCornerOwnership()
+    {
+        if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsRight.Count == 0) return;
+        _isBottomRightCornerOwnedByBottom = !_isBottomRightCornerOwnedByBottom;
+        UpdateRightOwnershipLayout();
+        UpdateBottomOwnershipLayout();
+    }
+
+    // Compute Right host vertical placement from top/bottom “cuts”
+    private void UpdateRightOwnershipLayout()
     {
         var hasTop = ParentPaneModelsTop.Count > 0;
         var hasRight = ParentPaneModelsRight.Count > 0;
+        var hasBottom = ParentPaneModelsBottom.Count > 0;
 
-        // Default: Right occupies full height from row 0..2
-        if (!hasTop || !hasRight)
+        if (!hasRight)
         {
             RightPaneRow = 0;
             RightPaneRowSpan = 3;
             return;
         }
 
-        if (_isTopRightCornerOwnedByTop)
+        var topCutsRight = hasTop && _isTopRightCornerOwnedByTop;
+        var bottomCutsRight = hasBottom && _isBottomRightCornerOwnedByBottom;
+
+        if (topCutsRight && bottomCutsRight)
         {
-            // Top owns the top-right corner: Right starts below the Top row
+            RightPaneRow = 1;  // middle only
+            RightPaneRowSpan = 1;
+        }
+        else if (topCutsRight && !bottomCutsRight)
+        {
             RightPaneRow = 1;
+            RightPaneRowSpan = 2;
+        }
+        else if (!topCutsRight && bottomCutsRight)
+        {
+            RightPaneRow = 0;
             RightPaneRowSpan = 2;
         }
         else
         {
-            // Right owns: full-height
             RightPaneRow = 0;
             RightPaneRowSpan = 3;
+        }
+    }
+
+    // Compute Left host vertical placement from top/bottom “cuts” (generalized former UpdateTopLeftOwnershipLayout)
+    private void UpdateLeftOwnershipLayout()
+    {
+        var hasTop = ParentPaneModelsTop.Count > 0;
+        var hasLeft = ParentPaneModelsLeft.Count > 0;
+        var hasBottom = ParentPaneModelsBottom.Count > 0;
+
+        if (!hasLeft)
+        {
+            LeftPaneRow = 0;
+            LeftPaneRowSpan = 3;
+            return;
+        }
+
+        var topCutsLeft = hasTop && _isTopCornerOwnedByTop;
+        var bottomCutsLeft = hasBottom && _isBottomLeftCornerOwnedByBottom;
+
+        if (topCutsLeft && bottomCutsLeft)
+        {
+            LeftPaneRow = 1;  // middle only
+            LeftPaneRowSpan = 1;
+        }
+        else if (topCutsLeft && !bottomCutsLeft)
+        {
+            LeftPaneRow = 1;
+            LeftPaneRowSpan = 2;
+        }
+        else if (!topCutsLeft && bottomCutsLeft)
+        {
+            LeftPaneRow = 0;
+            LeftPaneRowSpan = 2;
+        }
+        else
+        {
+            LeftPaneRow = 0;
+            LeftPaneRowSpan = 3;
+        }
+    }
+
+    // Compute Top host horizontal span from left/right ownership
+    private void UpdateTopOwnershipLayout()
+    {
+        var hasTop = ParentPaneModelsTop.Count > 0;
+        var hasLeft = ParentPaneModelsLeft.Count > 0;
+        var hasRight = ParentPaneModelsRight.Count > 0;
+
+        if (!hasTop)
+        {
+            TopPaneColumn = 1;
+            TopPaneColumnSpan = 1;
+            return;
+        }
+
+        var ownsLeft = hasLeft && _isTopCornerOwnedByTop;
+        var ownsRight = hasRight && _isTopRightCornerOwnedByTop;
+
+        if (ownsLeft && ownsRight)
+        {
+            TopPaneColumn = 0;
+            TopPaneColumnSpan = 3;
+        }
+        else if (ownsLeft && !ownsRight)
+        {
+            TopPaneColumn = 0;
+            TopPaneColumnSpan = 2;
+        }
+        else if (!ownsLeft && ownsRight)
+        {
+            TopPaneColumn = 1;
+            TopPaneColumnSpan = 2;
+        }
+        else
+        {
+            TopPaneColumn = 1;
+            TopPaneColumnSpan = 1;
+        }
+    }
+
+    // Compute Bottom host horizontal span from left/right ownership
+    private void UpdateBottomOwnershipLayout()
+    {
+        var hasBottom = ParentPaneModelsBottom.Count > 0;
+        var hasLeft = ParentPaneModelsLeft.Count > 0;
+        var hasRight = ParentPaneModelsRight.Count > 0;
+
+        if (!hasBottom)
+        {
+            BottomPaneColumn = 1;
+            BottomPaneColumnSpan = 1;
+            return;
+        }
+
+        var ownsLeft = hasLeft && _isBottomLeftCornerOwnedByBottom;
+        var ownsRight = hasRight && _isBottomRightCornerOwnedByBottom;
+
+        if (ownsLeft && ownsRight)
+        {
+            BottomPaneColumn = 0;
+            BottomPaneColumnSpan = 3;
+        }
+        else if (ownsLeft && !ownsRight)
+        {
+            BottomPaneColumn = 0;
+            BottomPaneColumnSpan = 2;
+        }
+        else if (!ownsLeft && ownsRight)
+        {
+            BottomPaneColumn = 1;
+            BottomPaneColumnSpan = 2;
+        }
+        else
+        {
+            BottomPaneColumn = 1;
+            BottomPaneColumnSpan = 1;
         }
     }
 
@@ -339,53 +491,6 @@ public sealed partial class MainWindowViewModel
             string.Equals(NormalizeHostId(p.HostId), normalized, StringComparison.Ordinal));
     }
 
-    private void UpdateTopLeftOwnershipLayout()
-    {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasLeft = ParentPaneModelsLeft.Count > 0;
-
-        if (!hasTop && !hasLeft)
-        {
-            LeftPaneRow = 0;
-            LeftPaneRowSpan = 3;
-            TopPaneColumn = 1;
-            TopPaneColumnSpan = 1;
-            return;
-        }
-
-        if (hasTop && !hasLeft)
-        {
-            _isTopCornerOwnedByTop = true;
-            LeftPaneRow = 1;
-            LeftPaneRowSpan = 2;
-            TopPaneColumn = 0;
-            TopPaneColumnSpan = 2;
-            return;
-        }
-
-        if (!hasTop && hasLeft)
-        {
-            _isTopCornerOwnedByTop = false;
-            LeftPaneRow = 0;
-            LeftPaneRowSpan = 3;
-            TopPaneColumn = 1;
-            TopPaneColumnSpan = 1;
-            return;
-        }
-
-        if (_isTopCornerOwnedByTop)
-        {
-            LeftPaneRow = 1;
-            LeftPaneRowSpan = 2;
-            TopPaneColumn = 0;
-            TopPaneColumnSpan = 2;
-        }
-        else
-        {
-            LeftPaneRow = 0;
-            LeftPaneRowSpan = 3;
-            TopPaneColumn = 1;
-            TopPaneColumnSpan = 1;
-        }
-    }
+    // Centralized layout recompute entry remains RaiseParentPaneLayoutChanged; we now call all ownership updaters there.
+    // (method continues below)
 }

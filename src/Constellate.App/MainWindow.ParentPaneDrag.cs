@@ -70,7 +70,46 @@ namespace Constellate.App
             {
                 targetHost = "floating";
             }
-            vm.MoveParentPaneToHost(_dragOriginHostId, targetHost);
+
+            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
+            {
+                // Convert the final shadow rect from window coordinates to CenterViewportHost-relative coordinates.
+                var center = this.FindControl<Border>("CenterViewportHost");
+                var centerRect = center is not null && center.IsVisible ? center.Bounds : Bounds;
+
+                // Use the last preview rect held in the VM; if missing, synthesize a reasonable size.
+                var leftWin = vm.ParentPaneDragShadowLeft;
+                var topWin = vm.ParentPaneDragShadowTop;
+                var shadowW = vm.ParentPaneDragShadowWidth;
+                var shadowH = vm.ParentPaneDragShadowHeight;
+
+                if (shadowW <= 0 || shadowH <= 0)
+                {
+                    // Fallback to a 30% square of the free area.
+                    var side = Math.Min(centerRect.Width, centerRect.Height) * 0.30;
+                    side = Math.Max(80.0, side);
+                    shadowW = side;
+                    shadowH = side;
+                    leftWin = releasePoint.X - (shadowW / 2.0);
+                    topWin = releasePoint.Y - (shadowH / 2.0);
+                }
+
+                // Translate to center-relative coordinates and clamp inside center viewport.
+                var relLeft = leftWin - centerRect.X;
+                var relTop = topWin - centerRect.Y;
+                var minLeft = 0.0;
+                var minTop = 0.0;
+                var maxLeft = Math.Max(0, centerRect.Width - shadowW);
+                var maxTop = Math.Max(0, centerRect.Height - shadowH);
+                relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
+                relTop = Math.Clamp(relTop, minTop, maxTop);
+
+                vm.MoveParentPaneToFloating(_dragOriginHostId, relLeft, relTop, shadowW, shadowH);
+            }
+            else
+            {
+                vm.MoveParentPaneToHost(_dragOriginHostId, targetHost);
+            }
             vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
             _dragOriginHostId = null;
         }

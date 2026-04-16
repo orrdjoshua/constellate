@@ -115,6 +115,25 @@ namespace Constellate.App
             e.Handled = true;
         }
 
+        private void OnBottomCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                var hit = sender as Control;
+                var name = hit?.Name ?? string.Empty;
+                if (name.Contains("BottomRight", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    vm.ToggleBottomRightCornerOwnership();
+                }
+                else
+                {
+                    // Default to bottom-left semantics
+                    vm.ToggleBottomLeftCornerOwnership();
+                }
+            }
+
+            e.Handled = true;
+        }
         private void OnFloatingParentHeaderDoubleTapped(object? sender, TappedEventArgs e)
         {
             if (sender is not Control header || header.DataContext is not ParentPaneModel parent)

@@ -267,7 +267,8 @@
 
     <!-- Bottom parent-pane host -->
     <Border x:Name="BottomPaneHost"
-            Grid.Column="1"
+            Grid.Column="{Binding BottomPaneColumn}"
+            Grid.ColumnSpan="{Binding BottomPaneColumnSpan}"
             Grid.Row="2"
             Background="#0E141B"
             BorderBrush="#2A394B"
@@ -618,5 +619,31 @@
               BorderThickness="1.5"
               CornerRadius="3" />
     </Canvas>
+
+    <!-- Bottom-corner intersection toggles -->
+    <Border x:Name="BottomLeftIntersectionHit"
+            Grid.Row="2"
+            Grid.Column="0"
+            Width="10"
+            Height="10"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="0,2,2,0"
+            IsVisible="{Binding IsShellPaneOnBottom}"
+            DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />
+    <Border x:Name="BottomRightIntersectionHit"
+            Grid.Row="2"
+            Grid.Column="2"
+            Width="10"
+            Height="10"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Background="Transparent"
+            BorderBrush="#2A394B"
+            BorderThickness="2,2,0,0"
+            IsVisible="{Binding IsShellPaneOnBottom}"
+            DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />
   </Grid>
 </Window>
