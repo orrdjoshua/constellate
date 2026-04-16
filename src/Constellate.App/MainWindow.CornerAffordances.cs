@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -9,6 +10,9 @@ namespace Constellate.App
     {
         private void AttachCornerTriangleHandlers()
         {
+            // Runtime wiring remains as a safety net. With XAML wiring added,
+            // a click may call the same handler twice; that’s harmless here,
+            // because the VM’s create/restore early-outs if a pane already exists.
             void Wire(string name)
             {
                 var triangle = this.FindControl<Polygon>(name);
@@ -30,25 +34,37 @@ namespace Constellate.App
 
         private void CornerTriangle_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            var point = e.GetCurrentPoint(this);
+            if (!point.Properties.IsLeftButtonPressed)
             {
                 return;
             }
 
             if (DataContext is not MainWindowViewModel vm)
             {
+                Debug.WriteLine("[CornerAff] Click but DataContext is not MainWindowViewModel");
                 return;
             }
 
-            if (sender is not Control triangle || triangle.Tag is not string hostId || string.IsNullOrWhiteSpace(hostId))
-            {
-                return;
-            }
+            var hostId = (sender as Control)?.Tag as string ?? string.Empty;
+            var name = (sender as Control)?.Name ?? "(unnamed)";
+            var beforeCount = vm.ParentPaneModels.Count;
 
-            if (vm.CreateOrRestoreParentPaneCommand.CanExecute(hostId))
+            Debug.WriteLine($"[CornerAff] PointerPressed on {name} tag='{hostId}' (before ParentPaneModels={beforeCount})");
+
+            if (!string.IsNullOrWhiteSpace(hostId) &&
+                vm.CreateOrRestoreParentPaneCommand.CanExecute(hostId))
             {
                 vm.CreateOrRestoreParentPaneCommand.Execute(hostId);
                 e.Handled = true;
+
+                var afterCount = vm.ParentPaneModels.Count;
+                Debug.WriteLine($"[CornerAff] Executed CreateOrRestore(host='{hostId}'), after ParentPaneModels={afterCount} | " +
+                                $"Visible: L={vm.IsShellPaneOnLeft} T={vm.IsShellPaneOnTop} R={vm.IsShellPaneOnRight} B={vm.IsShellPaneOnBottom} F={vm.IsShellPaneFloating}");
+            }
+            else
+            {
+                Debug.WriteLine($"[CornerAff] HostId missing/invalid or command not executable. hostId='{hostId}'");
             }
         }
     }

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml;
 
 namespace Constellate.App.Controls
 {
@@ -9,6 +10,11 @@ namespace Constellate.App.Controls
         {
             InitializeComponent();
         }
+        private void InitializeComponent()
+        {
+            AvaloniaXamlLoader.Load(this);
+        }
+
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {

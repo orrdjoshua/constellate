@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Diagnostics;
 
 namespace Constellate.App;
 
@@ -259,6 +260,10 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(HasMinimizedParentRight));
         OnPropertyChanged(nameof(HasMinimizedParentBottom));
         OnPropertyChanged(nameof(PaneStructureSummary));
+
+        Debug.WriteLine($"[PaneLayout] Visible hosts: " +
+                        $"L={IsShellPaneOnLeft} T={IsShellPaneOnTop} R={IsShellPaneOnRight} B={IsShellPaneOnBottom} F={IsShellPaneFloating} | " +
+                        $"Parents={ParentPaneModels.Count}");
 
         UpdateTopLeftOwnershipLayout();
 
