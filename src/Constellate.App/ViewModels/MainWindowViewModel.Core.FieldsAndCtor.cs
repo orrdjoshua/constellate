@@ -582,10 +582,19 @@ namespace Constellate.App
                     var existingParent = ParentPaneModels.FirstOrDefault(p => string.Equals(NormalizeHostId(p.HostId), normalizedHost, StringComparison.Ordinal));
                     if (existingParent is not null)
                     {
-                        if (!existingParent.IsMinimized) return;
+                        // TOGGLE semantics:
+                        // - if minimized: restore on same host and sync slide index
+                        // - if expanded: minimize it
                         existingParent.HostId = normalizedHost;
-                        existingParent.IsMinimized = false;
-                        existingParent.SlideIndex = GetSlideIndexForHost(normalizedHost);
+                        if (existingParent.IsMinimized)
+                        {
+                            existingParent.IsMinimized = false;
+                            existingParent.SlideIndex = GetSlideIndexForHost(normalizedHost);
+                        }
+                        else
+                        {
+                            existingParent.IsMinimized = true;
+                        }
                         RaiseParentPaneLayoutChanged(includeChildRefresh: true);
                         return;
                     }

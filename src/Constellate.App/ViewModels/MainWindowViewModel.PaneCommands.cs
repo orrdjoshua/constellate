@@ -159,6 +159,43 @@ public sealed partial class MainWindowViewModel
 
         var normalizedHost = NormalizeHostId(hostId);
 
+        // Floating child panes (ParentId == null) — use VM drag shadow for geometry and keep ContainerIndex/Split independent
+        if (string.Equals(normalizedHost, "floating", StringComparison.Ordinal))
+        {
+            var idx = -1;
+            ChildPaneDescriptor? paneCurrent = null;
+            for (var i = 0; i < ChildPanes.Count; i++)
+            {
+                var pane = ChildPanes[i];
+                if (!string.Equals(pane.Id, id, StringComparison.Ordinal))
+                    continue;
+                idx = i;
+                paneCurrent = pane;
+                break;
+            }
+            if (idx < 0 || paneCurrent is null) return;
+
+            var fx = ChildPaneDragShadowLeft;
+            var fy = ChildPaneDragShadowTop;
+            var fw = ChildPaneDragShadowWidth > 0 ? ChildPaneDragShadowWidth : paneCurrent.FloatingWidth;
+            var fh = ChildPaneDragShadowHeight > 0 ? ChildPaneDragShadowHeight : paneCurrent.FloatingHeight;
+
+            // Always update geometry for floating children, even if they were already floating
+            ChildPanes[idx] = paneCurrent with
+            {
+                ParentId = null,
+                ContainerIndex = 0,
+                SlideIndex = 0,
+                FloatingX = fx,
+                FloatingY = fy,
+                FloatingWidth = fw,
+                FloatingHeight = fh
+            };
+
+            RaiseChildPaneCollectionsChanged();
+            return;
+        }
+
         // Choose a parent pane entity for the target host from ParentPaneModels.
         ParentPaneModel? parent = ParentPaneModels
             .FirstOrDefault(p =>
@@ -253,6 +290,40 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        // Enforce single-pane dock: if another parent already occupies the target dock host (minimized or not),
+        // do NOT dock a second pane there. Choose a safe fallback:
+        // - if we have a valid drag-shadow rect, convert this move to floating at that geometry
+        // - otherwise, cancel the move (stay in origin)
+        if (!string.Equals(normalizedTarget, "floating", StringComparison.Ordinal))
+        {
+            var occupied = ParentPaneModels.Any(p =>
+                !ReferenceEquals(p, parentModel) &&
+                string.Equals(NormalizeHostId(p.HostId), normalizedTarget, StringComparison.Ordinal));
+
+            if (occupied)
+            {
+                // Use drag shadow as a fallback to floating when available
+                var left = ParentPaneDragShadowLeft;
+                var top = ParentPaneDragShadowTop;
+                var width = ParentPaneDragShadowWidth;
+                var height = ParentPaneDragShadowHeight;
+
+                if (width > 0 && height > 0)
+                {
+                    normalizedTarget = "floating";
+                    parentModel.HostId = normalizedTarget;
+                    parentModel.IsMinimized = false;
+                    parentModel.SlideIndex = GetSlideIndexForHost(normalizedTarget);
+                    parentModel.FloatingX = left;
+                    parentModel.FloatingY = top;
+                    parentModel.FloatingWidth = width;
+                    parentModel.FloatingHeight = height;
+                    RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+                }
+                return;
+            }
+        }
+
         parentModel.HostId = normalizedTarget;
         parentModel.IsMinimized = false;
         parentModel.SlideIndex = GetSlideIndexForHost(normalizedTarget);
@@ -275,6 +346,9 @@ public sealed partial class MainWindowViewModel
             parentModel.FloatingWidth = width;
             parentModel.FloatingHeight = height;
         }
+
+        // Notify host projections and visibility booleans so UI re-renders the new state
+        RaiseParentPaneLayoutChanged(includeChildRefresh: true);
     }
 
     public void SetShellPaneMinimized(bool minimized)

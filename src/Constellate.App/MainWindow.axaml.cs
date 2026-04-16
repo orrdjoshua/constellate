@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using System.ComponentModel;
 
 namespace Constellate.App
 {
@@ -83,8 +84,13 @@ namespace Constellate.App
             WireGrip("TopPaneResizeGrip", "top");
             WireGrip("BottomPaneResizeGrip", "bottom");
 
-            // Corner affordance triangles (handler defined in partial).
-            AttachCornerTriangleHandlers();
+            // Subscribe to VM property changes so we can collapse grid rows/cols
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.PropertyChanged += VmOnPropertyChanged;
+            }
+            // Ensure initial grid sizing matches initial visibility
+            AdjustGridForHostVisibility();
         }
 
         // Keep the two XAML-wired handlers here to preserve existing event names in MainWindow.axaml.
@@ -93,7 +99,17 @@ namespace Constellate.App
         {
             if (DataContext is MainWindowViewModel vm)
             {
-                vm.ToggleTopCornerOwnership();
+                var hit = sender as Control;
+                var name = hit?.Name ?? string.Empty;
+                if (name.Contains("TopRight", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    vm.ToggleTopRightCornerOwnership();
+                }
+                else
+                {
+                    // Default to top-left semantics
+                    vm.ToggleTopCornerOwnership();
+                }
             }
 
             e.Handled = true;
@@ -130,6 +146,65 @@ namespace Constellate.App
         public void ForwardChildHeaderPointerMoved(object? sender, PointerEventArgs e)
         {
             OnChildPaneHeaderPointerMoved(sender, e);
+        }
+
+        private void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (_rootGrid is null) return;
+            if (e.PropertyName is nameof(MainWindowViewModel.IsShellPaneOnLeft) or
+                                     nameof(MainWindowViewModel.IsShellPaneOnTop) or
+                                     nameof(MainWindowViewModel.IsShellPaneOnRight) or
+                                     nameof(MainWindowViewModel.IsShellPaneOnBottom))
+            {
+                AdjustGridForHostVisibility();
+            }
+        }
+
+        // Collapse grid rows/columns when a host is not visible so we don't leave blank areas
+        private void AdjustGridForHostVisibility()
+        {
+            if (_rootGrid is null) return;
+            if (DataContext is not MainWindowViewModel vm) return;
+
+            // Left column (0)
+            if (!vm.IsShellPaneOnLeft)
+            {
+                _rootGrid.ColumnDefinitions[0].Width = new GridLength(0, GridUnitType.Pixel);
+            }
+            else if (_rootGrid.ColumnDefinitions[0].Width.IsAbsolute && _rootGrid.ColumnDefinitions[0].Width.Value <= 0.1)
+            {
+                _rootGrid.ColumnDefinitions[0].Width = GridLength.Auto;
+            }
+
+            // Right column (2)
+            if (!vm.IsShellPaneOnRight)
+            {
+                _rootGrid.ColumnDefinitions[2].Width = new GridLength(0, GridUnitType.Pixel);
+            }
+            else if (_rootGrid.ColumnDefinitions[2].Width.IsAbsolute && _rootGrid.ColumnDefinitions[2].Width.Value <= 0.1)
+            {
+                _rootGrid.ColumnDefinitions[2].Width = GridLength.Auto;
+            }
+
+            // Top row (0)
+            if (!vm.IsShellPaneOnTop)
+            {
+                _rootGrid.RowDefinitions[0].Height = new GridLength(0, GridUnitType.Pixel);
+            }
+            else if (_rootGrid.RowDefinitions[0].Height.IsAbsolute && _rootGrid.RowDefinitions[0].Height.Value <= 0.1)
+            {
+                _rootGrid.RowDefinitions[0].Height = GridLength.Auto;
+            }
+
+            // Bottom row (2)
+            if (!vm.IsShellPaneOnBottom)
+            {
+                _rootGrid.RowDefinitions[2].Height = new GridLength(0, GridUnitType.Pixel);
+            }
+            else if (_rootGrid.RowDefinitions[2].Height.IsAbsolute && _rootGrid.RowDefinitions[2].Height.Value <= 0.1)
+            {
+                _rootGrid.RowDefinitions[2].Height = GridLength.Auto;
+            }
         }
     }
 }

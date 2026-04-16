@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Diagnostics;
+using System.ComponentModel;
 
 namespace Constellate.App;
 
@@ -11,6 +12,7 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Ownership flags
     /// <summary>
     /// Toggle which pane "owns" the top-left/right corners when both Top and Left
     /// parent panes are visible: either Left is full-height and Top is center-only
@@ -29,6 +31,15 @@ public sealed partial class MainWindowViewModel
         _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
         UpdateTopLeftOwnershipLayout();
     }
+
+    private bool _isTopCornerOwnedByTop;
+    private bool _isTopRightCornerOwnedByTop;
+
+    // Right host placement properties to support top-right ownership swap
+    private int _rightPaneRow = 0;
+    private int _rightPaneRowSpan = 3;
+    public int RightPaneRow { get => _rightPaneRow; set { if (_rightPaneRow != value) { _rightPaneRow = value; OnPropertyChanged(); } } }
+    public int RightPaneRowSpan { get => _rightPaneRowSpan; set { if (_rightPaneRowSpan != value) { _rightPaneRowSpan = value; OnPropertyChanged(); } } }
 
     /// <summary>
     /// Update the drag-shadow rectangle used to preview parent-pane docking/floating.
@@ -264,17 +275,68 @@ public sealed partial class MainWindowViewModel
         LayoutChangeCount = LayoutChangeCount + 1;
         OnPropertyChanged(nameof(LayoutChangeCount));
         OnPropertyChanged(nameof(ParentPaneCount));
-
-        Debug.WriteLine($"[PaneLayout] Visible hosts: " +
-                        $"L={IsShellPaneOnLeft} T={IsShellPaneOnTop} R={IsShellPaneOnRight} B={IsShellPaneOnBottom} F={IsShellPaneFloating} | " +
-                        $"Parents={ParentPaneModels.Count}");
-
         UpdateTopLeftOwnershipLayout();
 
         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
         _restoreShellPaneCommand.RaiseCanExecuteChanged();
         _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
         _destroyParentPaneCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Top-right intersection toggle (Top vs Right). When both Top and Right are visible, double-clicking
+    /// the top-right intersection flips whether Right runs full-height (owns the corner) or starts under Top.
+    /// </summary>
+    public void ToggleTopRightCornerOwnership()
+    {
+        var hasTop = ParentPaneModelsTop.Count > 0;
+        var hasRight = ParentPaneModelsRight.Count > 0;
+        if (!hasTop || !hasRight)
+        {
+            return;
+        }
+
+        _isTopRightCornerOwnedByTop = !_isTopRightCornerOwnedByTop;
+        UpdateTopRightOwnershipLayout();
+    }
+
+    private void UpdateTopRightOwnershipLayout()
+    {
+        var hasTop = ParentPaneModelsTop.Count > 0;
+        var hasRight = ParentPaneModelsRight.Count > 0;
+
+        // Default: Right occupies full height from row 0..2
+        if (!hasTop || !hasRight)
+        {
+            RightPaneRow = 0;
+            RightPaneRowSpan = 3;
+            return;
+        }
+
+        if (_isTopRightCornerOwnedByTop)
+        {
+            // Top owns the top-right corner: Right starts below the Top row
+            RightPaneRow = 1;
+            RightPaneRowSpan = 2;
+        }
+        else
+        {
+            // Right owns: full-height
+            RightPaneRow = 0;
+            RightPaneRowSpan = 3;
+        }
+    }
+
+    /// <summary>
+    /// Returns true if a dock host (left/top/right/bottom) is currently occupied by any parent pane,
+    /// including minimized panes. Floating host is not considered a dock and should not be passed here.
+    /// </summary>
+    public bool IsDockHostOccupied(string hostId)
+    {
+        var normalized = NormalizeHostId(hostId);
+        if (string.Equals(normalized, "floating", StringComparison.Ordinal)) return false;
+        return ParentPaneModels.Any(p =>
+            string.Equals(NormalizeHostId(p.HostId), normalized, StringComparison.Ordinal));
     }
 
     private void UpdateTopLeftOwnershipLayout()

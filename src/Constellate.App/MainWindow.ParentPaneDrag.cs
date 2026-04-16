@@ -63,6 +63,13 @@ namespace Constellate.App
             }
 
             var targetHost = GetTargetHostForPoint(releasePoint, width, height);
+            // Enforce single-pane docks at drop time too: if target != origin and occupied, convert to floating.
+            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
+                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
+                vm.IsDockHostOccupied(targetHost))
+            {
+                targetHost = "floating";
+            }
             vm.MoveParentPaneToHost(_dragOriginHostId, targetHost);
             vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
             _dragOriginHostId = null;
@@ -96,15 +103,55 @@ namespace Constellate.App
             }
 
             var targetHost = GetTargetHostForPoint(currentPoint, width, height);
-            ComputeDragShadowRect(
-                targetHost,
-                width,
-                height,
-                currentPoint,
-                out var left,
-                out var top,
-                out var shadowWidth,
-                out var shadowHeight);
+
+            // Do not preview docking onto an occupied host; if target != origin and occupied, switch preview to floating.
+            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
+                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
+                vm.IsDockHostOccupied(targetHost))
+            {
+                targetHost = "floating";
+            }
+
+            double left, top, shadowWidth, shadowHeight;
+
+            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
+            {
+                // Use free 3D area: the center viewport host
+                var center = this.FindControl<Border>("CenterViewportHost");
+                var rect = center is not null && center.IsVisible ? center.Bounds : Bounds;
+
+                // 30% square of the free area
+                var side = Math.Min(rect.Width, rect.Height) * 0.30;
+                side = Math.Max(80.0, side);
+                shadowWidth = side;
+                shadowHeight = side;
+
+                // Pointer-centered, clamped to the free 3D rect
+                left = currentPoint.X - (shadowWidth / 2.0);
+                top = currentPoint.Y - (shadowHeight / 2.0);
+
+                // Clamp within the center viewport rect
+                var minLeft = rect.X;
+                var minTop = rect.Y;
+                var maxLeft = rect.X + Math.Max(0, rect.Width - shadowWidth);
+                var maxTop = rect.Y + Math.Max(0, rect.Height - shadowHeight);
+                if (left < minLeft) left = minLeft;
+                if (top < minTop) top = minTop;
+                if (left > maxLeft) left = maxLeft;
+                if (top > maxTop) top = maxTop;
+            }
+            else
+            {
+                ComputeDragShadowRect(
+                    targetHost,
+                    width,
+                    height,
+                    currentPoint,
+                    out left,
+                    out top,
+                    out shadowWidth,
+                    out shadowHeight);
+            }
 
             vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
         }

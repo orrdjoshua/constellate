@@ -141,7 +141,8 @@ namespace Constellate.App
                     host = this.FindControl<Border>("BottomPaneHost");
                     break;
                 case "floating":
-                    host = this.FindControl<Border>("FloatingPaneHost");
+                    // Drag preview for floating children uses free 3D area (center viewport)
+                    host = this.FindControl<Border>("CenterViewportHost");
                     break;
             }
 
@@ -161,8 +162,15 @@ namespace Constellate.App
                 left = pointer.X - (width / 2.0);
                 top = pointer.Y - (height / 2.0);
 
-                left = Math.Clamp(left, 0, Math.Max(0, windowWidth - width));
-                top = Math.Clamp(top, 0, Math.Max(0, windowHeight - height));
+                // Clamp within free 3D rect
+                var minLeft = hostRect.X;
+                var minTop = hostRect.Y;
+                var maxLeft = hostRect.X + Math.Max(0, hostRect.Width - width);
+                var maxTop = hostRect.Y + Math.Max(0, hostRect.Height - height);
+                if (left < minLeft) left = minLeft;
+                if (top < minTop) top = minTop;
+                if (left > maxLeft) left = maxLeft;
+                if (top > maxTop) top = maxTop;
                 return;
             }
 

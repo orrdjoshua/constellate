@@ -22,6 +22,13 @@
     <Style Selector="Polygon#TopLeft_LeftTriangle.hasMinLeft">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
+    <!-- Visible (expanded) cyan state for LEFT host -->
+    <Style Selector="Polygon#TopLeft_LeftTriangle.hasVisibleLeft">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
+    <Style Selector="Polygon#BottomLeft_LeftTriangle.hasVisibleLeft">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
 
     <Style Selector="Polygon#BottomLeft_LeftTriangle">
       <Setter Property="Fill" Value="#60313A46" />
@@ -35,6 +42,13 @@
     </Style>
     <Style Selector="Polygon#TopLeft_TopTriangle.hasMinTop">
       <Setter Property="Fill" Value="#FFC48A2F" />
+    </Style>
+    <!-- Visible (expanded) cyan state for TOP host -->
+    <Style Selector="Polygon#TopLeft_TopTriangle.hasVisibleTop">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
+    <Style Selector="Polygon#TopRight_TopTriangle.hasVisibleTop">
+      <Setter Property="Fill" Value="#00D3FF" />
     </Style>
 
     <Style Selector="Polygon#TopRight_TopTriangle">
@@ -50,6 +64,13 @@
     <Style Selector="Polygon#TopRight_RightTriangle.hasMinRight">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
+    <!-- Visible (expanded) cyan state for RIGHT host -->
+    <Style Selector="Polygon#TopRight_RightTriangle.hasVisibleRight">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
+    <Style Selector="Polygon#BottomRight_RightTriangle.hasVisibleRight">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
 
     <Style Selector="Polygon#BottomRight_RightTriangle">
       <Setter Property="Fill" Value="#60313A46" />
@@ -63,6 +84,13 @@
     </Style>
     <Style Selector="Polygon#BottomLeft_BottomTriangle.hasMinBottom">
       <Setter Property="Fill" Value="#FFC48A2F" />
+    </Style>
+    <!-- Visible (expanded) cyan state for BOTTOM host -->
+    <Style Selector="Polygon#BottomLeft_BottomTriangle.hasVisibleBottom">
+      <Setter Property="Fill" Value="#00D3FF" />
+    </Style>
+    <Style Selector="Polygon#BottomRight_BottomTriangle.hasVisibleBottom">
+      <Setter Property="Fill" Value="#00D3FF" />
     </Style>
 
     <Style Selector="Polygon#BottomRight_BottomTriangle">
@@ -187,7 +215,8 @@
 
     <!-- Right parent-pane host -->
     <Border x:Name="RightPaneHost"
-            Grid.RowSpan="3"
+            Grid.Row="{Binding RightPaneRow}"
+            Grid.RowSpan="{Binding RightPaneRowSpan}"
             Grid.Column="2"
             Background="#0E141B"
             BorderBrush="#2A394B"
@@ -324,40 +353,62 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!-- Parentless floating child panes -->
+        <ItemsControl ItemsSource="{Binding FloatingChildPanes}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <Canvas />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:ChildPaneDescriptor">
+              <Grid RowDefinitions="Auto,*"
+                    Width="{Binding FloatingWidth}"
+                    Height="{Binding FloatingHeight}"
+                    Canvas.Left="{Binding FloatingX}"
+                    Canvas.Top="{Binding FloatingY}">
+                <ctrl:ChildPaneView/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </Canvas>
     </Border>
 
     <!-- Corner affordances (triangles) -->
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
-            Width="22"
-            Height="22"
+            Width="44"
+            Height="44"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Margin="6"
             Panel.ZIndex="1000">
       <Polygon x:Name="TopLeft_LeftTriangle"
-               Points="0,0 7,7 0,14"
+               Points="0,0 14,14 0,28"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="left"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}">
+               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
+               Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Left pane" />
         </ToolTip.Tip>
       </Polygon>
       <Polygon x:Name="TopLeft_TopTriangle"
-               Points="0,0 14,0 7,7"
+               Points="0,0 28,0 14,14"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="top"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinTop="{Binding HasMinimizedParentTop}">
+               Classes.hasMinTop="{Binding HasMinimizedParentTop}"
+               Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Top pane" />
         </ToolTip.Tip>
@@ -366,34 +417,36 @@
 
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
-            Width="22"
-            Height="22"
+            Width="44"
+            Height="44"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Margin="6"
             Panel.ZIndex="1000">
       <Polygon x:Name="TopRight_TopTriangle"
-               Points="22,0 8,0 15,7"
+               Points="44,0 16,0 30,14"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="top"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinTop="{Binding HasMinimizedParentTop}">
+               Classes.hasMinTop="{Binding HasMinimizedParentTop}"
+               Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Top pane" />
         </ToolTip.Tip>
       </Polygon>
       <Polygon x:Name="TopRight_RightTriangle"
-               Points="22,0 15,7 22,14"
+               Points="44,0 30,14 44,28"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="right"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinRight="{Binding HasMinimizedParentRight}">
+               Classes.hasMinRight="{Binding HasMinimizedParentRight}"
+               Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Right pane" />
         </ToolTip.Tip>
@@ -402,34 +455,36 @@
 
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
-            Width="22"
-            Height="22"
+            Width="44"
+            Height="44"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             Margin="6"
             Panel.ZIndex="1000">
       <Polygon x:Name="BottomLeft_LeftTriangle"
-               Points="0,22 7,15 0,8"
+               Points="0,44 14,30 0,16"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="left"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}">
+               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
+               Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Left pane" />
         </ToolTip.Tip>
       </Polygon>
       <Polygon x:Name="BottomLeft_BottomTriangle"
-               Points="0,22 14,22 7,15"
+               Points="0,44 28,44 14,30"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="bottom"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}">
+               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
+               Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Bottom pane" />
         </ToolTip.Tip>
@@ -438,34 +493,36 @@
 
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"
-            Width="22"
-            Height="22"
+            Width="44"
+            Height="44"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Margin="6"
             Panel.ZIndex="1000">
       <Polygon x:Name="BottomRight_BottomTriangle"
-               Points="22,22 8,22 15,15"
+               Points="44,44 16,44 30,30"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="bottom"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}">
+               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
+               Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Bottom pane" />
         </ToolTip.Tip>
       </Polygon>
       <Polygon x:Name="BottomRight_RightTriangle"
-               Points="22,22 15,15 22,8"
+               Points="44,44 30,30 44,16"
                Stroke="#E5EDF7"
                StrokeThickness="1.2"
                Cursor="Hand"
                Tag="right"
                Classes="cornerAff"
                PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinRight="{Binding HasMinimizedParentRight}">
+               Classes.hasMinRight="{Binding HasMinimizedParentRight}"
+               Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
         <ToolTip.Tip>
           <TextBlock Text="Create or restore Right pane" />
         </ToolTip.Tip>
@@ -537,27 +594,7 @@
             IsVisible="{Binding IsShellPaneOnBottom}" />
 
     <!-- Drag shadow overlays -->
-    <!-- DEBUG OVERLAY: pane structure/state summary (temporary; remove once hosts render correctly) -->
-    <Border Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Margin="28,6,0,0"
-            Background="#80223366"
-            CornerRadius="4"
-            Padding="6">
-      <StackPanel Spacing="4">
-        <TextBlock Text="{Binding VmId, StringFormat=VM:\ {0}}"
-                   Foreground="#FFFFFF" FontSize="11"/>
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="{Binding ParentPaneCount, StringFormat=panes:\ {0}}"
-                     Foreground="#FFFFFF" FontSize="11"/>
-          <TextBlock Text="{Binding LayoutChangeCount, StringFormat=ticks:\ {0}}"
-                     Foreground="#FFFFFF" FontSize="11"/>
-        </StackPanel>
-        <TextBlock Text="{Binding PaneStructureSummary}" Foreground="#FFFFFF" FontSize="11"/>
-      </StackPanel>
-    </Border>
+    <!-- (debug HUD removed) -->
 
     <Canvas Grid.RowSpan="3"
             Grid.ColumnSpan="3"

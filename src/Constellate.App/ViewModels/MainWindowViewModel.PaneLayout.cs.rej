@@ -1,0 +1,20 @@
+diff a/src/Constellate.App/ViewModels/MainWindowViewModel.PaneLayout.cs b/src/Constellate.App/ViewModels/MainWindowViewModel.PaneLayout.cs	(rejected hunks)
+@@ -257,17 +257,18 @@
+         OnPropertyChanged(nameof(ParentPaneModelsFloating));
+         OnPropertyChanged(nameof(HasMinimizedParentLeft));
+         OnPropertyChanged(nameof(HasMinimizedParentTop));
+         OnPropertyChanged(nameof(HasMinimizedParentRight));
+         OnPropertyChanged(nameof(HasMinimizedParentBottom));
+         OnPropertyChanged(nameof(PaneStructureSummary));
+         // Bump a visible counter and surface current parent count for HUD diagnostics.
+         LayoutChangeCount = LayoutChangeCount + 1;
+         OnPropertyChanged(nameof(LayoutChangeCount));
+         OnPropertyChanged(nameof(ParentPaneCount));
+         UpdateTopLeftOwnershipLayout();
++        UpdateTopRightOwnershipLayout();
+ 
+         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
+         _restoreShellPaneCommand.RaiseCanExecuteChanged();
+         _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
+         _destroyParentPaneCommand.RaiseCanExecuteChanged();
+     }

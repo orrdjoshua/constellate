@@ -212,6 +212,12 @@ public sealed partial class MainWindowViewModel
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsFloating =>
         ParentPaneModels.Where(p => string.Equals(p.HostId, "floating", StringComparison.OrdinalIgnoreCase)).ToArray();
 
+    // Parentless, non-minimized floating child panes (rendered on FloatingHost Canvas)
+    public IReadOnlyList<ChildPaneDescriptor> FloatingChildPanes =>
+        ChildPanes
+            .Where(p => p.ParentId is null && !p.IsMinimized)
+            .OrderBy(p => p.Order)
+            .ToArray();
     // Sorted child lists and minimized taskbar
     public IReadOnlyList<ChildPaneDescriptor> ChildPanesOrdered =>
         ChildPanes.OrderBy(p => p.Order).ToArray();
