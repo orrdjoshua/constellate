@@ -174,7 +174,7 @@ public sealed partial class MainWindowViewModel
         var slideIndex = parent.SlideIndex;
 
         var index = -1;
-        ChildPaneDescriptor current = default;
+        ChildPaneDescriptor? current = null;
 
         for (var i = 0; i < ChildPanes.Count; i++)
         {
@@ -194,7 +194,7 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        if (string.Equals(current.ParentId, parentId, StringComparison.Ordinal))
+        if (current is not null && string.Equals(current.ParentId, parentId, StringComparison.Ordinal))
         {
             return;
         }
@@ -205,7 +205,7 @@ public sealed partial class MainWindowViewModel
             .DefaultIfEmpty(-1)
             .Max() + 1;
 
-        ChildPanes[index] = current with
+        ChildPanes[index] = current! with
         {
             Order = nextOrder,
             ContainerIndex = 0,
