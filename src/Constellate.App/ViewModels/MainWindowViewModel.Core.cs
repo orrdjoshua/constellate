@@ -237,6 +237,7 @@ public sealed partial class MainWindowViewModel
     public bool IsShellPaneOnRight => ParentPaneModelsRight.Count > 0;
     public bool IsShellPaneOnBottom => ParentPaneModelsBottom.Count > 0;
     public bool IsShellPaneFloating => ParentPaneModelsFloating.Count > 0;
+    public bool IsFloatingLayerVisible => ParentPaneModelsFloating.Count > 0 || FloatingChildPanes.Count > 0;
     public bool IsRightPaneHostVisible => ParentPaneModelsRight.Count > 0;
     public bool IsShellPaneMinimized => ParentPaneModels.Any(p => p.IsMinimized);
 

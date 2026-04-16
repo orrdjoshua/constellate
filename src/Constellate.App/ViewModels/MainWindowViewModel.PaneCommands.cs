@@ -36,7 +36,34 @@ public sealed partial class MainWindowViewModel
     /// - a host id ("left"|"top"|"right"|"bottom"|"floating"), in which case we pick a parent
     ///   on that host (or fall back to the first parent) and attach the child there.
     /// </summary>
+    private static bool HostUsesHorizontalChildFlow(string hostId)
+    {
+        var normalizedHost = NormalizeHostId(hostId);
+        return string.Equals(normalizedHost, "top", StringComparison.Ordinal) ||
+               string.Equals(normalizedHost, "bottom", StringComparison.Ordinal);
+    }
+
+    private static double GetDefaultChildPanePreferredSizeRatio(string hostId)
+    {
+        // Top/bottom parents size children along horizontal flow; left/right parents
+        // size children along vertical flow. The v1 default is still 25% of the
+        // parent’s free dimension in either case, but the orientation helper is now
+        // explicit so later render/resize logic can branch cleanly by dock side.
+        return HostUsesHorizontalChildFlow(hostId) ? 0.25 : 0.25;
+    }
+
+    private static double ResolveChildPanePreferredSizeRatio(string hostId, double? preferredSizeRatio)
+    {
+        var resolved = preferredSizeRatio ?? GetDefaultChildPanePreferredSizeRatio(hostId);
+        return Math.Clamp(resolved, 0.05, 0.95);
+    }
+
     private void CreateChildPane(string? parentOrHost)
+    {
+        CreateChildPane(parentOrHost, preferredSizeRatio: null);
+    }
+
+    private void CreateChildPane(string? parentOrHost, double? preferredSizeRatio)
     {
         ParentPaneModel? parent = null;
         string normalizedHost;
@@ -74,6 +101,8 @@ public sealed partial class MainWindowViewModel
 
         var parentId = parent.Id;
         var slideIndex = parent.SlideIndex;
+        var resolvedPreferredSizeRatio =
+            ResolveChildPanePreferredSizeRatio(normalizedHost, preferredSizeRatio);
 
         var nextOrder = ChildPanes.Count == 0
             ? 0
@@ -90,6 +119,7 @@ public sealed partial class MainWindowViewModel
             ContainerIndex: 0,
             IsMinimized: false,
             SlideIndex: slideIndex,
+            PreferredSizeRatio: resolvedPreferredSizeRatio,
             ParentId: parentId));
 
         RaiseChildPaneCollectionsChanged();

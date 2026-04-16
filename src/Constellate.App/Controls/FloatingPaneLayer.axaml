@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Constellate.App.Controls.FloatingPaneLayer">
+  <Canvas x:Name="PART_Canvas"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          ClipToBounds="True" />
+</UserControl>

@@ -214,6 +214,8 @@ public sealed partial class MainWindowViewModel
     {
         OnPropertyChanged(nameof(ChildPanesOrdered));
         OnPropertyChanged(nameof(VisibleChildPanesOrdered));
+        OnPropertyChanged(nameof(FloatingChildPanes));
+        OnPropertyChanged(nameof(IsFloatingLayerVisible));
         OnPropertyChanged(nameof(HasMinimizedChildPanes));
         OnPropertyChanged(nameof(MinimizedChildPanes));
         OnPropertyChanged(nameof(IsShellCurrentChildVisible));
@@ -269,6 +271,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(IsShellPaneOnRight));
         OnPropertyChanged(nameof(IsShellPaneOnBottom));
         OnPropertyChanged(nameof(IsShellPaneFloating));
+        OnPropertyChanged(nameof(IsFloatingLayerVisible));
         OnPropertyChanged(nameof(IsShellPaneMinimized));
         OnPropertyChanged(nameof(IsRightPaneHostVisible));
         OnPropertyChanged(nameof(ParentPaneModelsLeft));

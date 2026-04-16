@@ -321,7 +321,7 @@
             BorderBrush="#2A394B"
             BorderThickness="0"
             CornerRadius="8"
-            IsVisible="{Binding IsShellPaneFloating}">
+            IsVisible="{Binding IsFloatingLayerVisible}">
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"
@@ -333,52 +333,8 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-        <ItemsControl ItemsSource="{Binding ParentPaneModelsFloating}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <!-- Position and size the floating parent pane directly on the template root -->
-              <Border Canvas.Left="{Binding FloatingX}"
-                      Canvas.Top="{Binding FloatingY}"
-                      Width="{Binding FloatingWidth}"
-                      Height="{Binding FloatingHeight}"
-                      DoubleTapped="OnFloatingParentHeaderDoubleTapped"
-                      Background="Transparent"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Top">
-                <ctrl:ParentPaneView />
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <!-- Parentless floating child panes -->
-        <ItemsControl ItemsSource="{Binding FloatingChildPanes}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="app:ChildPaneDescriptor">
-              <Border Canvas.Left="{Binding FloatingX}"
-                      Canvas.Top="{Binding FloatingY}"
-                      Width="{Binding FloatingWidth}"
-                      Height="{Binding FloatingHeight}"
-                      Background="Transparent"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Top">
-                <ctrl:ChildPaneView />
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </Canvas>
+      <ctrl:FloatingPaneLayer ParentPanes="{Binding ParentPaneModelsFloating}"
+                              ChildPanes="{Binding FloatingChildPanes}" />
     </Border>
 
     <!-- Corner affordances (triangles) -->
