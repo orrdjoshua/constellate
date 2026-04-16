@@ -1,5 +1,6 @@
 using System;
 using Constellate.Core.Messaging;
+using System.Linq;
 
 namespace Constellate.App;
 
