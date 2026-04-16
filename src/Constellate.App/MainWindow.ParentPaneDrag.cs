@@ -147,7 +147,8 @@ namespace Constellate.App
 
             _isShellPaneDragging = true;
             _shellDragStartPoint = e.GetPosition(this);
-            _dragOriginHostId = MainWindowViewModel.NormalizeHostId(parent.HostId);
+            // Store the exact parent being dragged so overlapping floating panes don't conflict
+            _dragOriginHostId = parent.Id;
             try { e.Pointer.Capture(this); } catch { }
             e.Handled = true;
         }

@@ -6,21 +6,27 @@
              x:Class="Constellate.App.Controls.ParentPaneView"
              x:DataType="app:ParentPaneModel">
   <UserControl.Styles>
+    <!-- Whole-pane bright outline when dragHover class is set -->
+    <Style Selector="Border#ParentRoot.dragHover">
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
     <!-- Hover affordances for drag-possible regions -->
     <Style Selector="Border#ParentLabelArea:pointerover">
-      <Setter Property="BorderBrush" Value="#3A4C61"/>
-      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="2"/>
     </Style>
     <Style Selector="Border#ParentEmptyHeaderArea:pointerover">
-      <Setter Property="BorderBrush" Value="#3A4C61"/>
-      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="2"/>
     </Style>
   </UserControl.Styles>
   <UserControl.Resources>
     <!-- Disables a button when the parent's value equals the given parameter (acts as an 'active' indicator) -->
     <app:EqualsToReturnFalseConverter x:Key="EqualsToReturnFalse" />
   </UserControl.Resources>
-  <Border Background="#121A23" CornerRadius="4" Padding="6" >
+  <Border x:Name="ParentRoot" Background="#121A23" CornerRadius="4" Padding="6" BorderBrush="#2A394B" BorderThickness="1">
     <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
       <!-- Parent header chrome: Label | Empty Header | CommandBar -->
       <Border Grid.Row="0" Background="#121A23" CornerRadius="4" Padding="6,4">
@@ -33,6 +39,8 @@
                   BorderThickness="1"
                   Padding="4,0"
                   PointerPressed="Header_OnPointerPressed"
+                  PointerEntered="Header_OnPointerEntered"
+                  PointerExited="Header_OnPointerExited"
                   PointerReleased="Header_OnPointerReleased"
                   PointerMoved="Header_OnPointerMoved">
             <Border.ContextMenu>
@@ -57,6 +65,8 @@
                   CornerRadius="3"
                   BorderBrush="Transparent"
                   BorderThickness="1"
+                  PointerEntered="Header_OnPointerEntered"
+                  PointerExited="Header_OnPointerExited"
                   DoubleTapped="EmptyHeader_OnDoubleTapped"
                   PointerPressed="Header_OnPointerPressed"
                   PointerReleased="Header_OnPointerReleased"
@@ -86,7 +96,7 @@
                         IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=3}"
                         Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo3Command}" CommandParameter="{Binding Id}"/>
               </StackPanel>
-            </Border>
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Background="#1B2A3A" Padding="4,2" CornerRadius="3">
 
             <!-- Slide cluster -->
             <Border Background="#1B2A3A" Padding="4,2" CornerRadius="3" VerticalAlignment="Center">
@@ -102,7 +112,7 @@
                         IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=2}"
                         Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo3Command}" CommandParameter="{Binding Id}"/>
               </StackPanel>
-            </Border>
+              <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
 
             <!-- Default command buttons -->
             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -119,7 +129,8 @@
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
                       CommandParameter="{Binding Id}" />
             </StackPanel>
-          </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
         </Grid>
       </Border>
 

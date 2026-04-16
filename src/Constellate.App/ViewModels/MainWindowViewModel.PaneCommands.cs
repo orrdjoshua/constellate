@@ -468,11 +468,15 @@ public sealed partial class MainWindowViewModel
         }
 
         var normalizedOrigin = NormalizeHostId(originHostId);
-        // Prefer the pane currently on the origin host; fall back to the first parent.
-        ParentPaneModel? parentModel = !string.IsNullOrWhiteSpace(originHostId)
-            ? ParentPaneModels.FirstOrDefault(p =>
-                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal))
-            : ParentPaneModels.FirstOrDefault();
+        // Prefer exact Id match first (header-drag), fall back to host-based selection.
+        ParentPaneModel? parentModel = null;
+        if (!string.IsNullOrWhiteSpace(originHostId))
+        {
+            parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, originHostId, StringComparison.Ordinal));
+            parentModel ??= ParentPaneModels.FirstOrDefault(p =>
+                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal));
+        }
+        parentModel ??= ParentPaneModels.FirstOrDefault();
 
         if (parentModel is null)
         {
@@ -518,11 +522,15 @@ public sealed partial class MainWindowViewModel
         var normalizedTarget = NormalizeHostId(targetHost);
         var normalizedOrigin = NormalizeHostId(originHostId);
 
-        // Prefer the pane currently on the origin host; fall back to the first parent.
-        ParentPaneModel? parentModel = !string.IsNullOrWhiteSpace(originHostId)
-            ? ParentPaneModels.FirstOrDefault(p =>
-                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal))
-            : ParentPaneModels.FirstOrDefault();
+        // Prefer exact parent Id (header-drag case), else host-based selection, else first parent.
+        ParentPaneModel? parentModel = null;
+        if (!string.IsNullOrWhiteSpace(originHostId))
+        {
+            parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, originHostId, StringComparison.Ordinal));
+            parentModel ??= ParentPaneModels.FirstOrDefault(p =>
+                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal));
+        }
+        parentModel ??= ParentPaneModels.FirstOrDefault();
 
         if (parentModel is null)
         {
