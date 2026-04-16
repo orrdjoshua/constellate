@@ -314,14 +314,13 @@
     <Border x:Name="FloatingPaneHost"
             Grid.Column="1"
             Grid.Row="1"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
             Margin="0"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="0"
             CornerRadius="8"
-            Padding="0"
             IsVisible="{Binding IsShellPaneFloating}">
       <Border.ContextMenu>
         <ContextMenu>
@@ -334,11 +333,11 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <Canvas>
+      <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <ItemsControl ItemsSource="{Binding ParentPaneModelsFloating}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <Canvas />
+              <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
@@ -362,7 +361,7 @@
         <ItemsControl ItemsSource="{Binding FloatingChildPanes}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <Canvas />
+              <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
