@@ -12,7 +12,7 @@ namespace Constellate.App;
 /// the original partial declaration in MainWindow.axaml.cs for now and will be
 /// moved here or into additional partials in subsequent passes.
 /// </summary>
-public sealed partial class MainWindowViewModel
+public sealed partial class MainWindowViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
