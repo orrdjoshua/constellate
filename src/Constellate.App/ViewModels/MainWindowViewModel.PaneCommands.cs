@@ -276,6 +276,12 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        try
+        {
+            Console.WriteLine($"[VM.MoveParentPaneToFloating] parentId={parentModel.Id} x={x:0} y={y:0} w={width:0} h={height:0}");
+        }
+        catch { }
+
         parentModel.HostId = "floating";
         parentModel.IsMinimized = false;
         // Preserve current slide index semantics (not used by floating host, but kept for consistency)
@@ -328,8 +334,7 @@ public sealed partial class MainWindowViewModel
 
         // Enforce single-pane dock: if another parent already occupies the target dock host (minimized or not),
         // do NOT dock a second pane there. Choose a safe fallback:
-        // - if we have a valid drag-shadow rect, convert this move to floating at that geometry
-        // - otherwise, cancel the move (stay in origin)
+        // The floating conversion (with correct coordinate transform) is handled in code-behind where container bounds are known.
         if (!string.Equals(normalizedTarget, "floating", StringComparison.Ordinal))
         {
             var occupied = ParentPaneModels.Any(p =>
@@ -338,24 +343,7 @@ public sealed partial class MainWindowViewModel
 
             if (occupied)
             {
-                // Use drag shadow as a fallback to floating when available
-                var left = ParentPaneDragShadowLeft;
-                var top = ParentPaneDragShadowTop;
-                var width = ParentPaneDragShadowWidth;
-                var height = ParentPaneDragShadowHeight;
-
-                if (width > 0 && height > 0)
-                {
-                    normalizedTarget = "floating";
-                    parentModel.HostId = normalizedTarget;
-                    parentModel.IsMinimized = false;
-                    parentModel.SlideIndex = GetSlideIndexForHost(normalizedTarget);
-                    parentModel.FloatingX = left;
-                    parentModel.FloatingY = top;
-                    parentModel.FloatingWidth = width;
-                    parentModel.FloatingHeight = height;
-                    RaiseParentPaneLayoutChanged(includeChildRefresh: true);
-                }
+                // Cancel VM-side docking change. Code-behind already converted this case to floating with proper geometry.
                 return;
             }
         }

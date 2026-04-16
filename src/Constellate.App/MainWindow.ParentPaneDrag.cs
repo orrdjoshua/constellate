@@ -73,9 +73,9 @@ namespace Constellate.App
 
             if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
             {
-                // Convert the final shadow rect from window coordinates to CenterViewportHost-relative coordinates.
-                var center = this.FindControl<Border>("CenterViewportHost");
-                var centerRect = center is not null && center.IsVisible ? center.Bounds : Bounds;
+                // Convert the final shadow rect from window coordinates to FloatingPaneHost-relative coordinates.
+                var floatingHost = this.FindControl<Border>("FloatingPaneHost");
+                var hostRect = floatingHost is not null ? floatingHost.Bounds : Bounds;
 
                 // Use the last preview rect held in the VM; if missing, synthesize a reasonable size.
                 var leftWin = vm.ParentPaneDragShadowLeft;
@@ -85,8 +85,8 @@ namespace Constellate.App
 
                 if (shadowW <= 0 || shadowH <= 0)
                 {
-                    // Fallback to a 30% square of the free area.
-                    var side = Math.Min(centerRect.Width, centerRect.Height) * 0.30;
+                    // Fallback to a 30% square of the free area (relative to the floating host).
+                    var side = Math.Min(hostRect.Width, hostRect.Height) * 0.30;
                     side = Math.Max(80.0, side);
                     shadowW = side;
                     shadowH = side;
@@ -94,15 +94,22 @@ namespace Constellate.App
                     topWin = releasePoint.Y - (shadowH / 2.0);
                 }
 
-                // Translate to center-relative coordinates and clamp inside center viewport.
-                var relLeft = leftWin - centerRect.X;
-                var relTop = topWin - centerRect.Y;
+                // Translate to floating-host-relative coordinates and clamp inside it.
+                var relLeft = leftWin - hostRect.X;
+                var relTop = topWin - hostRect.Y;
                 var minLeft = 0.0;
                 var minTop = 0.0;
-                var maxLeft = Math.Max(0, centerRect.Width - shadowW);
-                var maxTop = Math.Max(0, centerRect.Height - shadowH);
+                var maxLeft = Math.Max(0, hostRect.Width - shadowW);
+                var maxTop = Math.Max(0, hostRect.Height - shadowH);
                 relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
                 relTop = Math.Clamp(relTop, minTop, maxTop);
+
+                try
+                {
+                    Console.WriteLine($"[FloatingDrop] originHost={_dragOriginHostId} hostRect=({hostRect.X:0},{hostRect.Y:0},{hostRect.Width:0},{hostRect.Height:0}) " +
+                                      $"shadowWin=({leftWin:0},{topWin:0},{shadowW:0},{shadowH:0}) rel=({relLeft:0},{relTop:0})");
+                }
+                catch { }
 
                 vm.MoveParentPaneToFloating(_dragOriginHostId, relLeft, relTop, shadowW, shadowH);
             }

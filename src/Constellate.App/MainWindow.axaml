@@ -316,7 +316,7 @@
             Grid.Row="1"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            Margin="40"
+            Margin="0"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="0"
@@ -341,16 +341,23 @@
               <Canvas />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style Selector="ContentPresenter">
+              <Setter Property="Canvas.Left" Value="{Binding FloatingX}"/>
+              <Setter Property="Canvas.Top" Value="{Binding FloatingY}"/>
+              <Setter Property="Width" Value="{Binding FloatingWidth}"/>
+              <Setter Property="Height" Value="{Binding FloatingHeight}"/>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <!-- Retain floating geometry and preserve double-tap restore via MainWindow handler -->
-              <Grid RowDefinitions="Auto,*"
-                    Width="{Binding FloatingWidth}"
-                    Canvas.Left="{Binding FloatingX}"
-                    Canvas.Top="{Binding FloatingY}"
-                    DoubleTapped="OnFloatingParentHeaderDoubleTapped">
-                <ctrl:ParentPaneView/>
-              </Grid>
+              <!-- Parent pane fills the container configured by ItemContainerStyle -->
+              <Border DoubleTapped="OnFloatingParentHeaderDoubleTapped"
+                      Background="Transparent"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch">
+                <ctrl:ParentPaneView />
+              </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
@@ -362,15 +369,21 @@
               <Canvas />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style Selector="ContentPresenter">
+              <Setter Property="Canvas.Left" Value="{Binding FloatingX}"/>
+              <Setter Property="Canvas.Top" Value="{Binding FloatingY}"/>
+              <Setter Property="Width" Value="{Binding FloatingWidth}"/>
+              <Setter Property="Height" Value="{Binding FloatingHeight}"/>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="app:ChildPaneDescriptor">
-              <Grid RowDefinitions="Auto,*"
-                    Width="{Binding FloatingWidth}"
-                    Height="{Binding FloatingHeight}"
-                    Canvas.Left="{Binding FloatingX}"
-                    Canvas.Top="{Binding FloatingY}">
-                <ctrl:ChildPaneView/>
-              </Grid>
+              <Border Background="Transparent"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch">
+                <ctrl:ChildPaneView />
+              </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
