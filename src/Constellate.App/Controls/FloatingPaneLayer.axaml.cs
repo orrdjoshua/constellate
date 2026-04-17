@@ -5,10 +5,11 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Input;
+using Constellate.App.Infrastructure.Panes.Floating;
 
 namespace Constellate.App.Controls
 {
@@ -26,12 +27,13 @@ namespace Constellate.App.Controls
         private NotifyCollectionChangedEventHandler? _parentCollectionChangedHandler;
         private NotifyCollectionChangedEventHandler? _childCollectionChangedHandler;
         private readonly Dictionary<ParentPaneModel, PropertyChangedEventHandler> _parentHandlers = new();
+        private readonly Dictionary<string, Border> _chromeBySurfaceKey = new(StringComparer.Ordinal);
         private int _zCounter = 1;
 
         public FloatingPaneLayer()
         {
             InitializeComponent();
-            AttachedToVisualTree += (_, __) => RebuildCanvas();
+            AttachedToVisualTree += (_, __) => SynchronizeCanvas();
             DetachedFromVisualTree += (_, __) => DetachAllSubscriptions();
         }
 
@@ -60,14 +62,14 @@ namespace Constellate.App.Controls
             if (change.Property == ParentPanesProperty)
             {
                 RewireParentSubscriptions(change.GetNewValue<IEnumerable<ParentPaneModel>?>());
-                RebuildCanvas();
+                SynchronizeCanvas();
                 return;
             }
 
             if (change.Property == ChildPanesProperty)
             {
                 RewireChildSubscriptions(change.GetNewValue<IEnumerable<ChildPaneDescriptor>?>());
-                RebuildCanvas();
+                SynchronizeCanvas();
             }
         }
 
@@ -91,7 +93,7 @@ namespace Constellate.App.Controls
                 _parentCollectionChangedHandler ??= (_, __) =>
                 {
                     AttachParentItemHandlers(ParentPanes);
-                    RebuildCanvas();
+                    SynchronizeCanvas();
                 };
 
                 _parentCollection.CollectionChanged += _parentCollectionChangedHandler;
@@ -116,7 +118,7 @@ namespace Constellate.App.Controls
 
             foreach (var parent in parents)
             {
-                PropertyChangedEventHandler handler = (_, __) => RebuildCanvas();
+                PropertyChangedEventHandler handler = (_, __) => SynchronizeCanvas();
                 parent.PropertyChanged += handler;
                 _parentHandlers[parent] = handler;
             }
@@ -133,7 +135,7 @@ namespace Constellate.App.Controls
 
             if (_childCollection is not null)
             {
-                _childCollectionChangedHandler ??= (_, __) => RebuildCanvas();
+                _childCollectionChangedHandler ??= (_, __) => SynchronizeCanvas();
                 _childCollection.CollectionChanged += _childCollectionChangedHandler;
             }
         }
@@ -158,84 +160,83 @@ namespace Constellate.App.Controls
             _parentHandlers.Clear();
             _parentCollection = null;
             _childCollection = null;
+            ClearFloatingChromeCache();
         }
 
-        private void RebuildCanvas()
+        private void ClearFloatingChromeCache()
+        {
+            if (_canvas is not null)
+            {
+                _canvas.Children.Clear();
+            }
+
+            _chromeBySurfaceKey.Clear();
+        }
+
+        private void SynchronizeCanvas()
         {
             if (_canvas is null)
             {
                 return;
             }
 
-            _canvas.Children.Clear();
+            var surfaceModel = FloatingPaneSurfaceBuilder.BuildSurfaceModel(ParentPanes, ChildPanes, ref _zCounter);
+            var desiredKeys = new HashSet<string>(
+                surfaceModel.Entries.Select(entry => entry.SurfaceKey),
+                StringComparer.Ordinal);
 
-            foreach (var child in ChildPanes ?? Enumerable.Empty<ChildPaneDescriptor>())
+            foreach (var entry in surfaceModel.Entries)
             {
-                // Only render parentless (floating) children; include minimized so header chrome remains visible
-                if (child.ParentId is not null)
+                if (!_chromeBySurfaceKey.TryGetValue(entry.SurfaceKey, out var chrome))
                 {
-                    continue;
+                    chrome = FloatingPaneChromeFactory.CreateChromeForEntry(
+                        entry,
+                        ParentPanes,
+                        ChildPanes,
+                        TryBringToFront,
+                        AttachResizeGrips);
+
+                    if (chrome is null)
+                    {
+                        continue;
+                    }
+
+                    _chromeBySurfaceKey[entry.SurfaceKey] = chrome;
+                }
+                else
+                {
+                    FloatingPaneChromeFactory.UpdateChromeDataContext(chrome, entry, ParentPanes, ChildPanes);
                 }
 
-                var chrome = new Border
-                {
-                    Background = Brushes.Transparent,
-                    Width = Math.Max(80, child.FloatingWidth),
-                    Height = Math.Max(80, child.FloatingHeight),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch
-                };
+                FloatingPaneChromeFactory.ApplySurfaceEntry(chrome, entry);
 
-                // Content host + grips overlay
-                var grid = new Grid();
-                grid.Children.Add(new ChildPaneView { DataContext = child });
-                chrome.Child = grid;
-                AttachResizeGrips(chrome, isParent: false, parent: null, child: child);
-
-                Canvas.SetLeft(chrome, Math.Max(0, child.FloatingX));
-                Canvas.SetTop(chrome, Math.Max(0, child.FloatingY));
-                try { chrome.ZIndex = _zCounter++; } catch { }
-                chrome.PointerPressed += (_, __) =>
+                if (_canvas.Children.IndexOf(chrome) < 0)
                 {
-                    try { chrome.ZIndex = _zCounter++; } catch { }
-                };
-                _canvas.Children.Add(chrome);
+                    _canvas.Children.Add(chrome);
+                }
             }
 
-            foreach (var parent in ParentPanes ?? Enumerable.Empty<ParentPaneModel>())
+            foreach (var pair in _chromeBySurfaceKey.ToArray())
             {
-                if (!string.Equals(parent.HostId, "floating", StringComparison.OrdinalIgnoreCase))
+                if (desiredKeys.Contains(pair.Key))
                 {
                     continue;
                 }
 
-                var chrome = new Border
-                {
-                    Background = Brushes.Transparent,
-                    Width = Math.Max(80, parent.FloatingWidth),
-                    Height = Math.Max(80, parent.FloatingHeight),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch
-                };
-
-                // Content host + grips overlay
-                var grid = new Grid();
-                grid.Children.Add(new ParentPaneView { DataContext = parent });
-                chrome.Child = grid;
-                AttachResizeGrips(chrome, isParent: true, parent: parent, child: null);
-
-                Canvas.SetLeft(chrome, Math.Max(0, parent.FloatingX));
-                Canvas.SetTop(chrome, Math.Max(0, parent.FloatingY));
-                try { chrome.ZIndex = _zCounter++; } catch { }
-                chrome.PointerPressed += (_, __) =>
-                {
-                    try { chrome.ZIndex = _zCounter++; } catch { }
-                };
-                _canvas.Children.Add(chrome);
+                RemoveChrome(pair.Key, pair.Value);
             }
         }
 
-        // Adds 8 resize grips (N,S,E,W + NW,NE,SW,SE) to the floating chrome.
+        private void RemoveChrome(string surfaceKey, Border chrome)
+        {
+            if (_canvas is not null)
+            {
+                _canvas.Children.Remove(chrome);
+            }
+
+            _chromeBySurfaceKey.Remove(surfaceKey);
+        }
+
         private void AttachResizeGrips(Border chrome, bool isParent, ParentPaneModel? parent, ChildPaneDescriptor? child)
         {
             if (_canvas is null) return;
@@ -244,19 +245,43 @@ namespace Constellate.App.Controls
             void AddGrip(HorizontalAlignment ha, VerticalAlignment va, double w, double h, StandardCursorType cursor,
                          bool left, bool top, bool right, bool bottom)
             {
+                var normalBrush = new SolidColorBrush(Color.FromArgb(1, 255, 196, 138));
+                var hoverBrush = new SolidColorBrush(Color.FromArgb(110, 255, 196, 138));
+                var pressedBrush = new SolidColorBrush(Color.FromArgb(150, 0, 211, 255));
+                var isPressed = false;
                 var grip = new Border
                 {
-                    Background = Brushes.Transparent,
+                    Background = normalBrush,
                     HorizontalAlignment = ha,
                     VerticalAlignment = va,
                     Width = w > 0 ? w : double.NaN,
                     Height = h > 0 ? h : double.NaN,
-                    Cursor = new Cursor(cursor)
+                    Cursor = new Cursor(cursor),
+                    BorderBrush = Brushes.Transparent,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(2)
+                };
+                grip.PointerEntered += (_, __) =>
+                {
+                    TryBringToFront(chrome);
+                    grip.Background = hoverBrush;
+                    grip.BorderBrush = hoverBrush;
+                };
+                grip.PointerExited += (_, __) =>
+                {
+                    if (!isPressed)
+                    {
+                        grip.Background = normalBrush;
+                        grip.BorderBrush = Brushes.Transparent;
+                    }
                 };
                 grip.PointerPressed += (s, e) =>
                 {
                     TryBringToFront(chrome);
                     if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+                    isPressed = true;
+                    grip.Background = pressedBrush;
+                    grip.BorderBrush = pressedBrush;
                     try { e.Pointer.Capture(grip); } catch { }
                     var start = e.GetPosition(_canvas);
                     var container = _canvas.Bounds;
@@ -295,16 +320,14 @@ namespace Constellate.App.Controls
                             nh = Math.Clamp(ih + dy, minH, Math.Max(minH, container.Height - iy));
                         }
 
-                        // Clamp position so rect remains inside container
                         nx = Math.Clamp(nx, 0, Math.Max(0, container.Width - nw));
-                        ny = Math.Clamp(ny, 0, Math.max(0, container.Height - nh));
+                        ny = Math.Clamp(ny, 0, Math.Max(0, container.Height - nh));
 
                         Canvas.SetLeft(chrome, nx);
                         Canvas.SetTop(chrome, ny);
                         chrome.Width = nw;
                         chrome.Height = nh;
 
-                        // Commit back to models
                         if (isParent && parent is not null)
                         {
                             parent.FloatingX = nx;
@@ -314,7 +337,6 @@ namespace Constellate.App.Controls
                         }
                         else if (!isParent && child is not null)
                         {
-                            // Route via VM to update immutable record in collection
                             if (this.VisualRoot is MainWindow mw && mw.DataContext is MainWindowViewModel vm)
                             {
                                 vm.SetFloatingChildGeometry(child.Id, nx, ny, nw, nh);
@@ -325,6 +347,9 @@ namespace Constellate.App.Controls
                     void OnRelease(object? _, PointerReleasedEventArgs args2)
                     {
                         try { args2.Pointer.Capture(null); } catch { }
+                        isPressed = false;
+                        grip.Background = hoverBrush;
+                        grip.BorderBrush = hoverBrush;
                         grip.PointerMoved -= OnMove;
                         grip.PointerReleased -= OnRelease;
                     }
@@ -337,21 +362,34 @@ namespace Constellate.App.Controls
                 panel.Children.Add(grip);
             }
 
-            // Edges
-            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Top,    0, 6,  StandardCursorType.SizeNorthSouth, false, true,  false, false);
-            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, 0, 6,  StandardCursorType.SizeNorthSouth, false, false, false, true);
-            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Stretch,6, 0,  StandardCursorType.SizeWestEast,   true,  false, false, false);
-            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Stretch,6, 0,  StandardCursorType.SizeWestEast,   false, false, true,  false);
-            // Corners
-            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Top,    10,10, StandardCursorType.SizeNorthWestSouthEast, true,  true,  false, false);
-            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Top,    10,10, StandardCursorType.SizeNorthEastSouthWest, false, true,  true,  false);
-            AddGrip(HorizontalAlignment.Left,    VerticalAlignment.Bottom, 10,10, StandardCursorType.SizeNorthEastSouthWest, true,  false, false, true );
-            AddGrip(HorizontalAlignment.Right,   VerticalAlignment.Bottom, 10,10, StandardCursorType.SizeNorthWestSouthEast, false, false, true,  true );
+            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Top, 0, 8, StandardCursorType.SizeNorthSouth, false, true, false, false);
+            AddGrip(HorizontalAlignment.Stretch, VerticalAlignment.Bottom, 0, 8, StandardCursorType.SizeNorthSouth, false, false, false, true);
+            AddGrip(HorizontalAlignment.Left, VerticalAlignment.Stretch, 8, 0, StandardCursorType.SizeWestEast, true, false, false, false);
+            AddGrip(HorizontalAlignment.Right, VerticalAlignment.Stretch, 8, 0, StandardCursorType.SizeWestEast, false, false, true, false);
+            AddGrip(HorizontalAlignment.Left, VerticalAlignment.Top, 14, 14, StandardCursorType.TopLeftCorner, true, true, false, false);
+            AddGrip(HorizontalAlignment.Right, VerticalAlignment.Top, 14, 14, StandardCursorType.TopRightCorner, false, true, true, false);
+            AddGrip(HorizontalAlignment.Left, VerticalAlignment.Bottom, 14, 14, StandardCursorType.BottomLeftCorner, true, false, false, true);
+            AddGrip(HorizontalAlignment.Right, VerticalAlignment.Bottom, 14, 14, StandardCursorType.BottomRightCorner, false, false, true, true);
         }
 
         private void TryBringToFront(Control chrome)
         {
-            try { chrome.ZIndex = _zCounter++; } catch { }
+            var nextZIndex = FloatingPaneSurfaceBuilder.GetNextFloatingZIndex(ParentPanes, ChildPanes, ref _zCounter);
+
+            switch (chrome.DataContext)
+            {
+                case ParentPaneModel parent:
+                    parent.FloatingZIndex = nextZIndex;
+                    break;
+                case ChildPaneDescriptor child:
+                    if (this.VisualRoot is MainWindow mw && mw.DataContext is MainWindowViewModel vm)
+                    {
+                        vm.SetFloatingChildZIndex(child.Id, nextZIndex);
+                    }
+                    break;
+            }
+
+            try { chrome.ZIndex = nextZIndex; } catch { }
         }
     }
 }

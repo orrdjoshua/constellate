@@ -2,17 +2,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
-using System.ComponentModel;
+using Constellate.App.Infrastructure.Panes.Gestures;
 
 namespace Constellate.App
 {
-    // Thin MainWindow code-behind: constructor, initialization, event wiring, and shared fields.
-    // All interaction handlers live in partials:
-    //   - MainWindow.ParentPaneDrag.cs
-    //   - MainWindow.ParentPaneResize.cs
-    //   - MainWindow.ChildPaneDrag.cs
-    //   - MainWindow.CornerAffordances.cs
-    //   - MainWindow.Intersections.cs (EXTRACT variants retained but unused; the two XAML-wired handlers remain here)
+    // Thin MainWindow code-behind: constructor, initialization, event wiring,
+    // wrappers, and shared fields. Heavier shell-layout bridge logic and
+    // global gesture routing now live in dedicated partials.
     public partial class MainWindow : Window
     {
         // Shared state for drag/resize flows used by partials
@@ -35,10 +31,26 @@ namespace Constellate.App
         private string? _childDragPaneId;
         private string? _childDragOriginHostId;
 
+        // New architecture bridge: explicit interaction sessions.
+        // These coexist with the legacy booleans during cutover, giving us a stable
+        // place to move ownership and preview state before the old fields are deleted.
+        private ParentPaneMoveSession? _activeParentMoveSession;
+        private ParentPaneResizeSession? _activeParentResizeSession;
+        private ChildPaneDragSession? _activeChildDragSession;
+
         public MainWindow()
         {
             InitializeComponent();
             DataContext = new MainWindowViewModel();
+
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.PropertyChanged += VmOnPropertyChanged;
+            }
+
+            AdjustGridForHostVisibility();
+            PushBoundsToViewModel();
+            ApplyCurrentShellLayoutToGrid();
         }
 
         private void InitializeComponent()
@@ -84,162 +96,24 @@ namespace Constellate.App
             WireGrip("TopPaneResizeGrip", "top");
             WireGrip("BottomPaneResizeGrip", "bottom");
 
-            // Subscribe to VM property changes so we can collapse grid rows/cols
-            if (DataContext is MainWindowViewModel vm)
+            // Global drag lifecycle routing:
+            // pointer press still starts from pane/header/body regions,
+            // but active move/release is owned by the window so drags continue
+            // after the pointer leaves the initiating control.
+            PointerMoved += Window_OnGlobalPointerMoved;
+            PointerReleased += Window_OnGlobalPointerReleased;
+
+            Opened += (_, __) =>
             {
-                vm.PropertyChanged += VmOnPropertyChanged;
-            }
-            // Ensure initial grid sizing matches initial visibility
-            AdjustGridForHostVisibility();
-        }
+                PushBoundsToViewModel();
+                ApplyCurrentShellLayoutToGrid();
+            };
 
-        // Keep the two XAML-wired handlers here to preserve existing event names in MainWindow.axaml.
-        // Other intersection-related helpers may exist as *_EXTRACT variants in the partial for reference.
-        private void OnTopCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
-        {
-            if (DataContext is MainWindowViewModel vm)
+            SizeChanged += (_, __) =>
             {
-                var hit = sender as Control;
-                var name = hit?.Name ?? string.Empty;
-                if (name.Contains("TopRight", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    vm.ToggleTopRightCornerOwnership();
-                }
-                else
-                {
-                    // Default to top-left semantics
-                    vm.ToggleTopCornerOwnership();
-                }
-            }
-
-            e.Handled = true;
-        }
-
-        private void OnBottomCornerIntersectionDoubleTapped(object? sender, TappedEventArgs e)
-        {
-            if (DataContext is MainWindowViewModel vm)
-            {
-                var hit = sender as Control;
-                var name = hit?.Name ?? string.Empty;
-                if (name.Contains("BottomRight", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    vm.ToggleBottomRightCornerOwnership();
-                }
-                else
-                {
-                    // Default to bottom-left semantics
-                    vm.ToggleBottomLeftCornerOwnership();
-                }
-            }
-
-            e.Handled = true;
-        }
-        private void OnFloatingParentHeaderDoubleTapped(object? sender, TappedEventArgs e)
-        {
-            if (sender is not Control header || header.DataContext is not ParentPaneModel parent)
-            {
-                return;
-            }
-
-            if (DataContext is not MainWindowViewModel vm)
-            {
-                return;
-            }
-
-            vm.SetParentPaneMinimized(parent.Id, false);
-            e.Handled = true;
-        }
-
-        // Public wrappers to allow controls to forward pointer events for child-pane header drags.
-        // These simply delegate to the existing private handlers defined on partials, preserving behavior.
-        public void ForwardChildHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            OnChildPaneHeaderPointerPressed(sender, e);
-        }
-
-        public void ForwardChildHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            OnChildPaneHeaderPointerReleased(sender, e);
-        }
-
-        public void ForwardChildHeaderPointerMoved(object? sender, PointerEventArgs e)
-        {
-            OnChildPaneHeaderPointerMoved(sender, e);
-        }
-
-        // Public wrappers to allow ParentPaneView to forward pointer events for parent-pane header drags.
-        public void ForwardParentHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            OnParentPaneHeaderPointerPressed(sender, e);
-        }
-
-        public void ForwardParentHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            OnParentPaneHeaderPointerReleased(sender, e);
-        }
-
-        public void ForwardParentHeaderPointerMoved(object? sender, PointerEventArgs e)
-        {
-            OnParentPaneHeaderPointerMoved(sender, e);
-        }
-
-        private void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (_rootGrid is null) return;
-            if (e.PropertyName is nameof(MainWindowViewModel.IsShellPaneOnLeft) or
-                                     nameof(MainWindowViewModel.IsShellPaneOnTop) or
-                                     nameof(MainWindowViewModel.IsShellPaneOnRight) or
-                                     nameof(MainWindowViewModel.IsShellPaneOnBottom))
-            {
-                AdjustGridForHostVisibility();
-            }
-        }
-
-        // Collapse grid rows/columns when a host is not visible so we don't leave blank areas
-        private void AdjustGridForHostVisibility()
-        {
-            if (_rootGrid is null) return;
-            if (DataContext is not MainWindowViewModel vm) return;
-
-            // Left column (0)
-            if (!vm.IsShellPaneOnLeft)
-            {
-                _rootGrid.ColumnDefinitions[0].Width = new GridLength(0, GridUnitType.Pixel);
-            }
-            else if (_rootGrid.ColumnDefinitions[0].Width.IsAbsolute && _rootGrid.ColumnDefinitions[0].Width.Value <= 0.1)
-            {
-                _rootGrid.ColumnDefinitions[0].Width = GridLength.Auto;
-            }
-
-            // Right column (2)
-            if (!vm.IsShellPaneOnRight)
-            {
-                _rootGrid.ColumnDefinitions[2].Width = new GridLength(0, GridUnitType.Pixel);
-            }
-            else if (_rootGrid.ColumnDefinitions[2].Width.IsAbsolute && _rootGrid.ColumnDefinitions[2].Width.Value <= 0.1)
-            {
-                _rootGrid.ColumnDefinitions[2].Width = GridLength.Auto;
-            }
-
-            // Top row (0)
-            if (!vm.IsShellPaneOnTop)
-            {
-                _rootGrid.RowDefinitions[0].Height = new GridLength(0, GridUnitType.Pixel);
-            }
-            else if (_rootGrid.RowDefinitions[0].Height.IsAbsolute && _rootGrid.RowDefinitions[0].Height.Value <= 0.1)
-            {
-                _rootGrid.RowDefinitions[0].Height = GridLength.Auto;
-            }
-
-            // Bottom row (2)
-            if (!vm.IsShellPaneOnBottom)
-            {
-                _rootGrid.RowDefinitions[2].Height = new GridLength(0, GridUnitType.Pixel);
-            }
-            else if (_rootGrid.RowDefinitions[2].Height.IsAbsolute && _rootGrid.RowDefinitions[2].Height.Value <= 0.1)
-            {
-                _rootGrid.RowDefinitions[2].Height = GridLength.Auto;
-            }
+                PushBoundsToViewModel();
+                ApplyCurrentShellLayoutToGrid();
+            };
         }
     }
 }

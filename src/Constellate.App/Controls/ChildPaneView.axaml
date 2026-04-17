@@ -2,131 +2,136 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:app="clr-namespace:Constellate.App"
+             xmlns:panes="clr-namespace:Constellate.App.Controls.Panes"
              x:Class="Constellate.App.Controls.ChildPaneView"
              x:DataType="app:ChildPaneDescriptor">
   <UserControl.Resources>
     <app:BooleanNotConverter x:Key="BooleanNotConverter"/>
   </UserControl.Resources>
+
   <UserControl.Styles>
-    <!-- Whole-pane bright outline on drag-hover -->
-    <Style Selector="Border#ChildRoot.dragHover">
+    <Style Selector="panes|PaneChrome#ChildChrome.dragHover Border#PART_PaneChromeRoot">
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
+
     <Style Selector="Border#ChildLabelArea:pointerover">
+      <Setter Property="Background" Value="#2A435A"/>
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
+
     <Style Selector="Border#ChildEmptyHeaderArea:pointerover">
+      <Setter Property="Background" Value="#223240"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
+    <Style Selector="Border#ChildBodyDragArea:pointerover">
+      <Setter Property="Background" Value="#172231"/>
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
   </UserControl.Styles>
-  <Border x:Name="ChildRoot" Background="#151E28" CornerRadius="4" BorderBrush="#2A394B" BorderThickness="1">
-    <Grid RowDefinitions="Auto,*">
-      <!-- Header chrome: Label | Empty Header | CommandBar -->
-      <Border Grid.Row="0" Background="#192531" Padding="4,2">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-          <!-- Label area (drag origin + rename) -->
-          <Border x:Name="ChildLabelArea"
-                  Grid.Column="0"
-                  Background="Transparent"
-                  BorderBrush="Transparent"
-                  BorderThickness="1"
-                  Padding="4,0"
-                  PointerPressed="Header_OnPointerPressed"
-                  PointerEntered="Header_OnPointerEntered"
-                  PointerExited="Header_OnPointerExited"
-                  PointerReleased="Header_OnPointerReleased"
-                  PointerMoved="Header_OnPointerMoved">
-            <Border.ContextMenu>
-              <ContextMenu>
-                <MenuItem Header="Rename Pane…"
-                          Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RenamePaneCommand}"
-                          CommandParameter="{Binding Id}" />
-              </ContextMenu>
-            </Border.ContextMenu>
-            <TextBlock Text="{Binding Title}"
-                       FontSize="12"
-                       Foreground="#E5EDF7"
-                       VerticalAlignment="Center"/>
-          </Border>
 
-          <!-- Empty header area (double-tap => minimize; drag origin) -->
-          <Border x:Name="ChildEmptyHeaderArea"
-                  Grid.Column="1"
-                  Background="#16222E"
-                  Opacity="0.65"
-                  CornerRadius="3"
-                  BorderBrush="Transparent"
-                  BorderThickness="1"
-                  PointerEntered="Header_OnPointerEntered"
-                  PointerExited="Header_OnPointerExited"
-                  DoubleTapped="EmptyHeader_OnDoubleTapped"
-                  PointerPressed="Header_OnPointerPressed"
-                  PointerReleased="Header_OnPointerReleased"
-                  PointerMoved="Header_OnPointerMoved">
-            <Border.ContextMenu>
-              <ContextMenu>
-                <MenuItem Header="Add CommandBar Button…"
-                          Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).AddCommandBarButtonCommand}"
-                          CommandParameter="{Binding Id}"/>
-              </ContextMenu>
-            </Border.ContextMenu>
-          </Border>
+  <panes:PaneChrome x:Name="ChildChrome"
+                    IsBodyVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
+    <panes:PaneChrome.ContextMenu>
+      <ContextMenu>
+        <MenuItem Header="Move to Left"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToLeftHostCommand}"
+                  CommandParameter="{Binding Id}" />
+        <MenuItem Header="Move to Top"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToTopHostCommand}"
+                  CommandParameter="{Binding Id}" />
+        <MenuItem Header="Move to Right"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToRightHostCommand}"
+                  CommandParameter="{Binding Id}" />
+        <MenuItem Header="Move to Bottom"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToBottomHostCommand}"
+                  CommandParameter="{Binding Id}" />
+        <MenuItem Header="Move to Floating"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToFloatingHostCommand}"
+                  CommandParameter="{Binding Id}" />
+      </ContextMenu>
+    </panes:PaneChrome.ContextMenu>
 
-          <!-- CommandBar (default: minimize) -->
-          <StackPanel Grid.Column="2"
-                      Orientation="Horizontal"
-                      Spacing="4"
-                      HorizontalAlignment="Right"
-                      Margin="0,0,2,0">
-            <Button Width="20"
-                    Height="20"
-                    Padding="0"
-                    Content="–"
-                    Foreground="#E5EDF7"
-                    Background="#233142"
-                    ToolTip.Tip="Minimize child pane"
-                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
-                    CommandParameter="{Binding Id}" />
-          </StackPanel>
-        </Grid>
+    <panes:PaneChrome.LabelContent>
+      <Border x:Name="ChildLabelArea"
+              Background="#213244"
+              BorderBrush="#314B62"
+              BorderThickness="1"
+              Cursor="Hand"
+              Padding="4,0"
+              PointerPressed="Header_OnPointerPressed"
+              PointerEntered="Header_OnPointerEntered"
+              PointerExited="Header_OnPointerExited">
         <Border.ContextMenu>
           <ContextMenu>
-            <MenuItem Header="Move to Left"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToLeftHostCommand}"
-                      CommandParameter="{Binding Id}" />
-            <MenuItem Header="Move to Top"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToTopHostCommand}"
-                      CommandParameter="{Binding Id}" />
-            <MenuItem Header="Move to Right"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToRightHostCommand}"
-                      CommandParameter="{Binding Id}" />
-            <MenuItem Header="Move to Bottom"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToBottomHostCommand}"
-                      CommandParameter="{Binding Id}" />
-            <MenuItem Header="Move to Floating"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToFloatingHostCommand}"
+            <MenuItem Header="Rename Pane…"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RenamePaneCommand}"
                       CommandParameter="{Binding Id}" />
           </ContextMenu>
         </Border.ContextMenu>
+        <TextBlock Text="{Binding Title}"
+                   FontSize="12"
+                   Foreground="#E5EDF7"
+                   VerticalAlignment="Center"/>
       </Border>
+    </panes:PaneChrome.LabelContent>
 
-      <!-- Body placeholder -->
-      <Border Grid.Row="1"
-              Margin="6,4,6,8"
+    <panes:PaneChrome.EmptyHeaderContent>
+      <Border x:Name="ChildEmptyHeaderArea"
+              Background="#1A2633"
+              Opacity="1"
+              CornerRadius="3"
+              BorderBrush="#24384A"
+              Cursor="Hand"
+              BorderThickness="1"
+              PointerEntered="Header_OnPointerEntered"
+              PointerExited="Header_OnPointerExited"
+              DoubleTapped="EmptyHeader_OnDoubleTapped"
+              PointerPressed="Header_OnPointerPressed">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Add CommandBar Button…"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).AddCommandBarButtonCommand}"
+                      CommandParameter="{Binding Id}"/>
+          </ContextMenu>
+        </Border.ContextMenu>
+      </Border>
+    </panes:PaneChrome.EmptyHeaderContent>
+
+    <panes:PaneChrome.CommandBarContent>
+      <StackPanel Orientation="Horizontal"
+                  Spacing="4"
+                  HorizontalAlignment="Right"
+                  Margin="0,0,2,0">
+        <Button Width="20"
+                Height="20"
+                Padding="0"
+                Content="–"
+                Foreground="#E5EDF7"
+                Background="#233142"
+                ToolTip.Tip="Minimize child pane"
+                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                CommandParameter="{Binding Id}" />
+      </StackPanel>
+    </panes:PaneChrome.CommandBarContent>
+
+    <panes:PaneChrome.BodyContent>
+      <Border x:Name="ChildBodyDragArea"
               Background="#101722"
               CornerRadius="2"
               Padding="6"
               PointerPressed="Body_OnPointerPressed"
-              PointerReleased="Body_OnPointerReleased"
-              PointerMoved="Body_OnPointerMoved"
+              Cursor="Hand"
               PointerEntered="Body_OnPointerEntered"
-              PointerExited="Body_OnPointerExited"
-              IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
-        <TextBlock Text="(empty child pane)" Foreground="#9BA8B7" FontSize="11"/>
+              PointerExited="Body_OnPointerExited">
+        <TextBlock Text="(empty child pane)"
+                   Foreground="#9BA8B7"
+                   FontSize="11"/>
       </Border>
-    </Grid>
-  </Border>
+    </panes:PaneChrome.BodyContent>
+  </panes:PaneChrome>
 </UserControl>

@@ -2,6 +2,9 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Constellate.App.Controls.Panes;
+using Constellate.App.Infrastructure.Panes;
+using Constellate.App.Infrastructure.Panes.Gestures;
 
 namespace Constellate.App
 {
@@ -10,6 +13,11 @@ namespace Constellate.App
         private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (_isPaneResizing)
+            {
+                return;
+            }
+
+            if (!ActiveParentMoveOwnsPointer(e))
             {
                 return;
             }
@@ -31,6 +39,21 @@ namespace Constellate.App
                         _ => null
                     };
                 }
+
+                var parent = TryResolveDragParentPane(_dragOriginHostId);
+                if (parent is not null)
+                {
+                    _activeParentMoveSession = new ParentPaneMoveSession(
+                        paneId: parent.Id,
+                        pointerId: (long)e.Pointer.Id,
+                        startPoint: _shellDragStartPoint,
+                        originAttachment: DockAttachmentModel.FromHostId(parent.HostId),
+                        originBounds: GetParentPaneCurrentBounds(parent));
+                }
+                else
+                {
+                    _activeParentMoveSession = null;
+                }
             }
         }
 
@@ -41,255 +64,86 @@ namespace Constellate.App
                 return;
             }
 
-            _isShellPaneDragging = false;
-
-            try { e.Pointer.Capture(null); } catch { }
-
-            if (DataContext is not MainWindowViewModel vm)
+            if (!ActiveParentMoveOwnsPointer(e))
             {
-                _dragOriginHostId = null;
                 return;
             }
 
-            var releasePoint = e.GetPosition(this);
-            var width = Bounds.Width;
-            var height = Bounds.Height;
-
-            if (width <= 0 || height <= 0 || string.IsNullOrWhiteSpace(_dragOriginHostId))
-            {
-                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-                _dragOriginHostId = null;
-                return;
-            }
-
-            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
-            // Enforce single-pane docks at drop time too: if target != origin and occupied, convert to floating.
-            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
-                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
-                vm.IsDockHostOccupied(targetHost))
-            {
-                targetHost = "floating";
-            }
-
-            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
-            {
-                // Convert the final shadow rect from window coordinates to CenterViewportHost-relative coordinates.
-                var centerHost = this.FindControl<Border>("CenterViewportHost");
-                var hostRect = centerHost is not null ? centerHost.Bounds : Bounds;
-
-                // Use the last preview rect held in the VM; if missing, synthesize a reasonable size.
-                var leftWin = vm.ParentPaneDragShadowLeft;
-                var topWin = vm.ParentPaneDragShadowTop;
-                var shadowW = vm.ParentPaneDragShadowWidth;
-                var shadowH = vm.ParentPaneDragShadowHeight;
-
-                if (shadowW <= 0 || shadowH <= 0)
-                {
-                    // Fallback to a 30% square of the free area (relative to the floating host).
-                    var side = Math.Min(hostRect.Width, hostRect.Height) * 0.30;
-                    side = Math.Max(80.0, side);
-                    shadowW = side;
-                    shadowH = side;
-                    leftWin = releasePoint.X - (shadowW / 2.0);
-                    topWin = releasePoint.Y - (shadowH / 2.0);
-                }
-
-                // Translate Window-space (leftWin, topWin) into CenterViewportHost-local coordinates.
-                double relLeft = leftWin, relTop = topWin;
-                if (centerHost is not null)
-                {
-                    var localPt = this.TranslatePoint(new Point(leftWin, topWin), centerHost);
-                    if (localPt is { } p)
-                    {
-                        relLeft = p.X;
-                        relTop = p.Y;
-                    }
-                }
-
-                // Clamp inside CenterViewportHost bounds (visible even when no floating parents yet).
-                {
-                    var minLeft = 0.0;
-                    var minTop = 0.0;
-                    var maxLeft = Math.Max(0, hostRect.Width - shadowW);
-                    var maxTop = Math.Max(0, hostRect.Height - shadowH);
-                    relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
-                    relTop = Math.Clamp(relTop, minTop, maxTop);
-                }
-
-                try
-                {
-                    Console.WriteLine(
-                        $"[FloatingDrop] originHost={_dragOriginHostId} centerHostRect=({hostRect.X:0},{hostRect.Y:0},{hostRect.Width:0},{hostRect.Height:0}) " +
-                        $"shadowWin=({leftWin:0},{topWin:0},{shadowW:0},{shadowH:0}) rel=({relLeft:0},{relTop:0})"
-                    );
-                }
-                catch { }
-
-                vm.MoveParentPaneToFloating(_dragOriginHostId, relLeft, relTop, shadowW, shadowH);
-            }
-            else
-            {
-                vm.MoveParentPaneToHost(_dragOriginHostId, targetHost);
-            }
-            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-            _dragOriginHostId = null;
+            CompleteActiveParentPaneDrag(e);
         }
-        // Dragging a parent directly from its header (Label/Empty Header)
+
         private void OnParentPaneHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (_isPaneResizing) return;
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (_isPaneResizing)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
 
             if (sender is not Control header || header.DataContext is not ParentPaneModel parent)
             {
                 return;
             }
 
+            if (!CanBeginParentPaneDragFromSender(sender))
+            {
+                return;
+            }
+
             _isShellPaneDragging = true;
             _shellDragStartPoint = e.GetPosition(this);
-            // Store the exact parent being dragged so overlapping floating panes don't conflict
             _dragOriginHostId = parent.Id;
-            try { e.Pointer.Capture(this); } catch { }
+            _activeParentMoveSession = new ParentPaneMoveSession(
+                paneId: parent.Id,
+                pointerId: (long)e.Pointer.Id,
+                startPoint: _shellDragStartPoint,
+                originAttachment: DockAttachmentModel.FromHostId(parent.HostId),
+                originBounds: GetParentPaneCurrentBounds(parent));
+
+            try
+            {
+                e.Pointer.Capture(this);
+            }
+            catch
+            {
+            }
+
             e.Handled = true;
         }
 
         private void OnParentPaneHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (!_isShellPaneDragging) return;
-            _isShellPaneDragging = false;
-
-            try { e.Pointer.Capture(null); } catch { }
-
-            if (DataContext is not MainWindowViewModel vm)
+            if (!_isShellPaneDragging)
             {
-                _dragOriginHostId = null;
                 return;
             }
 
-            var releasePoint = e.GetPosition(this);
-            var width = Bounds.Width;
-            var height = Bounds.Height;
-
-            if (width <= 0 || height <= 0 || string.IsNullOrWhiteSpace(_dragOriginHostId))
+            if (!ActiveParentMoveOwnsPointer(e))
             {
-                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-                _dragOriginHostId = null;
                 return;
             }
 
-            var targetHost = GetTargetHostForPoint(releasePoint, width, height);
-            // Enforce single-pane docks: convert to floating if target != origin and occupied.
-            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
-                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
-                vm.IsDockHostOccupied(targetHost))
-            {
-                targetHost = "floating";
-            }
-
-            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
-            {
-                // Convert final preview rect into CenterViewportHost-relative geometry and commit.
-                var centerHost = this.FindControl<Border>("CenterViewportHost");
-                var hostRect = centerHost is not null ? centerHost.Bounds : Bounds;
-
-                var leftWin = vm.ParentPaneDragShadowLeft;
-                var topWin = vm.ParentPaneDragShadowTop;
-                var shadowW = vm.ParentPaneDragShadowWidth;
-                var shadowH = vm.ParentPaneDragShadowHeight;
-
-                if (shadowW <= 0 || shadowH <= 0)
-                {
-                    var side = Math.Min(hostRect.Width, hostRect.Height) * 0.30;
-                    side = Math.Max(80.0, side);
-                    shadowW = side;
-                    shadowH = side;
-                    leftWin = releasePoint.X - (shadowW / 2.0);
-                    topWin = releasePoint.Y - (shadowH / 2.0);
-                }
-
-                double relLeft = leftWin, relTop = topWin;
-                if (centerHost is not null)
-                {
-                    var localPt = this.TranslatePoint(new Point(leftWin, topWin), centerHost);
-                    if (localPt is { } p)
-                    {
-                        relLeft = p.X;
-                        relTop = p.Y;
-                    }
-                }
-
-                var minLeft = 0.0;
-                var minTop = 0.0;
-                var maxLeft = Math.Max(0, hostRect.Width - shadowW);
-                var maxTop = Math.Max(0, hostRect.Height - shadowH);
-                relLeft = Math.Clamp(relLeft, minLeft, maxLeft);
-                relTop = Math.Clamp(relTop, minTop, maxTop);
-
-                vm.MoveParentPaneToFloating(_dragOriginHostId, relLeft, relTop, shadowW, shadowH);
-            }
-            else
-            {
-                vm.MoveParentPaneToHost(_dragOriginHostId, targetHost);
-            }
-
-            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-            _dragOriginHostId = null;
+            CompleteActiveParentPaneDrag(e);
             e.Handled = true;
         }
 
         private void OnParentPaneHeaderPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (_isPaneResizing) return;
-            if (!_isShellPaneDragging) return;
-            if (DataContext is not MainWindowViewModel vm) return;
-
-            var currentPoint = e.GetPosition(this);
-            var width = Bounds.Width;
-            var height = Bounds.Height;
-            if (width <= 0 || height <= 0)
+            if (_isPaneResizing)
             {
-                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
                 return;
             }
 
-            var targetHost = GetTargetHostForPoint(currentPoint, width, height);
-
-            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
-                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
-                vm.IsDockHostOccupied(targetHost))
+            if (!_isShellPaneDragging)
             {
-                targetHost = "floating";
+                return;
             }
 
-            double left, top, shadowWidth, shadowHeight;
-            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
-            {
-                var center = this.FindControl<Border>("CenterViewportHost");
-                var rect = center is not null && center.IsVisible ? center.Bounds : Bounds;
-
-                var side = Math.Min(rect.Width, rect.Height) * 0.30;
-                side = Math.Max(80.0, side);
-                shadowWidth = side;
-                shadowHeight = side;
-
-                left = currentPoint.X - (shadowWidth / 2.0);
-                top = currentPoint.Y - (shadowHeight / 2.0);
-
-                var minLeft = rect.X;
-                var minTop = rect.Y;
-                var maxLeft = rect.X + Math.Max(0, rect.Width - shadowWidth);
-                var maxTop = rect.Y + Math.Max(0, rect.Height - shadowHeight);
-                if (left < minLeft) left = minLeft;
-                if (top < minTop) top = minTop;
-                if (left > maxLeft) left = maxLeft;
-                if (top > maxTop) top = maxTop;
-            }
-            else
-            {
-                ComputeDragShadowRect(targetHost, width, height, currentPoint, out left, out top, out shadowWidth, out shadowHeight);
-            }
-
-            vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
+            UpdateActiveParentPaneDragPreview(e.GetPosition(this));
             e.Handled = true;
         }
 
@@ -305,163 +159,187 @@ namespace Constellate.App
                 return;
             }
 
+            if (!ActiveParentMoveOwnsPointer(e))
+            {
+                return;
+            }
+
+            UpdateActiveParentPaneDragPreview(e.GetPosition(this));
+        }
+
+        private void CompleteActiveParentPaneDrag(PointerReleasedEventArgs e)
+        {
+            _isShellPaneDragging = false;
+
+            try
+            {
+                e.Pointer.Capture(null);
+            }
+            catch
+            {
+            }
+
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                _activeParentMoveSession?.Cancel();
+                _activeParentMoveSession = null;
+                _dragOriginHostId = null;
+                return;
+            }
+
+            var releasePoint = e.GetPosition(this);
+            var windowSize = new Size(Bounds.Width, Bounds.Height);
+
+            if (windowSize.Width <= 0 || windowSize.Height <= 0 || string.IsNullOrWhiteSpace(_dragOriginHostId))
+            {
+                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+                _activeParentMoveSession?.Cancel();
+                _activeParentMoveSession = null;
+                _dragOriginHostId = null;
+                return;
+            }
+
+            var originAttachment = GetParentDragOriginAttachment();
+
+            Rect? previewBounds = null;
+            if (_activeParentMoveSession is not null &&
+                _activeParentMoveSession.PreviewBounds.Width > 0 &&
+                _activeParentMoveSession.PreviewBounds.Height > 0)
+            {
+                previewBounds = _activeParentMoveSession.PreviewBounds;
+            }
+            else if (vm.ParentPaneDragShadowWidth > 0 && vm.ParentPaneDragShadowHeight > 0)
+            {
+                previewBounds = new Rect(
+                    vm.ParentPaneDragShadowLeft,
+                    vm.ParentPaneDragShadowTop,
+                    vm.ParentPaneDragShadowWidth,
+                    vm.ParentPaneDragShadowHeight);
+            }
+
+            var commit = ParentPaneMoveGesturePlanner.ComputeCommit(
+                releasePoint,
+                windowSize,
+                GetShellFloatingSurfaceRect(),
+                originAttachment,
+                previewBounds,
+                vm.IsDockHostOccupied);
+
+            if (commit.IsFloating && commit.RelativeFloatingBounds is { } floatingRect)
+            {
+                try
+                {
+                    Console.WriteLine(
+                        $"[FloatingDrop] originHost={_dragOriginHostId} rel=({floatingRect.X:0},{floatingRect.Y:0},{floatingRect.Width:0},{floatingRect.Height:0})"
+                    );
+                }
+                catch
+                {
+                }
+
+                vm.MoveParentPaneToFloating(
+                    _dragOriginHostId,
+                    floatingRect.X,
+                    floatingRect.Y,
+                    floatingRect.Width,
+                    floatingRect.Height);
+            }
+            else
+            {
+                vm.MoveParentPaneToHost(_dragOriginHostId, commit.TargetHostId);
+            }
+
+            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+            _activeParentMoveSession?.Commit();
+            _activeParentMoveSession = null;
+            _dragOriginHostId = null;
+        }
+
+        private void UpdateActiveParentPaneDragPreview(Point currentPoint)
+        {
             if (DataContext is not MainWindowViewModel vm)
             {
                 return;
             }
 
-            var currentPoint = e.GetPosition(this);
-            var width = Bounds.Width;
-            var height = Bounds.Height;
-
-            if (width <= 0 || height <= 0)
+            var windowSize = new Size(Bounds.Width, Bounds.Height);
+            if (windowSize.Width <= 0 || windowSize.Height <= 0)
             {
                 vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
                 return;
             }
 
-            var targetHost = GetTargetHostForPoint(currentPoint, width, height);
+            var preview = ParentPaneMoveGesturePlanner.ComputePreview(
+                currentPoint,
+                windowSize,
+                GetShellFloatingSurfaceRect(),
+                GetParentDragOriginAttachment(),
+                _activeParentMoveSession?.OriginBounds,
+                vm.IsDockHostOccupied);
 
-            // Do not preview docking onto an occupied host; if target != origin and occupied, switch preview to floating.
-            if (!string.Equals(targetHost, _dragOriginHostId, StringComparison.Ordinal) &&
-                !string.Equals(targetHost, "floating", StringComparison.Ordinal) &&
-                vm.IsDockHostOccupied(targetHost))
-            {
-                targetHost = "floating";
-            }
+            vm.SetParentPaneDragShadow(
+                true,
+                preview.PreviewBounds.X,
+                preview.PreviewBounds.Y,
+                preview.PreviewBounds.Width,
+                preview.PreviewBounds.Height);
 
-            double left, top, shadowWidth, shadowHeight;
-
-            if (string.Equals(targetHost, "floating", StringComparison.Ordinal))
-            {
-                // Use free 3D area: the center viewport host
-                var center = this.FindControl<Border>("CenterViewportHost");
-                var rect = center is not null && center.IsVisible ? center.Bounds : Bounds;
-
-                // 30% square of the free area
-                var side = Math.Min(rect.Width, rect.Height) * 0.30;
-                side = Math.Max(80.0, side);
-                shadowWidth = side;
-                shadowHeight = side;
-
-                // Pointer-centered, clamped to the free 3D rect
-                left = currentPoint.X - (shadowWidth / 2.0);
-                top = currentPoint.Y - (shadowHeight / 2.0);
-
-                // Clamp within the center viewport rect
-                var minLeft = rect.X;
-                var minTop = rect.Y;
-                var maxLeft = rect.X + Math.Max(0, rect.Width - shadowWidth);
-                var maxTop = rect.Y + Math.Max(0, rect.Height - shadowHeight);
-                if (left < minLeft) left = minLeft;
-                if (top < minTop) top = minTop;
-                if (left > maxLeft) left = maxLeft;
-                if (top > maxTop) top = maxTop;
-            }
-            else
-            {
-                ComputeDragShadowRect(
-                    targetHost,
-                    width,
-                    height,
-                    currentPoint,
-                    out left,
-                    out top,
-                    out shadowWidth,
-                    out shadowHeight);
-            }
-
-            vm.SetParentPaneDragShadow(true, left, top, shadowWidth, shadowHeight);
+            _activeParentMoveSession?.UpdatePreview(
+                currentPoint,
+                preview.PreviewAttachment,
+                preview.PreviewBounds);
         }
 
-        private static string GetTargetHostForPoint(Point point, double width, double height)
+        private bool ActiveParentMoveOwnsPointer(PointerEventArgs e)
         {
-            if (width <= 0 || height <= 0)
-            {
-                return "left";
-            }
-
-            var leftThreshold = width * 0.15;
-            var rightThreshold = width * 0.85;
-            var topThreshold = height * 0.15;
-            var bottomThreshold = height * 0.85;
-
-            if (point.X <= leftThreshold)
-            {
-                return "left";
-            }
-
-            if (point.X >= rightThreshold)
-            {
-                return "right";
-            }
-
-            if (point.Y <= topThreshold)
-            {
-                return "top";
-            }
-
-            if (point.Y >= bottomThreshold)
-            {
-                return "bottom";
-            }
-
-            return "floating";
+            return _activeParentMoveSession?.MatchesPointer(e) ?? true;
         }
 
-        private static void ComputeDragShadowRect(
-            string hostId,
-            double windowWidth,
-            double windowHeight,
-            Point pointer,
-            out double left,
-            out double top,
-            out double width,
-            out double height)
+        private static bool CanBeginParentPaneDragFromSender(object? sender)
         {
-            var normalized = MainWindowViewModel.NormalizeHostId(hostId);
-            windowWidth = Math.Max(1, windowWidth);
-            windowHeight = Math.Max(1, windowHeight);
+            var region = PaneChromeInputHelper.ResolveRegion(sender);
+            return PaneChromeRegionRules.IsDragOrigin(region);
+        }
 
-            switch (normalized)
+        private ParentPaneModel? TryResolveDragParentPane(string? originHostOrPaneId)
+        {
+            if (DataContext is not MainWindowViewModel vm || string.IsNullOrWhiteSpace(originHostOrPaneId))
             {
-                case "left":
-                    width = windowWidth * 0.25;
-                    height = windowHeight;
-                    left = 0;
-                    top = 0;
-                    break;
-                case "right":
-                    width = windowWidth * 0.25;
-                    height = windowHeight;
-                    left = windowWidth - width;
-                    top = 0;
-                    break;
-                case "top":
-                    width = windowWidth * 0.6;
-                    height = windowHeight * 0.22;
-                    left = (windowWidth - width) / 2.0;
-                    top = 0;
-                    break;
-                case "bottom":
-                    width = windowWidth * 0.6;
-                    height = windowHeight * 0.22;
-                    left = (windowWidth - width) / 2.0;
-                    top = windowHeight - height;
-                    break;
-                case "floating":
-                default:
-                    width = windowWidth * 0.25;
-                    height = windowHeight * 0.25;
-                    left = pointer.X - (width / 2.0);
-                    top = pointer.Y - (height / 2.0);
-
-                    if (left < 0) left = 0;
-                    if (top < 0) top = 0;
-                    if (left + width > windowWidth) left = windowWidth - width;
-                    if (top + height > windowHeight) top = windowHeight - height;
-                    break;
+                return null;
             }
+
+            return vm.ParentPaneModels.FirstOrDefault(parent =>
+                       string.Equals(parent.Id, originHostOrPaneId, StringComparison.Ordinal)) ??
+                   vm.ParentPaneModels.FirstOrDefault(parent =>
+                       string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), MainWindowViewModel.NormalizeHostId(originHostOrPaneId), StringComparison.Ordinal));
+        }
+
+        private Rect GetParentPaneCurrentBounds(ParentPaneModel parent)
+        {
+            if (string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), "floating", StringComparison.Ordinal))
+            {
+                var floatingRect = GetShellFloatingSurfaceRect();
+                return new Rect(
+                    floatingRect.X + parent.FloatingX,
+                    floatingRect.Y + parent.FloatingY,
+                    parent.FloatingWidth,
+                    parent.FloatingHeight);
+            }
+
+            return GetShellHostRect(parent.HostId);
+        }
+
+        private DockAttachmentModel GetParentDragOriginAttachment()
+        {
+            if (_activeParentMoveSession is not null)
+            {
+                return _activeParentMoveSession.OriginAttachment;
+            }
+
+            var parent = TryResolveDragParentPane(_dragOriginHostId);
+            return parent is not null
+                ? DockAttachmentModel.FromHostId(parent.HostId)
+                : DockAttachmentModel.FromHostId(_dragOriginHostId);
         }
     }
 }

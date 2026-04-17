@@ -224,6 +224,13 @@ public sealed partial class MainWindowViewModel
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsFloating =>
         ParentPaneModels.Where(p => string.Equals(p.HostId, "floating", StringComparison.OrdinalIgnoreCase)).ToArray();
 
+    // Single active parent presenters for dock hosts.
+    // Dock hosts are architecturally single-parent surfaces; floating remains multi-pane.
+    public ParentPaneModel? ActiveParentPaneLeft => ParentPaneModelsLeft.FirstOrDefault();
+    public ParentPaneModel? ActiveParentPaneTop => ParentPaneModelsTop.FirstOrDefault();
+    public ParentPaneModel? ActiveParentPaneRight => ParentPaneModelsRight.FirstOrDefault();
+    public ParentPaneModel? ActiveParentPaneBottom => ParentPaneModelsBottom.FirstOrDefault();
+
     // Parentless, non-minimized floating child panes (rendered on FloatingHost Canvas)
     public IReadOnlyList<ChildPaneDescriptor> FloatingChildPanes =>
         ChildPanes

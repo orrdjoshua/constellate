@@ -12,4 +12,5 @@ public sealed record ChildPaneDescriptor(
     double FloatingY = 0,
     double FloatingWidth = 260,
     double FloatingHeight = 160,
-    string? ParentId = null);
+    string? ParentId = null,
+    int FloatingZIndex = 0);

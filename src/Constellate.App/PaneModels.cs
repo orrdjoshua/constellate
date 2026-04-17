@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Constellate.App.Infrastructure.Panes.Layout;
 
 namespace Constellate.App
 {
@@ -24,12 +25,14 @@ namespace Constellate.App
         private double _floatingY;
         private double _floatingWidth = 320;
         private double _floatingHeight = 240;
+        private int _floatingZIndex;
         private int[] _splitCounts = new int[] { 1, 1, 1 }; // per-slide split counts (SlideIndex 0..2)
         private int _slideIndex;
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary0 = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary1 = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<ChildPaneDescriptor> _minimizedChildren = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<LaneView> _lanesVisible = Array.Empty<LaneView>();
+        private ParentBodyLayoutModel? _currentBodyLayout;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -173,17 +176,28 @@ namespace Constellate.App
             }
         }
 
+        public int FloatingZIndex
+        {
+            get => _floatingZIndex;
+            set
+            {
+                if (_floatingZIndex == value)
+                {
+                    return;
+                }
+
+                _floatingZIndex = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary>
         /// Number of internal split columns/rows in the parent’s AdjustableDimension.
         /// For v1.1, this is stored per slide (SlideIndex 0..2) to allow unique split counts per slide.
         /// </summary>
         public int SplitCount
         {
-            get
-            {
-                var idx = Math.Clamp(SlideIndex, 0, 2);
-                return Math.Max(1, Math.Min(3, _splitCounts[idx]));
-            }
+            get => GetSplitCountForSlide(SlideIndex);
             set
             {
                 var idx = Math.Clamp(SlideIndex, 0, 2);
@@ -276,6 +290,32 @@ namespace Constellate.App
                 _lanesVisible = value ?? Array.Empty<LaneView>();
                 OnPropertyChanged();
             }
+        }
+
+        /// <summary>
+        /// Canonical parent-body layout projection used during the pane-first refactor.
+        /// Existing views may still bind to legacy lane projections, but newer cutover work
+        /// should prefer this richer split/slide model as the conceptual source of truth.
+        /// </summary>
+        public ParentBodyLayoutModel? CurrentBodyLayout
+        {
+            get => _currentBodyLayout;
+            set
+            {
+                if (Equals(_currentBodyLayout, value))
+                {
+                    return;
+                }
+
+                _currentBodyLayout = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public int GetSplitCountForSlide(int slideIndex)
+        {
+            var idx = Math.Clamp(slideIndex, 0, 2);
+            return Math.Max(1, Math.Min(3, _splitCounts[idx]));
         }
 
         /// <summary>

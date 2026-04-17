@@ -1,0 +1,9 @@
+diff a/src/Constellate.App/MainWindow.axaml.cs b/src/Constellate.App/MainWindow.axaml.cs	(rejected hunks)
+@@ -81,5 +81,7 @@
++using System;
++using System.Linq;
+ 
+             WireGrip("LeftPaneResizeGrip", "left");
+             WireGrip("RightPaneResizeGrip", "right");
+             WireGrip("TopPaneResizeGrip", "top");
+             WireGrip("BottomPaneResizeGrip", "bottom");

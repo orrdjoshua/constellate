@@ -3,6 +3,8 @@ using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.ComponentModel;
+using Avalonia;
+using Constellate.App.Infrastructure.Panes;
 
 namespace Constellate.App;
 
@@ -13,6 +15,108 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    private double _shellViewportWidth = 1200;
+    private double _shellViewportHeight = 760;
+    private double _leftDockExtent = 260;
+    private double _topDockExtent = 220;
+    private double _rightDockExtent = 260;
+    private double _bottomDockExtent = 220;
+    private WorldShellLayoutResult _currentShellLayout = WorldShellLayoutResult.Empty(new Rect(0, 0, 1200, 760));
+
+    public WorldShellLayoutResult CurrentShellLayout
+    {
+        get => _currentShellLayout;
+        private set
+        {
+            if (Equals(_currentShellLayout, value))
+            {
+                return;
+            }
+
+            _currentShellLayout = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public void UpdateShellViewportBounds(double width, double height)
+    {
+        var nextWidth = Math.Max(1.0, width);
+        var nextHeight = Math.Max(1.0, height);
+        if (Math.Abs(_shellViewportWidth - nextWidth) < double.Epsilon &&
+            Math.Abs(_shellViewportHeight - nextHeight) < double.Epsilon)
+        {
+            return;
+        }
+
+        _shellViewportWidth = nextWidth;
+        _shellViewportHeight = nextHeight;
+        RecomputeWorldShellLayout();
+    }
+
+    public void UpdateDockExtent(string? edge, double size)
+    {
+        var clamped = Math.Max(80.0, size);
+        var changed = false;
+
+        switch (NormalizeHostId(edge))
+        {
+            case "left":
+                if (Math.Abs(_leftDockExtent - clamped) > double.Epsilon)
+                {
+                    _leftDockExtent = clamped;
+                    changed = true;
+                }
+                break;
+            case "top":
+                if (Math.Abs(_topDockExtent - clamped) > double.Epsilon)
+                {
+                    _topDockExtent = clamped;
+                    changed = true;
+                }
+                break;
+            case "right":
+                if (Math.Abs(_rightDockExtent - clamped) > double.Epsilon)
+                {
+                    _rightDockExtent = clamped;
+                    changed = true;
+                }
+                break;
+            case "bottom":
+                if (Math.Abs(_bottomDockExtent - clamped) > double.Epsilon)
+                {
+                    _bottomDockExtent = clamped;
+                    changed = true;
+                }
+                break;
+        }
+
+        if (changed)
+        {
+            RecomputeWorldShellLayout();
+        }
+    }
+
+    private void RecomputeWorldShellLayout()
+    {
+        var fullBounds = new Rect(0, 0, Math.Max(1.0, _shellViewportWidth), Math.Max(1.0, _shellViewportHeight));
+        CurrentShellLayout = WorldShellLayoutEngine.Compute(
+            fullBounds,
+            ParentPaneModels,
+            _leftDockExtent,
+            _topDockExtent,
+            _rightDockExtent,
+            _bottomDockExtent,
+            _isTopCornerOwnedByTop,
+            _isTopRightCornerOwnedByTop,
+            _isBottomLeftCornerOwnedByBottom,
+            _isBottomRightCornerOwnedByBottom);
+
+        UpdateLeftOwnershipLayout();
+        UpdateRightOwnershipLayout();
+        UpdateTopOwnershipLayout();
+        UpdateBottomOwnershipLayout();
+    }
+
     // Top-left corner toggle
     public void ToggleTopCornerOwnership()
     {
@@ -25,8 +129,7 @@ public sealed partial class MainWindowViewModel
         }
 
         _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
-        UpdateLeftOwnershipLayout();
-        UpdateTopOwnershipLayout();
+        RecomputeWorldShellLayout();
     }
     // Right-side (top-right) ownership
     private bool _isTopRightCornerOwnedByTop;
@@ -150,8 +253,7 @@ public sealed partial class MainWindowViewModel
     {
         if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsLeft.Count == 0) return;
         _isBottomLeftCornerOwnedByBottom = !_isBottomLeftCornerOwnedByBottom;
-        UpdateLeftOwnershipLayout();
-        UpdateBottomOwnershipLayout();
+        RecomputeWorldShellLayout();
     }
 
     public void SetParentSplitCount(string? parentId, int count)
@@ -268,69 +370,9 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
         OnPropertyChanged(nameof(PaneStructureSummary));
 
-        // Update per-parent child lists so each ParentPaneModel exposes
-        // its own VisibleChildrenPrimary0/1 and MinimizedChildren for
-        // the XAML templates rendered via ParentPaneModels* collections.
-        foreach (var parent in ParentPaneModels)
-        {
-            var parentId = parent.Id;
-            var slideIndex = parent.SlideIndex;
-
-            var visibleForParent = ChildPanes
-                .Where(pane =>
-                    !pane.IsMinimized &&
-                    pane.SlideIndex == slideIndex &&
-                    string.Equals(pane.ParentId, parentId, StringComparison.Ordinal))
-                .OrderBy(pane => pane.Order)
-                .ToArray();
-
-            parent.VisibleChildrenPrimary0 = visibleForParent
-                .Where(pane => pane.ContainerIndex == 0)
-                .ToArray();
-
-            parent.VisibleChildrenPrimary1 = visibleForParent
-                .Where(pane => pane.ContainerIndex == 1)
-                .ToArray();
-
-            var minimizedForParent = ChildPanes
-                .Where(pane =>
-                    pane.IsMinimized &&
-                    string.Equals(pane.ParentId, parentId, StringComparison.Ordinal))
-                .OrderBy(pane => pane.Order)
-                .ToArray();
-
-            parent.MinimizedChildren = minimizedForParent;
-
-            // PLAN-061: compute orientation-aware lanes per parent
-            // Left/Right → vertical child flow (columns side-by-side); Top/Bottom → horizontal child flow (rows stacked)
-            var host = NormalizeHostId(parent.HostId);
-            var isVerticalFlow = string.Equals(host, "left", StringComparison.Ordinal) || string.Equals(host, "right", StringComparison.Ordinal);
-            var splitCount = Math.Max(1, Math.Min(3, parent.SplitCount));
-
-            // Build lanes 0..splitCount-1 for the current slide; extra container indices are ignored in v1 (future: paging lanes)
-            var lanes = new List<LaneView>(capacity: splitCount);
-            for (int laneIdx = 0; laneIdx < splitCount; laneIdx++)
-            {
-                var laneChildren = visibleForParent.Where(c => c.ContainerIndex == laneIdx).ToArray();
-                // Compute normalized ratios via helper, then construct with ParentId set
-                var laneComputed = LaneView.Create(
-                    laneIdx,
-                    isVerticalFlow,
-                    laneChildren,
-                    ratioSelector: c => c.PreferredSizeRatio);
-                var laneViewFinal = new LaneView
-                {
-                    ParentId = parentId,
-                    LaneIndex = laneIdx,
-                    Children = laneChildren,
-                    Ratios = laneComputed.Ratios,
-                    IsVerticalFlow = isVerticalFlow,
-                    IsVerticalScroll = isVerticalFlow
-                };
-                lanes.Add(laneViewFinal);
-            }
-            parent.LanesVisible = lanes;
-        }
+        // Update legacy per-parent child/lane projections and the newer canonical
+        // parent-body layout model together so both paths stay synchronized during cutover.
+        RefreshParentBodyLayoutProjections();
     }
 
     private void RaiseParentPaneLayoutChanged(bool includeChildRefresh = false)
@@ -353,6 +395,10 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ParentPaneModelsRight));
         OnPropertyChanged(nameof(ParentPaneModelsBottom));
         OnPropertyChanged(nameof(ParentPaneModelsFloating));
+        OnPropertyChanged(nameof(ActiveParentPaneLeft));
+        OnPropertyChanged(nameof(ActiveParentPaneTop));
+        OnPropertyChanged(nameof(ActiveParentPaneRight));
+        OnPropertyChanged(nameof(ActiveParentPaneBottom));
         OnPropertyChanged(nameof(HasMinimizedParentLeft));
         OnPropertyChanged(nameof(HasMinimizedParentTop));
         OnPropertyChanged(nameof(HasMinimizedParentRight));
@@ -362,10 +408,7 @@ public sealed partial class MainWindowViewModel
         LayoutChangeCount = LayoutChangeCount + 1;
         OnPropertyChanged(nameof(LayoutChangeCount));
         OnPropertyChanged(nameof(ParentPaneCount));
-        UpdateLeftOwnershipLayout();
-        UpdateRightOwnershipLayout();
-        UpdateTopOwnershipLayout();
-        UpdateBottomOwnershipLayout();
+        RecomputeWorldShellLayout();
         _minimizeShellPaneCommand.RaiseCanExecuteChanged();
         _restoreShellPaneCommand.RaiseCanExecuteChanged();
         _createOrRestoreParentPaneCommand.RaiseCanExecuteChanged();
@@ -387,8 +430,7 @@ public sealed partial class MainWindowViewModel
         }
 
         _isTopRightCornerOwnedByTop = !_isTopRightCornerOwnedByTop;
-        UpdateRightOwnershipLayout();
-        UpdateTopOwnershipLayout();
+        RecomputeWorldShellLayout();
     }
 
     // Toggle bottom-right ownership
@@ -396,16 +438,14 @@ public sealed partial class MainWindowViewModel
     {
         if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsRight.Count == 0) return;
         _isBottomRightCornerOwnedByBottom = !_isBottomRightCornerOwnedByBottom;
-        UpdateRightOwnershipLayout();
-        UpdateBottomOwnershipLayout();
+        RecomputeWorldShellLayout();
     }
 
     // Compute Right host vertical placement from top/bottom “cuts”
     private void UpdateRightOwnershipLayout()
     {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasRight = ParentPaneModelsRight.Count > 0;
-        var hasBottom = ParentPaneModelsBottom.Count > 0;
+        var rightDock = CurrentShellLayout.RightDock;
+        var hasRight = rightDock?.IsVisible ?? false;
 
         if (!hasRight)
         {
@@ -414,8 +454,8 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var topCutsRight = hasTop && _isTopRightCornerOwnedByTop;
-        var bottomCutsRight = hasBottom && _isBottomRightCornerOwnedByBottom;
+        var topCutsRight = !(rightDock?.OwnsLeadingCorner ?? false);
+        var bottomCutsRight = !(rightDock?.OwnsTrailingCorner ?? false);
 
         if (topCutsRight && bottomCutsRight)
         {
@@ -442,9 +482,8 @@ public sealed partial class MainWindowViewModel
     // Compute Left host vertical placement from top/bottom “cuts” (generalized former UpdateTopLeftOwnershipLayout)
     private void UpdateLeftOwnershipLayout()
     {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasLeft = ParentPaneModelsLeft.Count > 0;
-        var hasBottom = ParentPaneModelsBottom.Count > 0;
+        var leftDock = CurrentShellLayout.LeftDock;
+        var hasLeft = leftDock?.IsVisible ?? false;
 
         if (!hasLeft)
         {
@@ -453,8 +492,8 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var topCutsLeft = hasTop && _isTopCornerOwnedByTop;
-        var bottomCutsLeft = hasBottom && _isBottomLeftCornerOwnedByBottom;
+        var topCutsLeft = !(leftDock?.OwnsLeadingCorner ?? false);
+        var bottomCutsLeft = !(leftDock?.OwnsTrailingCorner ?? false);
 
         if (topCutsLeft && bottomCutsLeft)
         {
@@ -481,9 +520,8 @@ public sealed partial class MainWindowViewModel
     // Compute Top host horizontal span from left/right ownership
     private void UpdateTopOwnershipLayout()
     {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasLeft = ParentPaneModelsLeft.Count > 0;
-        var hasRight = ParentPaneModelsRight.Count > 0;
+        var topDock = CurrentShellLayout.TopDock;
+        var hasTop = topDock?.IsVisible ?? false;
 
         if (!hasTop)
         {
@@ -492,8 +530,8 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var ownsLeft = hasLeft && _isTopCornerOwnedByTop;
-        var ownsRight = hasRight && _isTopRightCornerOwnedByTop;
+        var ownsLeft = topDock?.OwnsLeadingCorner ?? false;
+        var ownsRight = topDock?.OwnsTrailingCorner ?? false;
 
         if (ownsLeft && ownsRight)
         {
@@ -520,9 +558,8 @@ public sealed partial class MainWindowViewModel
     // Compute Bottom host horizontal span from left/right ownership
     private void UpdateBottomOwnershipLayout()
     {
-        var hasBottom = ParentPaneModelsBottom.Count > 0;
-        var hasLeft = ParentPaneModelsLeft.Count > 0;
-        var hasRight = ParentPaneModelsRight.Count > 0;
+        var bottomDock = CurrentShellLayout.BottomDock;
+        var hasBottom = bottomDock?.IsVisible ?? false;
 
         if (!hasBottom)
         {
@@ -531,8 +568,8 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var ownsLeft = hasLeft && _isBottomLeftCornerOwnedByBottom;
-        var ownsRight = hasRight && _isBottomRightCornerOwnedByBottom;
+        var ownsLeft = bottomDock?.OwnsLeadingCorner ?? false;
+        var ownsRight = bottomDock?.OwnsTrailingCorner ?? false;
 
         if (ownsLeft && ownsRight)
         {
@@ -568,6 +605,6 @@ public sealed partial class MainWindowViewModel
             string.Equals(NormalizeHostId(p.HostId), normalized, StringComparison.Ordinal));
     }
 
-    // Centralized layout recompute entry remains RaiseParentPaneLayoutChanged; we now call all ownership updaters there.
-    // (method continues below)
+    // Centralized layout recompute entry remains RaiseParentPaneLayoutChanged; we now call
+    // WorldShellLayoutEngine there so host projections derive from canonical shell layout state.
 }

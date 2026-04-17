@@ -209,6 +209,9 @@ public sealed partial class MainWindowViewModel
             var fy = ChildPaneDragShadowTop;
             var fw = ChildPaneDragShadowWidth > 0 ? ChildPaneDragShadowWidth : paneCurrent.FloatingWidth;
             var fh = ChildPaneDragShadowHeight > 0 ? ChildPaneDragShadowHeight : paneCurrent.FloatingHeight;
+            var assignedZ = paneCurrent.ParentId is null && paneCurrent.FloatingZIndex > 0
+                ? paneCurrent.FloatingZIndex
+                : GetNextFloatingPaneZIndex();
 
             // Always update geometry for floating children, even if they were already floating
             ChildPanes[idx] = paneCurrent with
@@ -219,7 +222,8 @@ public sealed partial class MainWindowViewModel
                 FloatingX = fx,
                 FloatingY = fy,
                 FloatingWidth = fw,
-                FloatingHeight = fh
+                FloatingHeight = fh,
+                FloatingZIndex = assignedZ
             };
 
             RaiseChildPaneCollectionsChanged();
@@ -498,6 +502,7 @@ public sealed partial class MainWindowViewModel
         parentModel.FloatingY = Math.Max(0, y);
         parentModel.FloatingWidth = Math.Max(80.0, width);
         parentModel.FloatingHeight = Math.Max(80.0, height);
+        parentModel.FloatingZIndex = GetNextFloatingPaneZIndex();
 
         RaiseParentPaneLayoutChanged(includeChildRefresh: true);
     }
@@ -580,6 +585,7 @@ public sealed partial class MainWindowViewModel
             parentModel.FloatingY = top;
             parentModel.FloatingWidth = width;
             parentModel.FloatingHeight = height;
+            parentModel.FloatingZIndex = GetNextFloatingPaneZIndex();
         }
 
         // Notify host projections and visibility booleans so UI re-renders the new state

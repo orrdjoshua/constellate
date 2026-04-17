@@ -145,13 +145,16 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <ItemsControl ItemsSource="{Binding ParentPaneModelsLeft}">
-        <ItemsControl.ItemTemplate>
+      <ContentControl Content="{Binding ActiveParentPaneLeft}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch">
+        <ContentControl.ContentTemplate>
           <DataTemplate>
-            <ctrl:ParentPaneView/>
+            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"/>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
     </Border>
 
     <!-- Top parent-pane host -->
@@ -176,13 +179,16 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <ItemsControl ItemsSource="{Binding ParentPaneModelsTop}">
-        <ItemsControl.ItemTemplate>
+      <ContentControl Content="{Binding ActiveParentPaneTop}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch">
+        <ContentControl.ContentTemplate>
           <DataTemplate>
-            <ctrl:ParentPaneView/>
+            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"/>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
     </Border>
 
     <!-- Right parent-pane host -->
@@ -207,13 +213,16 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <ItemsControl ItemsSource="{Binding ParentPaneModelsRight}">
-        <ItemsControl.ItemTemplate>
+      <ContentControl Content="{Binding ActiveParentPaneRight}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch">
+        <ContentControl.ContentTemplate>
           <DataTemplate>
-            <ctrl:ParentPaneView/>
+            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"/>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
     </Border>
 
     <!-- Center viewport host -->
@@ -245,13 +254,16 @@
         </ContextMenu>
       </Border.ContextMenu>
 
-      <ItemsControl ItemsSource="{Binding ParentPaneModelsBottom}">
-        <ItemsControl.ItemTemplate>
+      <ContentControl Content="{Binding ActiveParentPaneBottom}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch">
+        <ContentControl.ContentTemplate>
           <DataTemplate>
-            <ctrl:ParentPaneView/>
+            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"/>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
     </Border>
 
     <!-- Floating parent-pane host -->
