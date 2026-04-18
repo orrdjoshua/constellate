@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
@@ -8,6 +9,7 @@ namespace Constellate.App.Controls
     public partial class ChildPaneView : UserControl
     {
         private PaneChrome? _root;
+        private ScrollViewer? _commandBarScroll;
 
         public ChildPaneView()
         {
@@ -18,6 +20,7 @@ namespace Constellate.App.Controls
         {
             AvaloniaXamlLoader.Load(this);
             _root = this.FindControl<PaneChrome>("ChildChrome");
+            _commandBarScroll = this.FindControl<ScrollViewer>("ChildCommandBarScroll");
         }
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -59,6 +62,30 @@ namespace Constellate.App.Controls
         private void Body_OnPointerExited(object? sender, PointerEventArgs e)
         {
             PaneChromeInputHelper.SetPaneDragHover(_root, sender, false);
+        }
+
+        private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (_commandBarScroll is null)
+            {
+                return;
+            }
+
+            if (e.Delta.Y == 0)
+            {
+                return;
+            }
+
+            var offset = _commandBarScroll.Offset;
+            // Scroll horizontally in response to vertical wheel; negative to match parent-pane semantics
+            var newOffset = new Vector(offset.X - e.Delta.Y * 40, offset.Y);
+            _commandBarScroll.Offset = newOffset;
+            e.Handled = true;
+        }
+
+        private void OnCommandBarPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            OnPaneChromePointerWheelChanged(sender, e);
         }
     }
 }

@@ -12,6 +12,14 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    public enum ShellCorner
+    {
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
+    }
+
     private double _shellViewportWidth = 1200;
     private double _shellViewportHeight = 760;
     private double _leftDockExtent = 260;
@@ -136,16 +144,7 @@ public sealed partial class MainWindowViewModel
     // Top-left corner toggle
     public void ToggleTopCornerOwnership()
     {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasLeft = ParentPaneModelsLeft.Count > 0;
-
-        if (!hasTop || !hasLeft)
-        {
-            return;
-        }
-
-        _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
-        RecomputeWorldShellLayout();
+        HandleCornerIntersection(ShellCorner.TopLeft);
     }
 
     /// <summary>
@@ -154,39 +153,19 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     public void ToggleTopRightCornerOwnership()
     {
-        var hasTop = ParentPaneModelsTop.Count > 0;
-        var hasRight = ParentPaneModelsRight.Count > 0;
-        if (!hasTop || !hasRight)
-        {
-            return;
-        }
-
-        _isTopRightCornerOwnedByTop = !_isTopRightCornerOwnedByTop;
-        RecomputeWorldShellLayout();
+        HandleCornerIntersection(ShellCorner.TopRight);
     }
 
     // Toggle bottom-left ownership
     public void ToggleBottomLeftCornerOwnership()
     {
-        if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsLeft.Count == 0)
-        {
-            return;
-        }
-
-        _isBottomLeftCornerOwnedByBottom = !_isBottomLeftCornerOwnedByBottom;
-        RecomputeWorldShellLayout();
+        HandleCornerIntersection(ShellCorner.BottomLeft);
     }
 
     // Toggle bottom-right ownership
     public void ToggleBottomRightCornerOwnership()
     {
-        if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsRight.Count == 0)
-        {
-            return;
-        }
-
-        _isBottomRightCornerOwnedByBottom = !_isBottomRightCornerOwnedByBottom;
-        RecomputeWorldShellLayout();
+        HandleCornerIntersection(ShellCorner.BottomRight);
     }
 
     // Compute Right host vertical placement from top/bottom “cuts”
@@ -339,5 +318,57 @@ public sealed partial class MainWindowViewModel
             BottomPaneColumn = 1;
             BottomPaneColumnSpan = 1;
         }
+    }
+
+    /// <summary>
+    /// Unified corner-intersection handler. Given a ShellCorner, this method:
+    /// - verifies that the relevant pair of hosts is present,
+    /// - flips the appropriate corner-ownership flag,
+    /// - and recomputes the shell layout.
+    ///
+    /// Geometry details (how FixedDimension is redistributed between docks) remain
+    /// the responsibility of WorldShellLayoutEngine and CurrentShellLayout.
+    /// </summary>
+    public void HandleCornerIntersection(ShellCorner corner)
+    {
+        switch (corner)
+        {
+            case ShellCorner.TopLeft:
+                if (ParentPaneModelsTop.Count == 0 || ParentPaneModelsLeft.Count == 0)
+                {
+                    return;
+                }
+                _isTopCornerOwnedByTop = !_isTopCornerOwnedByTop;
+                break;
+
+            case ShellCorner.TopRight:
+                if (ParentPaneModelsTop.Count == 0 || ParentPaneModelsRight.Count == 0)
+                {
+                    return;
+                }
+                _isTopRightCornerOwnedByTop = !_isTopRightCornerOwnedByTop;
+                break;
+
+            case ShellCorner.BottomLeft:
+                if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsLeft.Count == 0)
+                {
+                    return;
+                }
+                _isBottomLeftCornerOwnedByBottom = !_isBottomLeftCornerOwnedByBottom;
+                break;
+
+            case ShellCorner.BottomRight:
+                if (ParentPaneModelsBottom.Count == 0 || ParentPaneModelsRight.Count == 0)
+                {
+                    return;
+                }
+                _isBottomRightCornerOwnedByBottom = !_isBottomRightCornerOwnedByBottom;
+                break;
+
+            default:
+                return;
+        }
+
+        RecomputeWorldShellLayout();
     }
 }

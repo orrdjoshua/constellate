@@ -26,6 +26,8 @@ namespace Constellate.App
         private double _floatingWidth = 320;
         private double _floatingHeight = 240;
         private int _floatingZIndex;
+        private double _floatingWidthFull;
+        private double _floatingHeightFull;
         private int[] _splitCounts = new int[] { 1, 1, 1 }; // per-slide split counts (SlideIndex 0..2)
         private int _slideIndex;
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary0 = Array.Empty<ChildPaneDescriptor>();
@@ -186,6 +188,44 @@ namespace Constellate.App
                 }
 
                 _floatingZIndex = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Stored full floating width used when a floating parent pane is minimized to a header-only
+        /// chrome and later restored. Not currently bound in XAML; used purely as state.
+        /// </summary>
+        public double FloatingWidthFull
+        {
+            get => _floatingWidthFull;
+            set
+            {
+                if (Math.Abs(_floatingWidthFull - value) < double.Epsilon)
+                {
+                    return;
+                }
+
+                _floatingWidthFull = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Stored full floating height used when a floating parent pane is minimized to a header-only
+        /// chrome and later restored. Not currently bound in XAML; used purely as state.
+        /// </summary>
+        public double FloatingHeightFull
+        {
+            get => _floatingHeightFull;
+            set
+            {
+                if (Math.Abs(_floatingHeightFull - value) < double.Epsilon)
+                {
+                    return;
+                }
+
+                _floatingHeightFull = value;
                 OnPropertyChanged();
             }
         }

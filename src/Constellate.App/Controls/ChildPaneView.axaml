@@ -29,7 +29,8 @@
   </UserControl.Styles>
 
   <panes:PaneChrome x:Name="ChildChrome"
-                    IsBodyVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
+                    IsBodyVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}"
+                    PointerWheelChanged="OnPaneChromePointerWheelChanged">
     <panes:PaneChrome.ContextMenu>
       <ContextMenu>
         <MenuItem Header="Move to Left"
@@ -97,20 +98,25 @@
     </panes:PaneChrome.EmptyHeaderContent>
 
     <panes:PaneChrome.CommandBarContent>
-      <StackPanel Orientation="Horizontal"
-                  Spacing="4"
-                  HorizontalAlignment="Right"
-                  Margin="0,0,2,0">
-        <Button Width="20"
-                Height="20"
-                Padding="0"
-                Content="–"
-                Foreground="#E5EDF7"
-                Background="#233142"
-                ToolTip.Tip="Minimize child pane"
-                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
-                CommandParameter="{Binding Id}" />
-      </StackPanel>
+      <ScrollViewer x:Name="ChildCommandBarScroll"
+                    HorizontalScrollBarVisibility="Auto"
+                    VerticalScrollBarVisibility="Disabled"
+                    PointerWheelChanged="OnCommandBarPointerWheelChanged">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Right"
+                    Margin="0,0,2,0">
+          <Button Width="20"
+                  Height="20"
+                  Padding="0"
+                  Content="–"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Minimize child pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                  CommandParameter="{Binding Id}" />
+        </StackPanel>
+      </ScrollViewer>
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.BodyContent>

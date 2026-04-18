@@ -117,6 +117,12 @@ public sealed partial class MainWindowViewModel
             PreferredSizeRatio: resolvedPreferredSizeRatio,
             ParentId: parentId));
 
+        // Rebalance lane ratios so the new child defaults to ~25% of the lane’s
+        // BodySecondary while existing siblings share the remaining 75% proportionally.
+        // This operates purely in the parent-body frame (host-agnostic); actual on-screen
+        // orientation is handled by the layout projection layer.
+        ApplyDefaultChildSizeForNewLaneMember(parentId, laneIndex: 0, newChildId: id);
+
         RaiseChildPaneCollectionsChanged();
 
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();

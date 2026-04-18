@@ -195,4 +195,89 @@ public sealed partial class MainWindowViewModel
 
         RaiseChildPaneCollectionsChanged();
     }
+
+    /// <summary>
+    /// After a new child has been added to a parent/lane/slide, rebalance that lane's
+    /// PreferredSizeRatio values so the new child defaults to ~25% of the lane's
+    /// BodySecondary while the existing children share the remaining ~75% proportionally.
+    ///
+    /// This operates purely in the parent-body frame; host orientation (left/top/right/bottom
+    /// vs floating) is handled later by the layout projection layer.
+    /// </summary>
+    private void ApplyDefaultChildSizeForNewLaneMember(string parentId, int laneIndex, string newChildId)
+    {
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null)
+        {
+            return;
+        }
+
+        var slideIndex = parent.SlideIndex;
+
+        var laneChildren = ChildPanes
+            .Where(c =>
+                !c.IsMinimized &&
+                string.Equals(c.ParentId, parentId, StringComparison.Ordinal) &&
+                c.SlideIndex == slideIndex &&
+                c.ContainerIndex == laneIndex)
+            .ToList();
+
+        if (laneChildren.Count == 0)
+        {
+            return;
+        }
+
+        // Single child in lane: give it the full lane.
+        if (laneChildren.Count == 1)
+        {
+            var only = laneChildren[0];
+            UpdateLanePreferredRatios(
+                parentId,
+                laneIndex,
+                new[] { (only.Id, 1.0) });
+            return;
+        }
+
+        // Compute the sum of existing siblings' ratios (excluding the new child).
+        double oldSum = 0;
+        foreach (var child in laneChildren)
+        {
+            if (string.Equals(child.Id, newChildId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            oldSum += Math.Max(0.0, child.PreferredSizeRatio);
+        }
+
+        if (oldSum <= 1e-6)
+        {
+            // No meaningful existing ratios; treat all existing children uniformly.
+            oldSum = laneChildren.Count - 1;
+        }
+
+        const double newChildShare = 0.25;
+        const double existingShare = 0.75;
+        var scale = existingShare / oldSum;
+
+        var updates = new List<(string childId, double ratio)>(laneChildren.Count);
+        foreach (var child in laneChildren)
+        {
+            double raw;
+            if (string.Equals(child.Id, newChildId, StringComparison.Ordinal))
+            {
+                raw = newChildShare;
+            }
+            else
+            {
+                var baseRatio = child.PreferredSizeRatio;
+                if (baseRatio <= 0.0) baseRatio = 1.0;
+                raw = baseRatio * scale;
+            }
+
+            updates.Add((child.Id, raw));
+        }
+
+        UpdateLanePreferredRatios(parentId, laneIndex, updates);
+    }
 }

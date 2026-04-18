@@ -151,9 +151,7 @@
             Grid.RowSpan="{Binding LeftPaneRowSpan}"
             Grid.Column="0"
             Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="0,0,1,0"
-            Padding="14"
+            Padding="0"
             MinWidth="260"
             IsVisible="{Binding IsShellPaneOnLeft}">
       <Border.ContextMenu>
@@ -185,9 +183,7 @@
             Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
             Grid.Row="0"
             Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="0,0,0,1"
-            Padding="10,6,10,4"
+            Padding="0"
             MinHeight="220"
             IsVisible="{Binding IsShellPaneOnTop}">
       <Border.ContextMenu>
@@ -219,9 +215,7 @@
             Grid.RowSpan="{Binding RightPaneRowSpan}"
             Grid.Column="2"
             Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="1,0,0,0"
-            Padding="14"
+            Padding="0"
             MinWidth="260"
             IsVisible="{Binding IsShellPaneOnRight}">
       <Border.ContextMenu>
@@ -260,9 +254,7 @@
             Grid.ColumnSpan="{Binding BottomPaneColumnSpan}"
             Grid.Row="2"
             Background="#0E141B"
-            BorderBrush="#2A394B"
-            BorderThickness="0,1,0,0"
-            Padding="10,6,10,10"
+            Padding="0"
             MinHeight="220"
             IsVisible="{Binding IsShellPaneOnBottom}">
       <Border.ContextMenu>
@@ -322,8 +314,7 @@
             Height="44"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            Margin="6"
-            Panel.ZIndex="1000">
+            Margin="6">
       <Polygon x:Name="TopLeft_LeftTriangle"
                Points="0,0 14,14 0,28"
                Stroke="#E5EDF7"
@@ -360,8 +351,7 @@
             Height="44"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
-            Margin="6"
-            Panel.ZIndex="1000">
+            Margin="6">
       <Polygon x:Name="TopRight_TopTriangle"
                Points="44,0 16,0 30,14"
                Stroke="#E5EDF7"
@@ -398,8 +388,7 @@
             Height="44"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
-            Margin="6"
-            Panel.ZIndex="1000">
+            Margin="6">
       <Polygon x:Name="BottomLeft_LeftTriangle"
                Points="0,44 14,30 0,16"
                Stroke="#E5EDF7"

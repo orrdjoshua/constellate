@@ -27,6 +27,7 @@
 
   <UserControl.Resources>
     <app:EqualsToReturnFalseConverter x:Key="EqualsToReturnFalse" />
+    <app:BooleanNotConverter x:Key="BooleanNotConverter" />
   </UserControl.Resources>
 
   <panes:PaneChrome x:Name="ParentChrome"
@@ -80,63 +81,153 @@
     </panes:PaneChrome.EmptyHeaderContent>
 
     <panes:PaneChrome.CommandBarContent>
-      <ScrollViewer x:Name="CommandBarScroll"
-                    HorizontalScrollBarVisibility="Auto"
-                    VerticalScrollBarVisibility="Disabled"
-                    PointerWheelChanged="OnCommandBarPointerWheelChanged">
-        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Border Background="#1B2A3A" Padding="4,2" CornerRadius="3" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Text="Splits:" Foreground="#CDE3FF" FontSize="11" VerticalAlignment="Center"/>
-              <Button Content="1" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=1}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo1Command}"
-                      CommandParameter="{Binding Id}"/>
-              <Button Content="2" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=2}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo2Command}"
-                      CommandParameter="{Binding Id}"/>
-              <Button Content="3" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=3}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo3Command}"
-                      CommandParameter="{Binding Id}"/>
-            </StackPanel>
-          </Border>
+      <Grid>
+        <!-- Full command bar for expanded panes -->
+        <ScrollViewer x:Name="CommandBarScroll"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled"
+                      PointerWheelChanged="OnCommandBarPointerWheelChanged"
+                      IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="10"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center">
+            <Border Background="#1B2A3A"
+                    Padding="4,2"
+                    CornerRadius="3"
+                    VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="4"
+                          VerticalAlignment="Center">
+                <TextBlock Text="Splits:"
+                           Foreground="#CDE3FF"
+                           FontSize="11"
+                           VerticalAlignment="Center" />
+                <Button Content="1"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=1}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo1Command}"
+                        CommandParameter="{Binding Id}" />
+                <Button Content="2"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=2}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo2Command}"
+                        CommandParameter="{Binding Id}" />
+                <Button Content="3"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SplitCount, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=3}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSplitTo3Command}"
+                        CommandParameter="{Binding Id}" />
+              </StackPanel>
+            </Border>
 
-          <Border Background="#1B2A3A" Padding="4,2" CornerRadius="3" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-              <TextBlock Text="Slide:" Foreground="#CDE3FF" FontSize="11" VerticalAlignment="Center"/>
-              <Button Content="1" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=0}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo1Command}"
-                      CommandParameter="{Binding Id}"/>
-              <Button Content="2" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=1}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo2Command}"
-                      CommandParameter="{Binding Id}"/>
-              <Button Content="3" Padding="4,0" FontSize="11" Foreground="#E5EDF7" Background="#233142"
-                      IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=2}"
-                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo3Command}"
-                      CommandParameter="{Binding Id}"/>
-            </StackPanel>
-          </Border>
+            <Border Background="#1B2A3A"
+                    Padding="4,2"
+                    CornerRadius="3"
+                    VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="4"
+                          VerticalAlignment="Center">
+                <TextBlock Text="Slide:"
+                           Foreground="#CDE3FF"
+                           FontSize="11"
+                           VerticalAlignment="Center" />
+                <Button Content="1"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=0}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo1Command}"
+                        CommandParameter="{Binding Id}" />
+                <Button Content="2"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=1}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo2Command}"
+                        CommandParameter="{Binding Id}" />
+                <Button Content="3"
+                        Padding="4,0"
+                        FontSize="11"
+                        Foreground="#E5EDF7"
+                        Background="#233142"
+                        IsEnabled="{Binding SlideIndex, Converter={StaticResource EqualsToReturnFalse}, ConverterParameter=2}"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SetParentSlideTo3Command}"
+                        CommandParameter="{Binding Id}" />
+              </StackPanel>
+            </Border>
 
-          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-            <Button Width="22" Height="22" Padding="0" Content="+" Foreground="#E5EDF7" Background="#233142"
-                    ToolTip.Tip="Add child pane"
-                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).CreateChildPaneCommand}"
-                    CommandParameter="{Binding Id}" />
-            <Button Width="22" Height="22" Padding="0" Content="–" Foreground="#E5EDF7" Background="#233142"
-                    ToolTip.Tip="Minimize pane"
-                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeShellPaneCommand}"
-                    CommandParameter="{Binding Id}" />
-            <Button Width="22" Height="22" Padding="0" Content="×" Foreground="#E5EDF7" Background="#233142"
-                    ToolTip.Tip="Destroy pane"
-                    Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
-                    CommandParameter="{Binding Id}" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4"
+                        VerticalAlignment="Center">
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="+"
+                      Foreground="#E5EDF7"
+                      Background="#233142"
+                      ToolTip.Tip="Add child pane"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).CreateChildPaneCommand}"
+                      CommandParameter="{Binding Id}" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="–"
+                      Foreground="#E5EDF7"
+                      Background="#233142"
+                      ToolTip.Tip="Minimize pane"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeShellPaneCommand}"
+                      CommandParameter="{Binding Id}" />
+              <Button Width="22"
+                      Height="22"
+                      Padding="0"
+                      Content="×"
+                      Foreground="#E5EDF7"
+                      Background="#233142"
+                      ToolTip.Tip="Destroy pane"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
+                      CommandParameter="{Binding Id}" />
+            </StackPanel>
           </StackPanel>
+        </ScrollViewer>
+
+        <!-- Minimal command bar for minimized panes: restore + destroy only -->
+        <StackPanel Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding IsMinimized}">
+          <Button Width="22"
+                  Height="22"
+                  Padding="0"
+                  Content="□"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Restore pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RestoreShellPaneCommand}"
+                  CommandParameter="{Binding Id}" />
+          <Button Width="22"
+                  Height="22"
+                  Padding="0"
+                  Content="×"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Destroy pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
+                  CommandParameter="{Binding Id}" />
         </StackPanel>
-      </ScrollViewer>
+      </Grid>
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.PreBodyContent>

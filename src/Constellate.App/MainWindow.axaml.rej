@@ -1,0 +1,30 @@
+diff a/src/Constellate.App/MainWindow.axaml b/src/Constellate.App/MainWindow.axaml	(rejected hunks)
+@@ -563,9 +563,10 @@
+             Grid.Row="2"
+             Grid.Column="0"
+             Width="10"
+             Height="10"
+             HorizontalAlignment="Right"
+             VerticalAlignment="Top"
+             Background="Transparent"
+             BorderBrush="#2A394B"
+             BorderThickness="0,2,2,0"
++             Panel.ZIndex="1100"
+@@ -572,3 +572,3 @@
+             IsVisible="{Binding IsShellPaneOnBottom}"
+             DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />
+-    <Border x:Name="BottomRightIntersectionHit"
++    <Border x:Name="BottomRightIntersectionHit"
+@@ -575,11 +575,12 @@
+             Grid.Row="2"
+             Grid.Column="2"
+             Width="10"
+             Height="10"
+             HorizontalAlignment="Left"
+             VerticalAlignment="Top"
+             Background="Transparent"
+             BorderBrush="#2A394B"
+             BorderThickness="2,2,0,0"
++             Panel.ZIndex="1100"
+             IsVisible="{Binding IsShellPaneOnBottom}"
+             DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />

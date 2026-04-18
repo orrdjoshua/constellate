@@ -349,6 +349,47 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        // For floating parents, snapshot full floating size on minimize and restore it on expand.
+        var isFloating = string.Equals(
+            NormalizeHostId(parentModel.HostId),
+            "floating",
+            StringComparison.Ordinal);
+
+        if (isFloating)
+        {
+            // Transition: expanded -> minimized (header-only chrome)
+            if (minimized && !parentModel.IsMinimized)
+            {
+                // Snapshot current full floating size if we don't already have one.
+                if (parentModel.FloatingWidthFull <= 0.0)
+                {
+                    parentModel.FloatingWidthFull = parentModel.FloatingWidth;
+                }
+
+                if (parentModel.FloatingHeightFull <= 0.0)
+                {
+                    parentModel.FloatingHeightFull = parentModel.FloatingHeight;
+                }
+
+                // Keep width as-is to avoid truncating header text; collapse height to a compact header size.
+                const double headerOnlyHeight = 56.0;
+                parentModel.FloatingHeight = headerOnlyHeight;
+            }
+            // Transition: minimized -> expanded (restore previous full geometry)
+            else if (!minimized && parentModel.IsMinimized)
+            {
+                if (parentModel.FloatingWidthFull > 0.0)
+                {
+                    parentModel.FloatingWidth = parentModel.FloatingWidthFull;
+                }
+
+                if (parentModel.FloatingHeightFull > 0.0)
+                {
+                    parentModel.FloatingHeight = parentModel.FloatingHeightFull;
+                }
+            }
+        }
+
         parentModel.IsMinimized = minimized;
         RaiseParentPaneLayoutChanged();
     }
