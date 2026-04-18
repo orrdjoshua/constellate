@@ -7,17 +7,23 @@ namespace Constellate.App.Infrastructure.Panes.Gestures
     {
         public ParentPaneMoveSession(
             string paneId,
+            string originReferenceId,
             long pointerId,
             Point startPoint,
             DockAttachmentModel originAttachment,
             Rect originBounds)
             : base(PaneGestureKind.ParentMove, paneId, pointerId, startPoint)
         {
+            OriginReferenceId = string.IsNullOrWhiteSpace(originReferenceId)
+                ? paneId
+                : originReferenceId;
             OriginAttachment = originAttachment;
             OriginBounds = originBounds;
             PreviewAttachment = originAttachment;
             PreviewBounds = originBounds;
         }
+
+        public string OriginReferenceId { get; }
 
         public DockAttachmentModel OriginAttachment { get; }
 

@@ -108,6 +108,28 @@
       <Setter Property="StrokeThickness" Value="2"/>
       <Setter Property="Opacity" Value="0.9"/>
     </Style>
+
+    <!-- Docked parent-pane resize grip hover styles -->
+    <Style Selector="Border#LeftPaneResizeGrip:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#RightPaneResizeGrip:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#TopPaneResizeGrip:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#BottomPaneResizeGrip:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
   </Window.Styles>
 
   <Grid x:Name="RootGrid"
@@ -201,7 +223,7 @@
             BorderThickness="1,0,0,0"
             Padding="14"
             MinWidth="260"
-            IsVisible="{Binding IsRightPaneHostVisible}">
+            IsVisible="{Binding IsShellPaneOnRight}">
       <Border.ContextMenu>
         <ContextMenu>
           <MenuItem Header="Minimize pane"

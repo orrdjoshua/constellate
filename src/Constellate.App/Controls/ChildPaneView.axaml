@@ -26,12 +26,6 @@
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
-
-    <Style Selector="Border#ChildBodyDragArea:pointerover">
-      <Setter Property="Background" Value="#172231"/>
-      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
-      <Setter Property="BorderThickness" Value="2"/>
-    </Style>
   </UserControl.Styles>
 
   <panes:PaneChrome x:Name="ChildChrome"

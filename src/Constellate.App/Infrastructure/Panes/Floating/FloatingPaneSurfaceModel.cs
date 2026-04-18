@@ -16,7 +16,8 @@ namespace Constellate.App.Infrastructure.Panes.Floating
         FloatingPaneSurfaceEntryKind Kind,
         Rect Bounds,
         int ZIndex,
-        bool IsMinimized)
+        bool IsMinimized,
+        object DataContext)
     {
         public string SurfaceKey => $"{Kind}:{PaneId}";
     }

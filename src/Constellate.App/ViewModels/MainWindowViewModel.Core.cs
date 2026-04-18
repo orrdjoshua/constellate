@@ -196,7 +196,6 @@ public sealed partial class MainWindowViewModel
     public ObservableCollection<EngineCapability> Capabilities { get; } = new(EngineServices.Capabilities.GetAll());
     public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } = new();
     public ObservableCollection<ParentPaneModel> ParentPaneModels { get; } = new();
-    public ObservableCollection<ChildPaneModel> ChildPaneModels { get; } = new();
 
     // Declarative taxonomy of parent-pane hosts
     public IReadOnlyList<PaneHostDescriptor> PaneHosts { get; } =
@@ -208,21 +207,40 @@ public sealed partial class MainWindowViewModel
         new PaneHostDescriptor("center", "Viewport", "CenterViewportHost")
     ];
 
+    private ParentPaneModel[] GetExpandedParentPanesOnHost(string hostId) =>
+        ParentPaneModels
+            .Where(p =>
+                !p.IsMinimized &&
+                string.Equals(
+                    NormalizeHostId(p.HostId),
+                    hostId,
+                    StringComparison.Ordinal))
+            .ToArray();
+
+    private ParentPaneModel[] GetParentPanesOnHost(string hostId) =>
+        ParentPaneModels
+            .Where(p =>
+                string.Equals(
+                    NormalizeHostId(p.HostId),
+                    hostId,
+                    StringComparison.Ordinal))
+            .ToArray();
+
     // Parent projections per host
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsLeft =>
-        ParentPaneModels.Where(p => !p.IsMinimized && string.Equals(p.HostId, "left", StringComparison.OrdinalIgnoreCase)).ToArray();
+        GetExpandedParentPanesOnHost("left");
 
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsTop =>
-        ParentPaneModels.Where(p => !p.IsMinimized && string.Equals(p.HostId, "top", StringComparison.OrdinalIgnoreCase)).ToArray();
+        GetExpandedParentPanesOnHost("top");
 
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsRight =>
-        ParentPaneModels.Where(p => !p.IsMinimized && string.Equals(p.HostId, "right", StringComparison.OrdinalIgnoreCase)).ToArray();
+        GetExpandedParentPanesOnHost("right");
 
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsBottom =>
-        ParentPaneModels.Where(p => !p.IsMinimized && string.Equals(p.HostId, "bottom", StringComparison.OrdinalIgnoreCase)).ToArray();
+        GetExpandedParentPanesOnHost("bottom");
 
     public IReadOnlyList<ParentPaneModel> ParentPaneModelsFloating =>
-        ParentPaneModels.Where(p => string.Equals(p.HostId, "floating", StringComparison.OrdinalIgnoreCase)).ToArray();
+        GetParentPanesOnHost("floating");
 
     // Single active parent presenters for dock hosts.
     // Dock hosts are architecturally single-parent surfaces; floating remains multi-pane.
@@ -257,7 +275,6 @@ public sealed partial class MainWindowViewModel
     public bool IsShellPaneOnBottom => ParentPaneModelsBottom.Count > 0;
     public bool IsShellPaneFloating => ParentPaneModelsFloating.Count > 0;
     public bool IsFloatingLayerVisible => ParentPaneModelsFloating.Count > 0 || FloatingChildPanes.Count > 0;
-    public bool IsRightPaneHostVisible => ParentPaneModelsRight.Count > 0;
     public bool IsShellPaneMinimized => ParentPaneModels.Any(p => p.IsMinimized);
 
     // Per-host minimized flags (used by PaneLayout partial)

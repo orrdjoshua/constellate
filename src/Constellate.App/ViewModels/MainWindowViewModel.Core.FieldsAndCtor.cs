@@ -660,14 +660,9 @@ namespace Constellate.App
                         {
                             var child = ChildPanes[i];
                             if (removedParentIds.Contains(child.ParentId ?? string.Empty))
+                            {
                                 ChildPanes.RemoveAt(i);
-                        }
-
-                        for (var i = ChildPaneModels.Count - 1; i >= 0; i--)
-                        {
-                            var child = ChildPaneModels[i];
-                            if (removedParentIds.Contains(child.ParentId ?? string.Empty))
-                                ChildPaneModels.RemoveAt(i);
+                            }
                         }
 
                         RaiseChildPaneCollectionsChanged();

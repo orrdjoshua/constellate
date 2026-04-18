@@ -112,8 +112,7 @@ namespace Constellate.App
         /// <summary>
         /// Convenience: true when HostId == "floating" (case-insensitive).
         /// </summary>
-        public bool IsFloating =>
-            string.Equals(HostId, "floating", StringComparison.OrdinalIgnoreCase);
+        public bool IsFloating => HostMatches("floating");
 
         // Floating geometry (used when HostId == "floating").
         public double FloatingX
@@ -322,150 +321,16 @@ namespace Constellate.App
         /// Convenience flags for XAML templates deciding lane stacking orientation.
         /// </summary>
         public bool IsHostLeftOrRight =>
-            string.Equals(HostId, "left", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(HostId, "right", StringComparison.OrdinalIgnoreCase);
+            HostMatches("left") ||
+            HostMatches("right");
 
         public bool IsHostTopOrBottom =>
-            string.Equals(HostId, "top", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(HostId, "bottom", StringComparison.OrdinalIgnoreCase);
+            HostMatches("top") ||
+            HostMatches("bottom");
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        private bool HostMatches(string hostId)
         {
-            if (propertyName is null)
-            {
-                return;
-            }
-
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
-
-    /// <summary>
-    /// Generalized child-pane entity. Children attach to ParentPaneModel via ParentId
-    /// and use SplitIndex/SlideIndex for internal layout within a parent.
-    /// 
-    /// This model is currently used mainly for future-proofing; the active layout
-    /// source of truth during migration remains ChildPaneDescriptor in MainWindowViewModel.
-    /// </summary>
-    public sealed class ChildPaneModel : INotifyPropertyChanged
-    {
-        private string _id = string.Empty;
-        private string _title = string.Empty;
-        private string _parentId = string.Empty;
-        private int _order;
-        private bool _isMinimized;
-        private int _splitIndex;
-        private int _slideIndex;
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public string Id
-        {
-            get => _id;
-            init => _id = value ?? string.Empty;
-        }
-
-        public string Title
-        {
-            get => _title;
-            set
-            {
-                if (string.Equals(_title, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _title = value ?? string.Empty;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Id of the owning ParentPaneModel. Host is inferred from the parent.
-        /// </summary>
-        public string ParentId
-        {
-            get => _parentId;
-            set
-            {
-                if (string.Equals(_parentId, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _parentId = value ?? string.Empty;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Ordering index within the parent’s current split/slide container.
-        /// </summary>
-        public int Order
-        {
-            get => _order;
-            set
-            {
-                if (_order == value)
-                {
-                    return;
-                }
-
-                _order = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public bool IsMinimized
-        {
-            get => _isMinimized;
-            set
-            {
-                if (_isMinimized == value)
-                {
-                    return;
-                }
-
-                _isMinimized = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Split index within the parent (0..SplitCount-1), e.g. column or row index.
-        /// </summary>
-        public int SplitIndex
-        {
-            get => _splitIndex;
-            set
-            {
-                if (_splitIndex == value)
-                {
-                    return;
-                }
-
-                _splitIndex = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Slide/page index within the parent for this child.
-        /// </summary>
-        public int SlideIndex
-        {
-            get => _slideIndex;
-            set
-            {
-                var clamped = Math.Max(0, value);
-                if (_slideIndex == clamped)
-                {
-                    return;
-                }
-
-                _slideIndex = clamped;
-                OnPropertyChanged();
-            }
+            return string.Equals(_hostId, hostId, StringComparison.OrdinalIgnoreCase);
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -34,7 +34,8 @@ namespace Constellate.App.Controls
                         Math.Max(80, child.FloatingWidth),
                         Math.Max(80, child.FloatingHeight)),
                     ZIndex: zIndex,
-                    IsMinimized: child.IsMinimized));
+                    IsMinimized: child.IsMinimized,
+                    DataContext: child));
             }
 
             foreach (var parent in parents ?? Enumerable.Empty<ParentPaneModel>())
@@ -55,7 +56,8 @@ namespace Constellate.App.Controls
                         Math.Max(80, parent.FloatingWidth),
                         Math.Max(80, parent.FloatingHeight)),
                     ZIndex: zIndex,
-                    IsMinimized: parent.IsMinimized));
+                    IsMinimized: parent.IsMinimized,
+                    DataContext: parent));
             }
 
             zCounter = Math.Max(zCounter, nextZ);

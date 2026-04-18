@@ -2,7 +2,6 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Constellate.App.Controls.Panes;
 using Constellate.App.Infrastructure.Panes;
 using Constellate.App.Infrastructure.Panes.Gestures;
 
@@ -10,203 +9,113 @@ namespace Constellate.App
 {
     public partial class MainWindow : Window
     {
-        private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        private bool TryBeginHostParentPaneDrag(object? sender, PointerPressedEventArgs e)
         {
-            if (_isPaneResizing)
+            if (!CanBeginPaneGesture(e))
             {
-                return;
+                return false;
             }
 
-            if (!ActiveParentMoveOwnsPointer(e))
+            var dragOriginHostId = ParentPaneDragStateResolver.ResolveHostIdFromHostControl(sender as Control);
+            if (string.IsNullOrWhiteSpace(dragOriginHostId))
             {
-                return;
+                return false;
             }
 
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            var parent = ParentPaneDragStateResolver.TryResolveDragParentPane(
+                DataContext as MainWindowViewModel,
+                dragOriginHostId);
+
+            if (parent is null)
             {
-                _isShellPaneDragging = true;
-                _shellDragStartPoint = e.GetPosition(this);
-
-                if (sender is Control control)
-                {
-                    _dragOriginHostId = control.Name switch
-                    {
-                        "LeftPaneHost" => "left",
-                        "TopPaneHost" => "top",
-                        "RightPaneHost" => "right",
-                        "BottomPaneHost" => "bottom",
-                        "FloatingPaneHost" => "floating",
-                        _ => null
-                    };
-                }
-
-                var parent = TryResolveDragParentPane(_dragOriginHostId);
-                if (parent is not null)
-                {
-                    _activeParentMoveSession = new ParentPaneMoveSession(
-                        paneId: parent.Id,
-                        pointerId: (long)e.Pointer.Id,
-                        startPoint: _shellDragStartPoint,
-                        originAttachment: DockAttachmentModel.FromHostId(parent.HostId),
-                        originBounds: GetParentPaneCurrentBounds(parent));
-                }
-                else
-                {
-                    _activeParentMoveSession = null;
-                }
+                ResetActiveParentPaneDrag(vm: null, commit: false);
+                return false;
             }
+
+            return BeginParentPaneMoveSession(
+                parent,
+                dragOriginHostId,
+                e,
+                markHandled: false);
         }
 
-        private void ShellPaneHost_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private bool TryBeginParentPaneDrag(object? sender, PointerPressedEventArgs e)
         {
-            if (!_isShellPaneDragging)
+            if (!CanBeginPaneGesture(e))
             {
-                return;
+                return false;
             }
 
-            if (!ActiveParentMoveOwnsPointer(e))
+            if (sender is not Control originControl || originControl.DataContext is not ParentPaneModel parent)
             {
-                return;
+                return false;
             }
 
-            CompleteActiveParentPaneDrag(e);
+            return BeginParentPaneMoveSession(
+                parent,
+                parent.Id,
+                e,
+                markHandled: true);
         }
 
-        private void OnParentPaneHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+        private bool BeginParentPaneMoveSession(
+            ParentPaneModel parent,
+            string dragOriginId,
+            PointerPressedEventArgs e,
+            bool markHandled)
         {
-            if (_isPaneResizing)
-            {
-                return;
-            }
+            var startPoint = e.GetPosition(this);
 
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            {
-                return;
-            }
+            var originBounds = ParentPaneDragStateResolver.GetParentPaneCurrentBounds(
+                parent,
+                GetShellHostRect,
+                GetShellFloatingSurfaceRect);
 
-            if (sender is not Control header || header.DataContext is not ParentPaneModel parent)
-            {
-                return;
-            }
-
-            if (!CanBeginParentPaneDragFromSender(sender))
-            {
-                return;
-            }
-
-            _isShellPaneDragging = true;
-            _shellDragStartPoint = e.GetPosition(this);
-            _dragOriginHostId = parent.Id;
-            _activeParentMoveSession = new ParentPaneMoveSession(
+            var session = PaneGestureSessionFactory.CreateParentMoveSession(
                 paneId: parent.Id,
+                originReferenceId: dragOriginId,
+                originHostId: parent.HostId,
                 pointerId: (long)e.Pointer.Id,
-                startPoint: _shellDragStartPoint,
-                originAttachment: DockAttachmentModel.FromHostId(parent.HostId),
-                originBounds: GetParentPaneCurrentBounds(parent));
+                startPoint: startPoint,
+                originBounds: originBounds);
 
-            try
-            {
-                e.Pointer.Capture(this);
-            }
-            catch
-            {
-            }
-
-            e.Handled = true;
-        }
-
-        private void OnParentPaneHeaderPointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            if (!_isShellPaneDragging)
-            {
-                return;
-            }
-
-            if (!ActiveParentMoveOwnsPointer(e))
-            {
-                return;
-            }
-
-            CompleteActiveParentPaneDrag(e);
-            e.Handled = true;
-        }
-
-        private void OnParentPaneHeaderPointerMoved(object? sender, PointerEventArgs e)
-        {
-            if (_isPaneResizing)
-            {
-                return;
-            }
-
-            if (!_isShellPaneDragging)
-            {
-                return;
-            }
-
-            UpdateActiveParentPaneDragPreview(e.GetPosition(this));
-            e.Handled = true;
-        }
-
-        private void ShellPaneHost_OnPointerMoved(object? sender, PointerEventArgs e)
-        {
-            if (_isPaneResizing)
-            {
-                return;
-            }
-
-            if (!_isShellPaneDragging)
-            {
-                return;
-            }
-
-            if (!ActiveParentMoveOwnsPointer(e))
-            {
-                return;
-            }
-
-            UpdateActiveParentPaneDragPreview(e.GetPosition(this));
+            return PaneGestureSessionCoordinator.Start(
+                ref _activeParentMoveSession,
+                session,
+                e,
+                TryCaptureWindowPointer,
+                markHandled);
         }
 
         private void CompleteActiveParentPaneDrag(PointerReleasedEventArgs e)
         {
-            _isShellPaneDragging = false;
+            var session = _activeParentMoveSession;
+            if (session is null)
+            {
+                return;
+            }
 
-            try
-            {
-                e.Pointer.Capture(null);
-            }
-            catch
-            {
-            }
+            ReleaseWindowPointer(e);
 
             if (DataContext is not MainWindowViewModel vm)
             {
-                _activeParentMoveSession?.Cancel();
-                _activeParentMoveSession = null;
-                _dragOriginHostId = null;
+                ResetActiveParentPaneDrag(vm: null, commit: false);
                 return;
             }
 
             var releasePoint = e.GetPosition(this);
             var windowSize = new Size(Bounds.Width, Bounds.Height);
-
-            if (windowSize.Width <= 0 || windowSize.Height <= 0 || string.IsNullOrWhiteSpace(_dragOriginHostId))
+            if (windowSize.Width <= 0 || windowSize.Height <= 0 || string.IsNullOrWhiteSpace(session.OriginReferenceId))
             {
-                vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-                _activeParentMoveSession?.Cancel();
-                _activeParentMoveSession = null;
-                _dragOriginHostId = null;
+                ResetActiveParentPaneDrag(vm, commit: false);
                 return;
             }
 
-            var originAttachment = GetParentDragOriginAttachment();
-
             Rect? previewBounds = null;
-            if (_activeParentMoveSession is not null &&
-                _activeParentMoveSession.PreviewBounds.Width > 0 &&
-                _activeParentMoveSession.PreviewBounds.Height > 0)
+            if (session.PreviewBounds.Width > 0 &&
+                session.PreviewBounds.Height > 0)
             {
-                previewBounds = _activeParentMoveSession.PreviewBounds;
+                previewBounds = session.PreviewBounds;
             }
             else if (vm.ParentPaneDragShadowWidth > 0 && vm.ParentPaneDragShadowHeight > 0)
             {
@@ -221,24 +130,14 @@ namespace Constellate.App
                 releasePoint,
                 windowSize,
                 GetShellFloatingSurfaceRect(),
-                originAttachment,
+                GetParentDragOriginAttachment(),
                 previewBounds,
                 vm.IsDockHostOccupied);
 
             if (commit.IsFloating && commit.RelativeFloatingBounds is { } floatingRect)
             {
-                try
-                {
-                    Console.WriteLine(
-                        $"[FloatingDrop] originHost={_dragOriginHostId} rel=({floatingRect.X:0},{floatingRect.Y:0},{floatingRect.Width:0},{floatingRect.Height:0})"
-                    );
-                }
-                catch
-                {
-                }
-
                 vm.MoveParentPaneToFloating(
-                    _dragOriginHostId,
+                    session.OriginReferenceId,
                     floatingRect.X,
                     floatingRect.Y,
                     floatingRect.Width,
@@ -246,18 +145,16 @@ namespace Constellate.App
             }
             else
             {
-                vm.MoveParentPaneToHost(_dragOriginHostId, commit.TargetHostId);
+                vm.MoveParentPaneToHost(session.OriginReferenceId, commit.TargetHostId);
             }
 
-            vm.SetParentPaneDragShadow(false, 0, 0, 0, 0);
-            _activeParentMoveSession?.Commit();
-            _activeParentMoveSession = null;
-            _dragOriginHostId = null;
+            ResetActiveParentPaneDrag(vm, commit: true);
         }
 
         private void UpdateActiveParentPaneDragPreview(Point currentPoint)
         {
-            if (DataContext is not MainWindowViewModel vm)
+            var session = _activeParentMoveSession;
+            if (session is null || DataContext is not MainWindowViewModel vm)
             {
                 return;
             }
@@ -274,7 +171,7 @@ namespace Constellate.App
                 windowSize,
                 GetShellFloatingSurfaceRect(),
                 GetParentDragOriginAttachment(),
-                _activeParentMoveSession?.OriginBounds,
+                session.OriginBounds,
                 vm.IsDockHostOccupied);
 
             vm.SetParentPaneDragShadow(
@@ -284,62 +181,34 @@ namespace Constellate.App
                 preview.PreviewBounds.Width,
                 preview.PreviewBounds.Height);
 
-            _activeParentMoveSession?.UpdatePreview(
+            session.UpdatePreview(
                 currentPoint,
                 preview.PreviewAttachment,
                 preview.PreviewBounds);
         }
 
+        private void ResetActiveParentPaneDrag(MainWindowViewModel? vm, bool commit)
+        {
+            vm?.SetParentPaneDragShadow(false, 0, 0, 0, 0);
+            PaneGestureSessionCoordinator.Finish(ref _activeParentMoveSession, commit);
+        }
+
         private bool ActiveParentMoveOwnsPointer(PointerEventArgs e)
         {
-            return _activeParentMoveSession?.MatchesPointer(e) ?? true;
-        }
-
-        private static bool CanBeginParentPaneDragFromSender(object? sender)
-        {
-            var region = PaneChromeInputHelper.ResolveRegion(sender);
-            return PaneChromeRegionRules.IsDragOrigin(region);
-        }
-
-        private ParentPaneModel? TryResolveDragParentPane(string? originHostOrPaneId)
-        {
-            if (DataContext is not MainWindowViewModel vm || string.IsNullOrWhiteSpace(originHostOrPaneId))
-            {
-                return null;
-            }
-
-            return vm.ParentPaneModels.FirstOrDefault(parent =>
-                       string.Equals(parent.Id, originHostOrPaneId, StringComparison.Ordinal)) ??
-                   vm.ParentPaneModels.FirstOrDefault(parent =>
-                       string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), MainWindowViewModel.NormalizeHostId(originHostOrPaneId), StringComparison.Ordinal));
-        }
-
-        private Rect GetParentPaneCurrentBounds(ParentPaneModel parent)
-        {
-            if (string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), "floating", StringComparison.Ordinal))
-            {
-                var floatingRect = GetShellFloatingSurfaceRect();
-                return new Rect(
-                    floatingRect.X + parent.FloatingX,
-                    floatingRect.Y + parent.FloatingY,
-                    parent.FloatingWidth,
-                    parent.FloatingHeight);
-            }
-
-            return GetShellHostRect(parent.HostId);
+            return PaneGestureSessionGuard.MatchesPointer(_activeParentMoveSession, e);
         }
 
         private DockAttachmentModel GetParentDragOriginAttachment()
         {
-            if (_activeParentMoveSession is not null)
-            {
-                return _activeParentMoveSession.OriginAttachment;
-            }
+            var originReferenceId = _activeParentMoveSession?.OriginReferenceId;
+            var resolvedParent = ParentPaneDragStateResolver.TryResolveDragParentPane(
+                DataContext as MainWindowViewModel,
+                originReferenceId);
 
-            var parent = TryResolveDragParentPane(_dragOriginHostId);
-            return parent is not null
-                ? DockAttachmentModel.FromHostId(parent.HostId)
-                : DockAttachmentModel.FromHostId(_dragOriginHostId);
+            return ParentPaneDragStateResolver.ResolveOriginAttachment(
+                _activeParentMoveSession,
+                resolvedParent,
+                originReferenceId);
         }
     }
 }

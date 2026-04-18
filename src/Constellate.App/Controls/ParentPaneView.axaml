@@ -30,7 +30,8 @@
   </UserControl.Resources>
 
   <panes:PaneChrome x:Name="ParentChrome"
-                    IsBodyVisible="{Binding HasExpandedContent}">
+                    IsBodyVisible="{Binding HasExpandedContent}"
+                    PointerWheelChanged="OnPaneChromePointerWheelChanged">
     <panes:PaneChrome.LabelContent>
       <Border x:Name="ParentLabelArea"
               Background="#213244"

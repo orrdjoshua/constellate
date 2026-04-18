@@ -9,12 +9,14 @@ namespace Constellate.App.Infrastructure.Panes.Gestures
             long pointerId,
             Point startPoint,
             string? originParentId,
+            string? originHostId,
             int originLaneIndex,
             int originSlideIndex,
             Size originPreviewSize)
             : base(PaneGestureKind.ChildDrag, paneId, pointerId, startPoint)
         {
             OriginParentId = originParentId;
+            OriginHostId = originHostId;
             OriginLaneIndex = originLaneIndex;
             OriginSlideIndex = originSlideIndex;
             OriginPreviewSize = originPreviewSize;
@@ -25,6 +27,8 @@ namespace Constellate.App.Infrastructure.Panes.Gestures
         }
 
         public string? OriginParentId { get; }
+
+        public string? OriginHostId { get; }
 
         public int OriginLaneIndex { get; }
 

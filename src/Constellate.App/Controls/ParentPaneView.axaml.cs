@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
@@ -25,33 +26,44 @@ namespace Constellate.App.Controls
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (this.VisualRoot is MainWindow mw)
+            if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e))
             {
-                mw.ForwardParentHeaderPointerPressed(sender, e);
-            }
-
-            e.Handled = true;
-        }
-
-        private void EmptyHeader_OnDoubleTapped(object? sender, TappedEventArgs e)
-        {
-            if (DataContext is ParentPaneModel parent &&
-                this.VisualRoot is MainWindow mw &&
-                mw.DataContext is MainWindowViewModel vm)
-            {
-                vm.SetParentPaneMinimized(parent.Id, true);
                 e.Handled = true;
             }
         }
 
+        private void EmptyHeader_OnDoubleTapped(object? sender, TappedEventArgs e)
+        {
+            PaneChromeInputHelper.TryHandleEmptyHeaderDoubleTap(this, DataContext, e);
+        }
+
         private void Header_OnPointerEntered(object? sender, PointerEventArgs e)
         {
-            SetDragHoverForSender(sender, true);
+            PaneChromeInputHelper.SetPaneDragHover(_root, sender, true);
         }
 
         private void Header_OnPointerExited(object? sender, PointerEventArgs e)
         {
-            SetDragHoverForSender(sender, false);
+            PaneChromeInputHelper.SetPaneDragHover(_root, sender, false);
+        }
+
+        private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            // Route wheel input over the pane shell (typically header region) to the command bar scroll viewer.
+            var scroll = this.FindControl<ScrollViewer>("CommandBarScroll");
+            if (scroll is null)
+            {
+                return;
+            }
+
+            if (Math.Abs(e.Delta.Y) > 0.01)
+            {
+                var current = scroll.Offset;
+                // Map vertical wheel to horizontal scroll: positive delta.Y (wheel up) scrolls left, negative scrolls right.
+                var deltaX = -e.Delta.Y * 40;
+                scroll.Offset = new Vector(current.X + deltaX, current.Y);
+                e.Handled = true;
+            }
         }
 
         private void OnCommandBarPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -64,17 +76,6 @@ namespace Constellate.App.Controls
             var dx = -e.Delta.Y * 24.0;
             _commandBarScroll.Offset = new Vector(_commandBarScroll.Offset.X + dx, 0);
             e.Handled = true;
-        }
-
-        private void SetDragHoverForSender(object? sender, bool isActive)
-        {
-            if (_root is null)
-            {
-                return;
-            }
-
-            var region = _root.ResolveRegion(sender);
-            _root.SetDragHover(region, isActive);
         }
     }
 }

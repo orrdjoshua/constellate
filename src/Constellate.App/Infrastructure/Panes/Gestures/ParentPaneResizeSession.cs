@@ -18,24 +18,32 @@ namespace Constellate.App.Infrastructure.Panes.Gestures
     {
         public ParentPaneResizeSession(
             string paneId,
+            string resizeHostId,
             long pointerId,
             Point startPoint,
             DockAttachmentModel attachment,
             PaneResizeEdge resizeEdge,
-            Rect originBounds)
+            Rect originBounds,
+            double originDockExtent)
             : base(PaneGestureKind.ParentResize, paneId, pointerId, startPoint)
         {
+            ResizeHostId = resizeHostId ?? string.Empty;
             Attachment = attachment;
             ResizeEdge = resizeEdge;
             OriginBounds = originBounds;
+            OriginDockExtent = originDockExtent;
             PreviewBounds = originBounds;
         }
+
+        public string ResizeHostId { get; }
 
         public DockAttachmentModel Attachment { get; }
 
         public PaneResizeEdge ResizeEdge { get; }
 
         public Rect OriginBounds { get; }
+
+        public double OriginDockExtent { get; }
 
         public Rect PreviewBounds { get; private set; }
 
