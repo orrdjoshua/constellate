@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Constellate.App.Controls.Panes;
 using Avalonia.VisualTree;
+using System;
 
 namespace Constellate.App.Controls
 {
