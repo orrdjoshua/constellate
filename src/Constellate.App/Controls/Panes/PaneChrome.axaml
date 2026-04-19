@@ -25,28 +25,26 @@
                 Grid.Row="0"
                 Background="#121A23"
                 CornerRadius="4"
-                Padding="10,4">
-          <!-- Header layout:
-               - Label (fixed, left)
-               - Empty header region (fixed, left)
-               - CommandBar (scrollable only in this column) -->
-          <Grid ColumnDefinitions="Auto,Auto,*"
-                ColumnSpacing="8">
-            <ContentPresenter x:Name="PART_LabelRegion"
-                              Grid.Column="0"
-                              Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            <ContentPresenter x:Name="PART_EmptyHeaderRegion"
-                              Grid.Column="1"
-                              Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            <ScrollViewer x:Name="PART_HeaderScroll"
-                          Grid.Column="2"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Disabled"
-                          ClipToBounds="True">
+                Padding="8,4">
+          <!-- Entire header scrolls horizontally (no visible scrollbars). -->
+          <ScrollViewer x:Name="PART_HeaderScroll"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Disabled"
+                        ClipToBounds="True">
+            <!-- Left-anchored header content: never shifts off the left edge; ScrollViewer only overflows right. -->
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8"
+                        HorizontalAlignment="Left">
+              <ContentPresenter x:Name="PART_LabelRegion"
+                                Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+              <ContentPresenter x:Name="PART_EmptyHeaderRegion"
+                                Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
               <ContentPresenter x:Name="PART_CommandBarRegion"
                                 Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            </ScrollViewer>
-          </Grid>
+              <!-- trailing spacer to avoid the rightmost controls being flush to pane edge at scroll end -->
+              <Border Width="8"/>
+            </StackPanel>
+          </ScrollViewer>
         </Border>
 
         <ContentPresenter Grid.Row="1"
