@@ -176,7 +176,7 @@ namespace Constellate.App
                 return;
             }
 
-            // During active resize (or any active gesture), suppress host-level hover.
+            // During an active gesture, ensure host-level hover is cleared.
             if (_activeParentResizeSession is not null ||
                 _activeChildDragSession is not null ||
                 _activeParentMoveSession is not null)
@@ -185,11 +185,8 @@ namespace Constellate.App
                 return;
             }
 
-            // No active gesture: update host-driven hover so halo mirrors drag-start eligibility.
-            if (sender is Control hostControl)
-            {
-                UpdateHostDragHover(hostControl, e);
-            }
+            // No active gesture: do nothing here. Pane chrome (header/empty-header/empty-body) handlers
+            // own halo/eligibility so hover remains strictly pane-centric.
         }
 
         private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)

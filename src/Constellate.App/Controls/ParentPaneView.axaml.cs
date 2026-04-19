@@ -30,6 +30,7 @@ namespace Constellate.App.Controls
                 bodyRegion.PointerEntered += BodyRegion_OnPointerEnteredOrMoved;
                 bodyRegion.PointerMoved += BodyRegion_OnPointerEnteredOrMoved;
                 bodyRegion.PointerExited += BodyRegion_OnPointerExited;
+                bodyRegion.PointerPressed += BodyRegion_OnPointerPressed;
             }
         }
 
@@ -116,6 +117,23 @@ namespace Constellate.App.Controls
             }
 
             PaneChromeInputHelper.SetPaneDragHover(_root, PaneChromeRegion.Body, false);
+        }
+
+        // Begin a pane-centric parent-drag from empty body (not over child/splitter).
+        private void BodyRegion_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_root is null)
+            {
+                return;
+            }
+
+            var srcVisual = (e.Source as Visual) ?? (sender as Visual);
+            if (IsWithinChildOrSplitter(srcVisual))
+            {
+                return;
+            }
+
+            if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e)) e.Handled = true;
         }
 
         private static bool IsWithinChildOrSplitter(Visual? v)
