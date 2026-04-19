@@ -130,6 +130,27 @@
       <Setter Property="BorderBrush" Value="#FFC48A2F" />
       <Setter Property="BorderThickness" Value="2" />
     </Style>
+    <!-- Corner intersection hover affordance (same look as resize grips) -->
+    <Style Selector="Border#TopLeftIntersectionHit:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#TopRightIntersectionHit:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#BottomLeftIntersectionHit:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border#BottomRightIntersectionHit:pointerover">
+      <Setter Property="Background" Value="#172231" />
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
   </Window.Styles>
 
   <Grid x:Name="RootGrid"
@@ -461,27 +482,41 @@
     <Border x:Name="TopLeftIntersectionHit"
             Grid.Row="0"
             Grid.Column="0"
-            Width="10"
-            Height="10"
+            Width="14"
+            Height="14"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="0,0,2,2"
             IsVisible="{Binding IsShellPaneOnTop}"
-            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
+            Cursor="Hand"
+            IsHitTestVisible="True"
+            Panel.ZIndex="1002"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped">
+      <ToolTip.Tip>
+        <TextBlock Text="Flip corner ownership (Top ↔ Left)" />
+      </ToolTip.Tip>
+    </Border>
     <Border x:Name="TopRightIntersectionHit"
             Grid.Row="0"
             Grid.Column="2"
-            Width="10"
-            Height="10"
+            Width="14"
+            Height="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="2,0,0,2"
             IsVisible="{Binding IsShellPaneOnTop}"
-            DoubleTapped="OnTopCornerIntersectionDoubleTapped" />
+            Cursor="Hand"
+            IsHitTestVisible="True"
+            Panel.ZIndex="1002"
+            DoubleTapped="OnTopCornerIntersectionDoubleTapped">
+      <ToolTip.Tip>
+        <TextBlock Text="Flip corner ownership (Top ↔ Right)" />
+      </ToolTip.Tip>
+    </Border>
 
     <!-- Resize grips -->
     <Border x:Name="LeftPaneResizeGrip"
@@ -555,26 +590,40 @@
     <Border x:Name="BottomLeftIntersectionHit"
             Grid.Row="2"
             Grid.Column="0"
-            Width="10"
-            Height="10"
+            Width="14"
+            Height="14"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="0,2,2,0"
             IsVisible="{Binding IsShellPaneOnBottom}"
-            DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />
+            Cursor="Hand"
+            IsHitTestVisible="True"
+            Panel.ZIndex="1002"
+            DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
+      <ToolTip.Tip>
+        <TextBlock Text="Flip corner ownership (Bottom ↔ Left)" />
+      </ToolTip.Tip>
+    </Border>
     <Border x:Name="BottomRightIntersectionHit"
             Grid.Row="2"
             Grid.Column="2"
-            Width="10"
-            Height="10"
+            Width="14"
+            Height="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Background="Transparent"
             BorderBrush="#2A394B"
             BorderThickness="2,2,0,0"
             IsVisible="{Binding IsShellPaneOnBottom}"
-            DoubleTapped="OnBottomCornerIntersectionDoubleTapped" />
+            Cursor="Hand"
+            IsHitTestVisible="True"
+            Panel.ZIndex="1002"
+            DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
+      <ToolTip.Tip>
+        <TextBlock Text="Flip corner ownership (Bottom ↔ Right)" />
+      </ToolTip.Tip>
+    </Border>
   </Grid>
 </Window>

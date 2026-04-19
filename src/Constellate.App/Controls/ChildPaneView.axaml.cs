@@ -6,6 +6,7 @@ using Constellate.App.Controls.Panes;
 using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
+using Avalonia.Threading;
 
 namespace Constellate.App.Controls
 {
@@ -13,6 +14,7 @@ namespace Constellate.App.Controls
     {
         private PaneChrome? _root;
         private ScrollViewer? _headerScroll;
+        private ChildPaneDescriptor? _model;
 
         public ChildPaneView()
         {
@@ -25,6 +27,60 @@ namespace Constellate.App.Controls
             _root = this.FindControl<PaneChrome>("ChildChrome");
             _headerScroll = _root?.FindControl<ScrollViewer>("PART_HeaderScroll");
             Debug.WriteLine($"[HeaderScroll][Child][Wire] init: chrome={_root is not null} headerScroll={_headerScroll is not null}");
+
+            // React to item replacement in the ItemsControl:
+            // ChildPaneDescriptor is a record; VM replaces the instance in the collection,
+            // which triggers DataContextChanged for this view.
+            DataContextChanged += OnDataContextChanged;
+
+            // Also run on initial attach (in case DataContext was available before this view attached).
+            AttachedToVisualTree += (_, __) => Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
+        }
+
+        private void OnDataContextChanged(object? sender, EventArgs e)
+        {
+            _model = DataContext as ChildPaneDescriptor;
+            // Defer to ensure region measurements are valid before computing desired width.
+            Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
+        }
+
+        private void ApplyFloatingMinimizedWidthIfNeeded()
+        {
+            if (_root is null || _model is null) return;
+
+            // Only apply to floating minimized children (ParentId == null && IsMinimized)
+            if (_model.ParentId is not null || !_model.IsMinimized) return;
+
+            try
+            {
+                var desired = ComputeMinimizedHeaderDesiredWidth(_root);
+                desired = Math.Max(120.0, desired);
+                var vm = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
+                vm?.SetFloatingChildGeometry(_model.Id, _model.FloatingX, _model.FloatingY, desired, _model.FloatingHeight);
+                Debug.WriteLine($"[ChildPaneView] minimized floating child width set -> {desired:0.0} (id={_model.Id})");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ChildPaneView] minimized width compute error: {ex.Message}");
+            }
+        }
+
+        private static double ComputeMinimizedHeaderDesiredWidth(PaneChrome chrome)
+        {
+            // Measure: Label + CommandBar + trailing spacer (8), plus header/root padding and border thickness.
+            var labelW = chrome.LabelRegionControl?.Bounds.Width ?? 0.0;
+            var cmdW = chrome.CommandBarRegionControl?.Bounds.Width ?? 0.0;
+            const double trailing = 8.0;
+
+            var headerPad = chrome.HeaderBorder?.Padding ?? new Thickness(0);
+            var rootPad = chrome.RootBorder?.Padding ?? new Thickness(0);
+            var rootBorder = chrome.RootBorder?.BorderThickness ?? new Thickness(0);
+
+            var sum = labelW + cmdW + trailing
+                      + headerPad.Left + headerPad.Right
+                      + rootPad.Left + rootPad.Right
+                      + rootBorder.Left + rootBorder.Right;
+            return sum;
         }
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -104,8 +160,7 @@ namespace Constellate.App.Controls
             }
 
             var current = _headerScroll.Offset;
-            var factor = 20.0; // sensitivity multiplier (reduced by ~50%)
-
+            var factor = 20.0; // lower sensitivity
             var extent = _headerScroll.Extent;
             var viewport = _headerScroll.Viewport;
             var maxX = Math.Max(0.0, extent.Width - viewport.Width);

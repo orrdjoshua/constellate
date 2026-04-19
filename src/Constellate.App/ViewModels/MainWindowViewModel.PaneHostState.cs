@@ -399,18 +399,11 @@ public sealed partial class MainWindowViewModel
             // Transition: expanded -> minimized (header-only chrome)
             if (minimized && !parentModel.IsMinimized)
             {
-                // Snapshot current full floating size if we don't already have one.
-                if (parentModel.FloatingWidthFull <= 0.0)
-                {
-                    parentModel.FloatingWidthFull = parentModel.FloatingWidth;
-                }
+                // Always snapshot the current full-size geometry so restore reflects the latest expanded size.
+                parentModel.FloatingWidthFull = parentModel.FloatingWidth;
+                parentModel.FloatingHeightFull = parentModel.FloatingHeight;
 
-                if (parentModel.FloatingHeightFull <= 0.0)
-                {
-                    parentModel.FloatingHeightFull = parentModel.FloatingHeight;
-                }
-
-                // Keep width as-is to avoid truncating header text; collapse height to a compact header size.
+                // Keep width as-is for now; a follow-on pass (view layer) will refine width to the true header width.
                 const double headerOnlyHeight = 56.0;
                 parentModel.FloatingHeight = headerOnlyHeight;
             }

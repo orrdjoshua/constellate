@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -6,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using Constellate.App.Controls.Panes;
 using System.Diagnostics;
+using Avalonia.Threading;
 
 namespace Constellate.App.Controls
 {
@@ -13,6 +15,7 @@ namespace Constellate.App.Controls
     {
         private ScrollViewer? _headerScroll;
         private PaneChrome? _root;
+        private ParentPaneModel? _model;
 
         public ParentPaneView()
         {
@@ -36,6 +39,69 @@ namespace Constellate.App.Controls
                 bodyRegion.PointerPressed += BodyRegion_OnPointerPressed;
                 Debug.WriteLine($"[HeaderScroll][Parent][Wire] bodyHook=True");
             }
+
+            // Track model changes so we can react to minimize events in floating context.
+            DataContextChanged += OnDataContextChanged;
+            HookModel();
+        }
+
+        private void OnDataContextChanged(object? sender, EventArgs e) => HookModel();
+
+        private void HookModel()
+        {
+            if (_model is INotifyPropertyChanged oldPc)
+            {
+                oldPc.PropertyChanged -= OnModelPropertyChanged;
+            }
+
+            _model = DataContext as ParentPaneModel;
+            if (_model is INotifyPropertyChanged pc)
+            {
+                pc.PropertyChanged += OnModelPropertyChanged;
+            }
+        }
+
+        private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (_model is null || _root is null) return;
+            if (!string.Equals(e.PropertyName, nameof(ParentPaneModel.IsMinimized), StringComparison.Ordinal)) return;
+            if (!_model.IsMinimized) return;
+            // Only apply auto-width logic for floating parents.
+            if (!string.Equals(MainWindowViewModel.NormalizeHostId(_model.HostId), "floating", StringComparison.Ordinal)) return;
+
+            // Defer to ensure header layout metrics are valid.
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var desired = ComputeMinimizedHeaderDesiredWidth(_root);
+                    // Reasonable floor to avoid collapsing in edge cases
+                    desired = Math.Max(120.0, desired);
+                    _model.FloatingWidth = desired;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ParentPaneView] minimized width compute error: {ex.Message}");
+                }
+            }, DispatcherPriority.Background);
+        }
+
+        private static double ComputeMinimizedHeaderDesiredWidth(PaneChrome chrome)
+        {
+            // Label + CommandBar + trailing spacer (8), plus header + root paddings and borders
+            var labelW = chrome.LabelRegionControl?.Bounds.Width ?? 0.0;
+            var cmdW = chrome.CommandBarRegionControl?.Bounds.Width ?? 0.0;
+            const double trailing = 8.0;
+
+            var headerPad = chrome.HeaderBorder?.Padding ?? new Thickness(0);
+            var rootPad = chrome.RootBorder?.Padding ?? new Thickness(0);
+            var rootBorder = chrome.RootBorder?.BorderThickness ?? new Thickness(0);
+
+            var sum = labelW + cmdW + trailing
+                      + headerPad.Left + headerPad.Right
+                      + rootPad.Left + rootPad.Right
+                      + rootBorder.Left + rootBorder.Right;
+            return sum;
         }
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
