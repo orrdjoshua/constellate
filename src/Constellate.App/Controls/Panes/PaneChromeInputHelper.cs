@@ -132,9 +132,12 @@ namespace Constellate.App.Controls.Panes
                 return false;
             }
 
+            // Prefer the pane view's DataContext (owner) to avoid ambiguity from nested
+            // content presenters inside the body/header. This ensures we always start
+            // a session for the correct ParentPane/ChildPane when dragging from empty body.
             var paneDataContext =
-                (sender as Control)?.DataContext ??
-                owner?.DataContext;
+                owner?.DataContext ??
+                (sender as Control)?.DataContext;
 
             return mainWindow.TryBeginPressedPaneDrag(sender, paneDataContext, e);
         }

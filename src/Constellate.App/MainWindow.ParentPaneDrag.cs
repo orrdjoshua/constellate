@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using System.Linq;
 using Constellate.App.Infrastructure.Panes;
 using Constellate.App.Infrastructure.Panes.Gestures;
 
@@ -218,15 +219,38 @@ namespace Constellate.App
 
         private DockAttachmentModel GetParentDragOriginAttachment()
         {
-            var originReferenceId = _activeParentMoveSession?.OriginReferenceId;
-            var resolvedParent = ParentPaneDragStateResolver.TryResolveDragParentPane(
-                DataContext as MainWindowViewModel,
-                originReferenceId);
+            // Session-first rule: derive the origin host strictly from the session start reference.
+            // OriginReferenceId is either:
+            //   - a dock host id: "left" | "top" | "right" | "bottom" | "floating"
+            //   - or a specific ParentPane.Id (when started from a pane header)
+            //
+            // We never re-resolve pane/host identity ambiguously; we only map the exact reference captured at start.
+            var session = _activeParentMoveSession;
+            if (session is null || string.IsNullOrWhiteSpace(session.OriginReferenceId))
+            {
+                return DockAttachmentModel.FromHostId("left");
+            }
 
-            return ParentPaneDragStateResolver.ResolveOriginAttachment(
-                _activeParentMoveSession,
-                resolvedParent,
-                originReferenceId);
+            var refId = session.OriginReferenceId;
+            // If refId is itself a valid host id, use it directly.
+            var normalized = MainWindowViewModel.NormalizeHostId(refId);
+            if (string.Equals(refId, normalized, StringComparison.Ordinal))
+            {
+                return DockAttachmentModel.FromHostId(normalized);
+            }
+
+            // Otherwise, refId is a specific parent pane Id; resolve that parent's current HostId.
+            var vm = DataContext as MainWindowViewModel;
+            if (vm is not null)
+            {
+                var parent = vm.ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, refId, StringComparison.Ordinal));
+                if (parent is not null && !string.IsNullOrWhiteSpace(parent.HostId))
+                {
+                    return DockAttachmentModel.FromHostId(MainWindowViewModel.NormalizeHostId(parent.HostId));
+                }
+            }
+
+            return DockAttachmentModel.FromHostId("left");
         }
     }
 }

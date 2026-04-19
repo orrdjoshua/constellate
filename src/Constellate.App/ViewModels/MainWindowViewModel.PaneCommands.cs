@@ -215,11 +215,15 @@ public sealed partial class MainWindowViewModel
         var normalizedHost = NormalizeHostId(hostId);
         var nextOrdinal = ParentPaneModels.Count(parent =>
             string.Equals(NormalizeHostId(parent.HostId), normalizedHost, StringComparison.Ordinal)) + 1;
+        // Simple global ordinal for visibility during QA; note this is
+        // present-count based, so duplicates can occur if panes are removed/re-added.
+        // Good enough for test labeling; can be replaced later with a persistent counter.
+        var globalOrdinal = ParentPaneModels.Count + 1;
 
         return new ParentPaneModel
         {
             Id = $"parent.{normalizedHost}.{nextOrdinal}",
-            Title = "Parent Pane",
+            Title = $"Parent Pane #{globalOrdinal}",
             HostId = normalizedHost,
             IsMinimized = false,
             SplitCount = 1,
