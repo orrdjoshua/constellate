@@ -1,11 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
 
 namespace Constellate.App.Controls.Panes
 {
     public partial class PaneChrome : UserControl
     {
+        private ScrollViewer? _headerScroll;
         public static readonly StyledProperty<object?> LabelContentProperty =
             AvaloniaProperty.Register<PaneChrome, object?>(nameof(LabelContent));
 
@@ -27,6 +30,7 @@ namespace Constellate.App.Controls.Panes
         private Border? _rootBorder;
         private Border? _headerBorder;
         private Control? _labelRegion;
+        private const double TrailingSpacerWidth = 8.0; // matches trailing <Border Width="8"/> in XAML
         private Control? _emptyHeaderRegion;
         private Control? _commandBarRegion;
         private Control? _bodyRegion;
@@ -134,9 +138,71 @@ namespace Constellate.App.Controls.Panes
             _rootBorder = this.FindControl<Border>(PaneChromeRegionNames.Root);
             _headerBorder = this.FindControl<Border>(PaneChromeRegionNames.Header);
             _labelRegion = this.FindControl<Control>(PaneChromeRegionNames.Label);
+            _headerScroll = this.FindControl<ScrollViewer>("PART_HeaderScroll");
             _emptyHeaderRegion = this.FindControl<Control>(PaneChromeRegionNames.EmptyHeader);
             _commandBarRegion = this.FindControl<Control>(PaneChromeRegionNames.CommandBar);
             _bodyRegion = this.FindControl<Control>(PaneChromeRegionNames.Body);
+
+            // Wire basic change notifications so the center width recomputes when header viewport
+            // or child regions change size.
+            if (_headerScroll is not null)
+            {
+                _headerScroll.PropertyChanged += OnAnyHeaderMetricChanged;
+            }
+
+            if (_headerBorder is not null)
+            {
+                _headerBorder.PropertyChanged += OnAnyHeaderMetricChanged;
+            }
+
+            if (_labelRegion is not null)
+            {
+                _labelRegion.PropertyChanged += OnAnyHeaderMetricChanged;
+            }
+
+            if (_commandBarRegion is not null)
+            {
+                _commandBarRegion.PropertyChanged += OnAnyHeaderMetricChanged;
+            }
+
+            // First pass after load
+            UpdateHeaderCenterWidth();
+        }
+
+        private void OnAnyHeaderMetricChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            // Recompute on any bounds/viewport changes; cheap and safe.
+            if (e.Property == BoundsProperty ||
+                e.Property == ScrollViewer.ViewportProperty ||
+                e.Property == Layoutable.BoundsProperty)
+            {
+                UpdateHeaderCenterWidth();
+            }
+
+            // Fallback: if we cannot reliably compare properties across versions, just recompute.
+            // (This executes rarely enough to be fine.)
+            else if (e.Property?.Name == "Bounds" || e.Property?.Name == "Viewport")
+            {
+                UpdateHeaderCenterWidth();
+            }
+        }
+
+        private void UpdateHeaderCenterWidth()
+        {
+            if (_emptyHeaderRegion is null)
+                return;
+
+            var viewport = _headerScroll?.Viewport.Width ?? 0.0;
+            if (viewport <= 0.0)
+            {
+                _emptyHeaderRegion.Width = 0.0;
+                return;
+            }
+
+            var labelW = _labelRegion?.Bounds.Width ?? 0.0;
+            var cmdW = _commandBarRegion?.Bounds.Width ?? 0.0;
+            var center = viewport - (labelW + cmdW + TrailingSpacerWidth);
+            _emptyHeaderRegion.Width = center > 0.0 ? center : 0.0;
         }
     }
 }

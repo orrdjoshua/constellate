@@ -35,6 +35,7 @@
             <StackPanel Orientation="Horizontal"
                         Spacing="8"
                         HorizontalAlignment="Left">
+              <!-- Order matters: Label | EmptyHeader (center grows) | CommandBar | trailing spacer -->
               <ContentPresenter x:Name="PART_LabelRegion"
                                 Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
               <ContentPresenter x:Name="PART_EmptyHeaderRegion"
