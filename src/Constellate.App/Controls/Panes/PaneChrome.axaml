@@ -26,7 +26,7 @@
                 Background="#121A23"
                 CornerRadius="4"
                 Padding="6,4">
-          <Grid ColumnDefinitions="Auto,*,Auto"
+          <Grid ColumnDefinitions="Auto,Auto,*"
                 ColumnSpacing="8">
             <ContentPresenter x:Name="PART_LabelRegion"
                               Grid.Column="0"
