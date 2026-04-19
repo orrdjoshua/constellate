@@ -25,25 +25,28 @@
                 Grid.Row="0"
                 Background="#121A23"
                 CornerRadius="4"
-                Padding="6,4">
-          <!-- Entire header scrolls horizontally (no visible scrollbars). -->
-          <ScrollViewer x:Name="PART_HeaderScroll"
-                        HorizontalScrollBarVisibility="Hidden"
-                        VerticalScrollBarVisibility="Disabled"
-                        ClipToBounds="True">
-            <Grid ColumnDefinitions="Auto,Auto,*"
-                  ColumnSpacing="8">
-              <ContentPresenter x:Name="PART_LabelRegion"
-                                Grid.Column="0"
-                                Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-              <ContentPresenter x:Name="PART_EmptyHeaderRegion"
-                                Grid.Column="1"
-                                Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+                Padding="10,4">
+          <!-- Header layout:
+               - Label (fixed, left)
+               - Empty header region (fixed, left)
+               - CommandBar (scrollable only in this column) -->
+          <Grid ColumnDefinitions="Auto,Auto,*"
+                ColumnSpacing="8">
+            <ContentPresenter x:Name="PART_LabelRegion"
+                              Grid.Column="0"
+                              Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+            <ContentPresenter x:Name="PART_EmptyHeaderRegion"
+                              Grid.Column="1"
+                              Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+            <ScrollViewer x:Name="PART_HeaderScroll"
+                          Grid.Column="2"
+                          HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollBarVisibility="Disabled"
+                          ClipToBounds="True">
               <ContentPresenter x:Name="PART_CommandBarRegion"
-                                Grid.Column="2"
                                 Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            </Grid>
-          </ScrollViewer>
+            </ScrollViewer>
+          </Grid>
         </Border>
 
         <ContentPresenter Grid.Row="1"

@@ -97,7 +97,7 @@ namespace Constellate.App.Controls
             }
 
             var current = _headerScroll.Offset;
-            var factor = 40.0; // sensitivity multiplier
+            var factor = 20.0; // reduced sensitivity (half as fast)
 
             // Clamp to the ScrollViewer’s content width.
             var extent = _headerScroll.Extent;

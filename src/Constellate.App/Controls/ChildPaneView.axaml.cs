@@ -104,7 +104,7 @@ namespace Constellate.App.Controls
             }
 
             var current = _headerScroll.Offset;
-            var factor = 40.0;
+            var factor = 20.0; // reduced sensitivity (half as fast)
 
             var extent = _headerScroll.Extent;
             var viewport = _headerScroll.Viewport;
