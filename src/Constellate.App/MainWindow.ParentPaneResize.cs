@@ -104,6 +104,9 @@ namespace Constellate.App
             if (DataContext is MainWindowViewModel vm)
             {
                 vm.UpdateDockExtent(session.ResizeHostId, preview.PreviewExtent);
+                // Live-apply the extent to the grid so the pane resizes immediately during drag.
+                // The ViewModel recompute/apply path will follow and re-assert the same sizes.
+                ApplyDockExtentToGrid(rootGrid, session.ResizeHostId, preview.PreviewExtent);
             }
 
             session.UpdatePreview(
@@ -139,6 +142,30 @@ namespace Constellate.App
                 "bottom" => rootGrid.RowDefinitions[2].ActualHeight,
                 _ => 0.0
             };
+        }
+
+        private static void ApplyDockExtentToGrid(Grid rootGrid, string edge, double extent)
+        {
+            var clamped = Math.Max(80.0, extent);
+            switch (edge)
+            {
+                case "left":
+                    if (rootGrid.ColumnDefinitions.Count >= 1)
+                        rootGrid.ColumnDefinitions[0].Width = new GridLength(clamped, GridUnitType.Pixel);
+                    break;
+                case "right":
+                    if (rootGrid.ColumnDefinitions.Count >= 3)
+                        rootGrid.ColumnDefinitions[2].Width = new GridLength(clamped, GridUnitType.Pixel);
+                    break;
+                case "top":
+                    if (rootGrid.RowDefinitions.Count >= 1)
+                        rootGrid.RowDefinitions[0].Height = new GridLength(clamped, GridUnitType.Pixel);
+                    break;
+                case "bottom":
+                    if (rootGrid.RowDefinitions.Count >= 3)
+                        rootGrid.RowDefinitions[2].Height = new GridLength(clamped, GridUnitType.Pixel);
+                    break;
+            }
         }
     }
 }

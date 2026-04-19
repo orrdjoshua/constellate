@@ -18,29 +18,6 @@ internal static class PaneGestureHostBinder
         window.PointerReleased += onReleased;
     }
 
-    public static void BindHost(
-        Window window,
-        string name,
-        EventHandler<PointerPressedEventArgs> onPressed,
-        EventHandler<PointerReleasedEventArgs> onReleased,
-        EventHandler<PointerEventArgs> onMoved)
-    {
-        var host = window.FindControl<Border>(name);
-        if (host is null)
-        {
-            return;
-        }
-
-        host.PointerPressed -= onPressed;
-        host.PointerPressed += onPressed;
-
-        host.PointerReleased -= onReleased;
-        host.PointerReleased += onReleased;
-
-        host.PointerMoved -= onMoved;
-        host.PointerMoved += onMoved;
-    }
-
     public static void BindGrip(
         Window window,
         string name,

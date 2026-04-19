@@ -59,7 +59,6 @@
               Cursor="Hand"
               Padding="4,0"
               PointerPressed="Header_OnPointerPressed"
-              PointerWheelChanged="OnPaneChromePointerWheelChanged"
               PointerEntered="Header_OnPointerEntered"
               PointerExited="Header_OnPointerExited">
         <Border.ContextMenu>
@@ -85,7 +84,6 @@
               Cursor="Hand"
               BorderThickness="1"
               PointerEntered="Header_OnPointerEntered"
-              PointerWheelChanged="OnPaneChromePointerWheelChanged"
               PointerExited="Header_OnPointerExited"
               DoubleTapped="EmptyHeader_OnDoubleTapped"
               PointerPressed="Header_OnPointerPressed">

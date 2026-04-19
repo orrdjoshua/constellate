@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Constellate.App.Infrastructure.Panes.Gestures;

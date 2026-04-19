@@ -200,27 +200,18 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Commit a move to the floating host with explicit geometry. The coordinates (x,y)
-    /// must already be relative to the CenterViewportHost (the floating layer’s Canvas origin).
+    /// Commit a move to the floating host for an exact parent pane id. The coordinates (x,y)
+    /// must already be relative to the floating surface origin.
     /// </summary>
-    public void MoveParentPaneToFloating(string? originHostId, double x, double y, double width, double height)
+    public void MoveParentPaneToFloating(string? parentId, double x, double y, double width, double height)
     {
-        if (ParentPaneModels.Count == 0)
+        if (ParentPaneModels.Count == 0 || string.IsNullOrWhiteSpace(parentId))
         {
             return;
         }
 
-        var normalizedOrigin = NormalizeHostId(originHostId);
-
-        ParentPaneModel? parentModel = null;
-        if (!string.IsNullOrWhiteSpace(originHostId))
-        {
-            parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, originHostId, StringComparison.Ordinal));
-            parentModel ??= ParentPaneModels.FirstOrDefault(p =>
-                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal));
-        }
-
-        parentModel ??= ParentPaneModels.FirstOrDefault();
+        var parentModel = ParentPaneModels.FirstOrDefault(p =>
+            string.Equals(p.Id, parentId, StringComparison.Ordinal));
         if (parentModel is null)
         {
             return;
@@ -282,35 +273,21 @@ public sealed partial class MainWindowViewModel
         RaiseParentPaneLayoutChanged();
     }
 
-    public void MoveParentPaneToHost(string hostId)
-    {
-        MoveParentPaneToHost(null, hostId);
-    }
-
     /// <summary>
-    /// Move the parent pane hosted on <paramref name="originHostId"/> (or the first pane
-    /// if originHostId is null/unknown) to the <paramref name="targetHost"/>.
-    /// This is the host-aware variant used by drag gestures.
+    /// Move an exact parent pane id to the specified target host.
     /// </summary>
-    public void MoveParentPaneToHost(string? originHostId, string targetHost)
+    public void MoveParentPaneToHost(string? parentId, string targetHost)
     {
-        if (ParentPaneModels.Count == 0 || string.IsNullOrWhiteSpace(targetHost))
+        if (ParentPaneModels.Count == 0 ||
+            string.IsNullOrWhiteSpace(parentId) ||
+            string.IsNullOrWhiteSpace(targetHost))
         {
             return;
         }
 
         var normalizedTarget = NormalizeHostId(targetHost);
-        var normalizedOrigin = NormalizeHostId(originHostId);
-
-        ParentPaneModel? parentModel = null;
-        if (!string.IsNullOrWhiteSpace(originHostId))
-        {
-            parentModel = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, originHostId, StringComparison.Ordinal));
-            parentModel ??= ParentPaneModels.FirstOrDefault(p =>
-                string.Equals(NormalizeHostId(p.HostId), normalizedOrigin, StringComparison.Ordinal));
-        }
-
-        parentModel ??= ParentPaneModels.FirstOrDefault();
+        var parentModel = ParentPaneModels.FirstOrDefault(p =>
+            string.Equals(p.Id, parentId, StringComparison.Ordinal));
         if (parentModel is null)
         {
             return;

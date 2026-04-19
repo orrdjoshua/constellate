@@ -10,36 +10,6 @@ namespace Constellate.App
 {
     public partial class MainWindow : Window
     {
-        private bool TryBeginHostParentPaneDrag(object? sender, PointerPressedEventArgs e)
-        {
-            if (!CanBeginPaneGesture(e))
-            {
-                return false;
-            }
-
-            var dragOriginHostId = ParentPaneDragStateResolver.ResolveHostIdFromHostControl(sender as Control);
-            if (string.IsNullOrWhiteSpace(dragOriginHostId))
-            {
-                return false;
-            }
-
-            var parent = ParentPaneDragStateResolver.TryResolveDragParentPane(
-                DataContext as MainWindowViewModel,
-                dragOriginHostId);
-
-            if (parent is null)
-            {
-                ResetActiveParentPaneDrag(vm: null, commit: false);
-                return false;
-            }
-
-            return BeginParentPaneMoveSession(
-                parent,
-                dragOriginHostId,
-                e,
-                markHandled: false);
-        }
-
         private bool TryBeginParentPaneDrag(object? sender, PointerPressedEventArgs e)
         {
             if (!CanBeginPaneGesture(e))
@@ -127,7 +97,12 @@ namespace Constellate.App
                     vm.ParentPaneDragShadowHeight);
             }
 
-            var originAttachment = GetParentDragOriginAttachment();
+            if (!TryGetParentDragOriginAttachment(out var originAttachment))
+            {
+                ResetActiveParentPaneDrag(vm, commit: false);
+                return;
+            }
+
             var commit = ParentPaneMoveGesturePlanner.ComputeCommit(
                 releasePoint,
                 windowSize,
@@ -185,11 +160,17 @@ namespace Constellate.App
                 return;
             }
 
+            if (!TryGetParentDragOriginAttachment(out var originAttachment))
+            {
+                ResetActiveParentPaneDrag(vm, commit: false);
+                return;
+            }
+
             var preview = ParentPaneMoveGesturePlanner.ComputePreview(
                 currentPoint,
                 windowSize,
                 GetShellFloatingSurfaceRect(),
-                GetParentDragOriginAttachment(),
+                originAttachment,
                 session.OriginBounds,
                 vm.IsDockHostOccupied);
 
@@ -217,40 +198,33 @@ namespace Constellate.App
             return PaneGestureSessionGuard.MatchesPointer(_activeParentMoveSession, e);
         }
 
-        private DockAttachmentModel GetParentDragOriginAttachment()
+        private bool TryGetParentDragOriginAttachment(out DockAttachmentModel attachment)
         {
-            // Session-first rule: derive the origin host strictly from the session start reference.
-            // OriginReferenceId is either:
-            //   - a dock host id: "left" | "top" | "right" | "bottom" | "floating"
-            //   - or a specific ParentPane.Id (when started from a pane header)
-            //
-            // We never re-resolve pane/host identity ambiguously; we only map the exact reference captured at start.
+            // Parent move is now fully pane-centric: the active session origin is the exact ParentPane.Id
+            // captured from a pane-owned drag-origin region (header / empty header / empty body).
+            // Resolve origin attachment strictly from that pane id; do not interpret host ids here.
+            // If the pane cannot be resolved, fail closed instead of silently defaulting to another host.
             var session = _activeParentMoveSession;
             if (session is null || string.IsNullOrWhiteSpace(session.OriginReferenceId))
             {
-                return DockAttachmentModel.FromHostId("left");
+                attachment = default;
+                return false;
             }
 
-            var refId = session.OriginReferenceId;
-            // If refId is itself a valid host id, use it directly.
-            var normalized = MainWindowViewModel.NormalizeHostId(refId);
-            if (string.Equals(refId, normalized, StringComparison.Ordinal))
-            {
-                return DockAttachmentModel.FromHostId(normalized);
-            }
-
-            // Otherwise, refId is a specific parent pane Id; resolve that parent's current HostId.
             var vm = DataContext as MainWindowViewModel;
             if (vm is not null)
             {
-                var parent = vm.ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, refId, StringComparison.Ordinal));
+                var parent = vm.ParentPaneModels.FirstOrDefault(p =>
+                    string.Equals(p.Id, session.OriginReferenceId, StringComparison.Ordinal));
                 if (parent is not null && !string.IsNullOrWhiteSpace(parent.HostId))
                 {
-                    return DockAttachmentModel.FromHostId(MainWindowViewModel.NormalizeHostId(parent.HostId));
+                    attachment = DockAttachmentModel.FromHostId(MainWindowViewModel.NormalizeHostId(parent.HostId));
+                    return true;
                 }
             }
 
-            return DockAttachmentModel.FromHostId("left");
+            attachment = default;
+            return false;
         }
     }
 }
