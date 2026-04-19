@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using Constellate.App.Controls.Panes;
+using System.Diagnostics;
 
 namespace Constellate.App.Controls
 {
@@ -23,6 +24,7 @@ namespace Constellate.App.Controls
             AvaloniaXamlLoader.Load(this);
             _commandBarScroll = this.FindControl<ScrollViewer>("CommandBarScroll");
             _root = this.FindControl<PaneChrome>("ParentChrome");
+            Debug.WriteLine($"[HeaderScroll][Parent][Wire] init: chrome={_root is not null} cmdBar={_commandBarScroll is not null}");
 
             // Wire body-region hover so empty body space (not over child/splitter) lights the outer shell halo.
             var bodyRegion = _root?.BodyRegionControl;
@@ -32,6 +34,7 @@ namespace Constellate.App.Controls
                 bodyRegion.PointerMoved += BodyRegion_OnPointerEnteredOrMoved;
                 bodyRegion.PointerExited += BodyRegion_OnPointerExited;
                 bodyRegion.PointerPressed += BodyRegion_OnPointerPressed;
+                Debug.WriteLine($"[HeaderScroll][Parent][Wire] bodyHook=True");
             }
         }
 
@@ -63,12 +66,14 @@ namespace Constellate.App.Controls
             // Only act for header: ignore if the event is within the body region.
             if (_root is null || _commandBarScroll is null)
             {
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing refs chrome={_root is not null} cmdBar={_commandBarScroll is not null}");
                 return;
             }
 
             var srcVisual = (e.Source as Visual) ?? (sender as Visual);
             if (IsWithinBodyRegion(srcVisual))
             {
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) region=Body ignored");
                 return;
             }
 
@@ -77,14 +82,17 @@ namespace Constellate.App.Controls
             if (Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y))
             {
                 dx = e.Delta.X;           // two‑finger side scroll on trackpads
+                Debug.WriteLine($"[HeaderScroll][Parent] dxFrom=X dx={dx:0.00}");
             }
             else
             {
                 dx = -e.Delta.Y;          // wheel/trackpad vertical → horizontal
+                Debug.WriteLine($"[HeaderScroll][Parent] dxFrom=Y dx={dx:0.00}");
             }
 
             if (Math.Abs(dx) < 0.01)
             {
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: negligible dx; ignored");
                 return;
             }
 
@@ -101,6 +109,11 @@ namespace Constellate.App.Controls
             {
                 _commandBarScroll.Offset = new Vector(nextX, current.Y);
                 e.Handled = true;
+                Debug.WriteLine($"[HeaderScroll][Parent] applied: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={current.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} factor={factor}");
+            }
+            else
+            {
+                Debug.WriteLine($"[HeaderScroll][Parent] noop: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={current.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} (no change)");
             }
         }
 
@@ -113,6 +126,7 @@ namespace Constellate.App.Controls
 
             // Delegate to the same logic as header-wide scrolling (handles X or Y).
             OnPaneChromePointerWheelChanged(sender, e);
+            Debug.WriteLine($"[HeaderScroll][Parent][CmdBar] delegated wheel delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00})");
         }
 
         // Body-region hover helpers: light halo only when over empty parent body (not over child panes or splitters).
@@ -167,6 +181,7 @@ namespace Constellate.App.Controls
         {
             if (_root?.BodyRegionControl is null)
             {
+                Debug.WriteLine($"[HeaderScroll][Parent] bodyCheck: bodyRegion=null");
                 return false;
             }
 
@@ -174,9 +189,11 @@ namespace Constellate.App.Controls
             {
                 if (ReferenceEquals(cur, _root.BodyRegionControl))
                 {
+                    Debug.WriteLine($"[HeaderScroll][Parent] bodyCheck: hit BodyRegion");
                     return true;
                 }
             }
+            Debug.WriteLine($"[HeaderScroll][Parent] bodyCheck: not in body");
             return false;
         }
 

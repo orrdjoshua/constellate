@@ -104,7 +104,7 @@
                     PointerWheelChanged="OnCommandBarPointerWheelChanged">
         <StackPanel Orientation="Horizontal"
                     Spacing="4"
-                    HorizontalAlignment="Right"
+                    HorizontalAlignment="Left"
                     Margin="0,0,2,0">
           <Button Width="20"
                   Height="20"

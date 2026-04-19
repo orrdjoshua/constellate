@@ -90,7 +90,7 @@
                       IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
           <StackPanel Orientation="Horizontal"
                       Spacing="10"
-                      HorizontalAlignment="Right"
+                      HorizontalAlignment="Left"
                       VerticalAlignment="Center">
             <Border Background="#1B2A3A"
                     Padding="4,2"
