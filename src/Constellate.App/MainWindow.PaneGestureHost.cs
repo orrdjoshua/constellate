@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Constellate.App.Controls;
 using Constellate.App.Controls.Panes;
@@ -90,6 +91,15 @@ namespace Constellate.App
                 this,
                 Window_OnGlobalPointerMoved,
                 Window_OnGlobalPointerReleased);
+
+            // Host-exit: clear halo when pointer leaves any dock host entirely.
+            AttachHoverClearOnHostExit("LeftPaneHost");
+            AttachHoverClearOnHostExit("TopPaneHost");
+            AttachHoverClearOnHostExit("RightPaneHost");
+            AttachHoverClearOnHostExit("BottomPaneHost");
+
+            // When entering the center viewport, no parent-drag can begin → clear any host halo.
+            AttachHoverClearOnPointerEnter("CenterViewportHost");
         }
 
         internal bool TryBeginPressedPaneDrag(object? sender, object? paneDataContext, PointerPressedEventArgs e)
@@ -297,6 +307,11 @@ namespace Constellate.App
             _activeHostHoverChrome.SetDragHover(true);
         }
 
+        private void ShellPaneHost_OnPointerExited(object? sender, PointerEventArgs e)
+        {
+            ClearActiveHostHover();
+        }
+
         private void ClearActiveHostHover()
         {
             if (_activeHostHoverChrome is not null)
@@ -324,6 +339,36 @@ namespace Constellate.App
             return null;
         }
 
+        // Helper: attach PointerExited on a named host to clear halo when leaving the host.
+        private void AttachHoverClearOnHostExit(string hostName)
+        {
+            try
+            {
+                if (this.FindControl<Control>(hostName) is { } host)
+                {
+                    // Avoid adding multiple handlers if InitializePaneGestureHost is ever re-run.
+                    host.PointerExited -= ShellPaneHost_OnPointerExited;
+                    host.PointerExited += ShellPaneHost_OnPointerExited;
+                }
+            }
+            catch
+            {
+                // Best-effort; if host not found, skip silently.
+            }
+        }
+
+        // Helper: attach PointerEntered on a named surface to ensure halo is cleared on entry.
+        private void AttachHoverClearOnPointerEnter(string controlName)
+        {
+            try
+            {
+                if (this.FindControl<Control>(controlName) is { } ctrl)
+                {
+                    ctrl.PointerEntered += (_, __) => ClearActiveHostHover();
+                }
+            }
+            catch { }
+        }
         private static TControl? FindDescendant<TControl>(Visual? root) where TControl : class
         {
             if (root is null) return null;
