@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
+using Constellate.App.Controls;
 using Constellate.App.Controls.Panes;
 using Constellate.App.Infrastructure.Panes.Gestures;
 
@@ -7,6 +10,9 @@ namespace Constellate.App
 {
     public partial class MainWindow
     {
+        // Tracks the current host-driven hover chrome so we can clear it deterministically.
+        private PaneChrome? _activeHostHoverChrome;
+
         private void InitializePaneGestureHost()
         {
             PaneGestureHostBinder.BindHost(
@@ -132,11 +138,15 @@ namespace Constellate.App
 
         private void ShellPaneHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            // Clear any host hover affordance before attempting to start a gesture.
+            ClearActiveHostHover();
             TryBeginHostParentPaneDrag(sender, e);
         }
 
         private void ShellPaneHost_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
+            // End-of-host interaction → clear any host hover affordance.
+            ClearActiveHostHover();
             if (_activeParentMoveSession is null ||
                 !PaneGestureSessionGuard.MatchesPointer(_activeParentMoveSession, e))
             {
@@ -148,19 +158,38 @@ namespace Constellate.App
 
         private void ShellPaneHost_OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (_activeParentResizeSession is not null ||
-                _activeParentMoveSession is null ||
-                !PaneGestureSessionGuard.MatchesPointer(_activeParentMoveSession, e))
+            // If an active parent move is ongoing for this pointer, continue that preview.
+            if (_activeParentMoveSession is not null &&
+                PaneGestureSessionGuard.MatchesPointer(_activeParentMoveSession, e))
             {
+                UpdateActiveParentPaneDragPreview(e.GetPosition(this));
                 return;
             }
 
-            UpdateActiveParentPaneDragPreview(e.GetPosition(this));
+            // During active resize (or any active gesture), suppress host-level hover.
+            if (_activeParentResizeSession is not null ||
+                _activeChildDragSession is not null ||
+                _activeParentMoveSession is not null)
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            // No active gesture: update host-driven hover so halo mirrors drag-start eligibility.
+            if (sender is Control hostControl)
+            {
+                UpdateHostDragHover(hostControl, e);
+            }
         }
 
         private void PaneResizeGrip_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            TryBeginParentPaneResize(sender, e);
+            if (TryBeginParentPaneResize(sender, e))
+            {
+                // Redundant with coordinator’s markHandled but ensures stability across platforms.
+                e.Handled = true;
+                return;
+            }
         }
 
         private void PaneResizeGrip_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -201,6 +230,110 @@ namespace Constellate.App
             }
 
             PaneChromeInputHelper.TryHandleEmptyHeaderDoubleTap(header, header.DataContext, e);
+        }
+
+        // Host-level hover: light the occupied parent’s shell when a parent move could start
+        // at the current pointer location (excluding ChildPaneView and GridSplitter regions).
+        private void UpdateHostDragHover(Control hostControl, PointerEventArgs e)
+        {
+            var vm = DataContext as MainWindowViewModel;
+            if (vm is null)
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            var hostId = ParentPaneDragStateResolver.ResolveHostIdFromHostControl(hostControl);
+            if (string.IsNullOrWhiteSpace(hostId))
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            var parent = vm.GetFirstExpandedParentOnHost(hostId);
+            if (parent is null)
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            // Determine the deepest visual under the pointer. If it lives inside a ChildPaneView
+            // or a GridSplitter then a parent move would not begin here → no shell-level hover.
+            var srcVisual = (e.Source as Visual) ?? (hostControl as Visual);
+            if (IsWithinChildOrSplitter(srcVisual))
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            // Find the active ParentPaneView under the pointer and its PaneChrome.
+            var paneView = FindAncestor<ParentPaneView>(srcVisual) ?? FindDescendant<ParentPaneView>(hostControl);
+            if (paneView is null)
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            // Resolve the PaneChrome under this ParentPaneView for lighting the outer halo.
+            var chrome = FindDescendant<PaneChrome>(paneView);
+            if (chrome is null)
+            {
+                ClearActiveHostHover();
+                return;
+            }
+
+            if (!ReferenceEquals(_activeHostHoverChrome, chrome))
+            {
+                // Switch current hover target
+                if (_activeHostHoverChrome is not null)
+                {
+                    _activeHostHoverChrome.SetDragHover(false);
+                }
+                _activeHostHoverChrome = chrome;
+            }
+
+            // Light the outer shell border (host-level hover) explicitly; avoid InputHelper's region gate.
+            // This mirrors “drag can start on empty parent body when not over children/splitters”.
+            _activeHostHoverChrome.SetDragHover(true);
+        }
+
+        private void ClearActiveHostHover()
+        {
+            if (_activeHostHoverChrome is not null)
+            {
+                _activeHostHoverChrome.SetDragHover(false);
+                _activeHostHoverChrome = null;
+            }
+        }
+
+        private static bool IsWithinChildOrSplitter(Visual? v)
+        {
+            for (var cur = v; cur is not null; cur = cur.GetVisualParent())
+            {
+                if (cur is ChildPaneView || cur is GridSplitter) return true;
+            }
+            return false;
+        }
+
+        private static TControl? FindAncestor<TControl>(Visual? start) where TControl : class
+        {
+            for (var cur = start; cur is not null; cur = cur.GetVisualParent())
+            {
+                if (cur is TControl t) return t;
+            }
+            return null;
+        }
+
+        private static TControl? FindDescendant<TControl>(Visual? root) where TControl : class
+        {
+            if (root is null) return null;
+            foreach (var child in root.GetVisualChildren())
+            {
+                if (child is TControl t) return t;
+                var nested = FindDescendant<TControl>(child);
+                if (nested is not null) return nested;
+            }
+            return null;
         }
     }
 }

@@ -7,7 +7,7 @@
              x:Class="Constellate.App.Controls.ParentPaneView"
              x:DataType="app:ParentPaneModel">
   <UserControl.Styles>
-    <Style Selector="panes|PaneChrome#ParentChrome.dragHover Border#PART_PaneChromeRoot">
+    <Style Selector="panes|PaneChrome#ParentChrome.dragHover Border#PART_PaneChromeOutline">
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>

@@ -18,7 +18,10 @@ namespace Constellate.App.Controls.Panes
             {
                 "ParentLabelArea" or "ChildLabelArea" => PaneChromeRegion.Label,
                 "ParentEmptyHeaderArea" or "ChildEmptyHeaderArea" => PaneChromeRegion.EmptyHeader,
+                // Child body (explicit drag area in ChildPaneView)
                 "ChildBodyDragArea" => PaneChromeRegion.BodyEmptySurface,
+                // Parent/Child body presenter region
+                "PART_BodyRegion" => PaneChromeRegion.BodyEmptySurface,
                 _ => PaneChromeRegion.None
             };
         }
@@ -33,6 +36,15 @@ namespace Constellate.App.Controls.Panes
             return ResolveMainWindow(owner)?.DataContext as MainWindowViewModel;
         }
 
+        // Single rule gate for both hover and press: only these regions advertise “drag to reposition”.
+        // Resize grips keep their own visual affordances (edges/corners) and are not handled here.
+        private static bool IsDragOriginRegion(PaneChromeRegion region)
+        {
+            return region is PaneChromeRegion.Label
+                or PaneChromeRegion.EmptyHeader
+                or PaneChromeRegion.BodyEmptySurface;
+        }
+
         public static void SetPaneDragHover(PaneChrome? chrome, object? sender, bool isActive)
         {
             if (chrome is null)
@@ -41,6 +53,31 @@ namespace Constellate.App.Controls.Panes
             }
 
             var region = chrome.ResolveRegion(sender);
+            SetPaneDragHover(chrome, region, isActive);
+        }
+
+        public static void SetPaneDragHover(PaneChrome? chrome, PaneChromeRegion region, bool isActive)
+        {
+            if (chrome is null)
+            {
+                return;
+            }
+
+            if (!IsDragOriginRegion(region))
+            {
+                // Ensure we clear any stale halo if a non-origin region is reported “active”.
+                if (!isActive)
+                {
+                    chrome.SetDragHover(false);
+                }
+                else
+                {
+                    // Do not light the halo for non-origin regions.
+                    chrome.SetDragHover(false);
+                }
+                return;
+            }
+
             chrome.SetDragHover(region, isActive);
         }
 
@@ -90,7 +127,7 @@ namespace Constellate.App.Controls.Panes
             }
 
             var region = ResolveRegion(sender);
-            if (!PaneChromeRegionRules.IsDragOrigin(region))
+            if (!IsDragOriginRegion(region))
             {
                 return false;
             }

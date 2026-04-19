@@ -103,16 +103,13 @@ namespace Constellate.App.Controls.Panes
 
         public void SetDragHover(PaneChromeRegion region, bool isActive)
         {
-            if (!PaneChromeRegionRules.SupportsDragHover(region))
-            {
-                if (!isActive)
-                {
-                    SetDragHover(false);
-                }
-
-                return;
-            }
-
+            // For the current pane-shell usage, any region that is wired as a drag
+            // origin should light the outer shell border. The higher-level helpers
+            // (PaneChromeInputHelper.ResolveRegion / IsDragOrigin) already decide
+            // which senders are considered valid drag-start regions.
+            //
+            // To avoid stale or overly-restrictive region rules from preventing
+            // the visual affordance, we unconditionally delegate to SetDragHover.
             SetDragHover(isActive);
         }
 

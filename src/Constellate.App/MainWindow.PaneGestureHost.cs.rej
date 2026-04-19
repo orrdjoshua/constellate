@@ -1,0 +1,16 @@
+diff a/src/Constellate.App/MainWindow.PaneGestureHost.cs b/src/Constellate.App/MainWindow.PaneGestureHost.cs	(rejected hunks)
+@@ -270,12 +270,13 @@
+             if (paneView is null)
+             {
+                 ClearActiveHostHover();
+                 return;
+             }
+ 
+-            var paneView = FindAncestor<ParentPaneView>(srcVisual) ?? FindDescendant<ParentPaneView>(hostControl);
++            // Resolve the PaneChrome under this ParentPaneView for lighting the outer halo.
++            var chrome = FindDescendant<PaneChrome>(paneView);
+             if (chrome is null)
+             {
+                 ClearActiveHostHover();
+                 return;
+             }

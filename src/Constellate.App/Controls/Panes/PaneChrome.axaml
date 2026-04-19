@@ -3,41 +3,60 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Constellate.App.Controls.Panes"
              x:Class="Constellate.App.Controls.Panes.PaneChrome">
-  <Border x:Name="PART_PaneChromeRoot"
-          Background="#121A23"
-          CornerRadius="4"
-          Padding="6"
-          BorderBrush="#2A394B"
-          BorderThickness="1">
-    <Grid RowDefinitions="Auto,Auto,*"
-          RowSpacing="6">
-      <Border x:Name="PART_Header"
-              Grid.Row="0"
-              Background="#121A23"
-              CornerRadius="4"
-              Padding="6,4">
-        <Grid ColumnDefinitions="Auto,*,Auto"
-              ColumnSpacing="8">
-          <ContentPresenter x:Name="PART_LabelRegion"
-                            Grid.Column="0"
-                            Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-          <ContentPresenter x:Name="PART_EmptyHeaderRegion"
-                            Grid.Column="1"
-                            Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-          <ContentPresenter x:Name="PART_CommandBarRegion"
-                            Grid.Column="2"
-                            Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-        </Grid>
-      </Border>
+  <UserControl.Styles>
+    <!-- Global: whenever a PaneChrome has the 'dragHover' class, highlight an overlay outline. -->
+    <Style Selector="local|PaneChrome.dragHover Border#PART_PaneChromeOutline">
+      <Setter Property="BorderBrush" Value="#FFC48A2F" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+  </UserControl.Styles>
 
-      <ContentPresenter Grid.Row="1"
-                        IsVisible="{Binding IsBodyVisible, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}"
-                        Content="{Binding PreBodyContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+  <Grid>
+    <!-- Base pane shell -->
+    <Border x:Name="PART_PaneChromeRoot"
+            Background="#121A23"
+            CornerRadius="4"
+            Padding="6"
+            BorderBrush="#2A394B"
+            BorderThickness="1">
+      <Grid RowDefinitions="Auto,Auto,*"
+            RowSpacing="6">
+        <Border x:Name="PART_Header"
+                Grid.Row="0"
+                Background="#121A23"
+                CornerRadius="4"
+                Padding="6,4">
+          <Grid ColumnDefinitions="Auto,*,Auto"
+                ColumnSpacing="8">
+            <ContentPresenter x:Name="PART_LabelRegion"
+                              Grid.Column="0"
+                              Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+            <ContentPresenter x:Name="PART_EmptyHeaderRegion"
+                              Grid.Column="1"
+                              Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+            <ContentPresenter x:Name="PART_CommandBarRegion"
+                              Grid.Column="2"
+                              Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+          </Grid>
+        </Border>
 
-      <ContentPresenter x:Name="PART_BodyRegion"
-                        Grid.Row="2"
-                        IsVisible="{Binding IsBodyVisible, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}"
-                        Content="{Binding BodyContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-    </Grid>
-  </Border>
+        <ContentPresenter Grid.Row="1"
+                          IsVisible="{Binding IsBodyVisible, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}"
+                          Content="{Binding PreBodyContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+
+        <ContentPresenter x:Name="PART_BodyRegion"
+                          Grid.Row="2"
+                          IsVisible="{Binding IsBodyVisible, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}"
+                          Content="{Binding BodyContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+      </Grid>
+    </Border>
+
+    <!-- Overlay outline that lights during dragHover; sits above content, does not eat input.
+         Note: do not set BorderBrush/BorderThickness locally; style (PaneChrome.dragHover) controls them. -->
+    <Border x:Name="PART_PaneChromeOutline"
+            IsHitTestVisible="False"
+            CornerRadius="4"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch" />
+  </Grid>
 </UserControl>

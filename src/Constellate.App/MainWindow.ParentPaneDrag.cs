@@ -126,22 +126,40 @@ namespace Constellate.App
                     vm.ParentPaneDragShadowHeight);
             }
 
+            var originAttachment = GetParentDragOriginAttachment();
             var commit = ParentPaneMoveGesturePlanner.ComputeCommit(
                 releasePoint,
                 windowSize,
                 GetShellFloatingSurfaceRect(),
-                GetParentDragOriginAttachment(),
+                originAttachment,
                 previewBounds,
                 vm.IsDockHostOccupied);
 
             if (commit.IsFloating && commit.RelativeFloatingBounds is { } floatingRect)
             {
-                vm.MoveParentPaneToFloating(
-                    session.OriginReferenceId,
-                    floatingRect.X,
-                    floatingRect.Y,
-                    floatingRect.Width,
-                    floatingRect.Height);
+                // If the origin host was already floating, we are simply repositioning
+                // an existing floating parent (which may be minimized). In that case
+                // we should not reset minimized state or overwrite stored full-size
+                // geometry; only the position changes.
+                var originHost = MainWindowViewModel.NormalizeHostId(originAttachment.ToHostId());
+                if (string.Equals(originHost, "floating", StringComparison.Ordinal))
+                {
+                    vm.SetFloatingParentPosition(
+                        session.OriginReferenceId,
+                        floatingRect.X,
+                        floatingRect.Y);
+                }
+                else
+                {
+                    // Dock → floating transition: use the existing helper, which clears
+                    // minimization and seeds full floating geometry from the drag shadow.
+                    vm.MoveParentPaneToFloating(
+                        session.OriginReferenceId,
+                        floatingRect.X,
+                        floatingRect.Y,
+                        floatingRect.Width,
+                        floatingRect.Height);
+                }
             }
             else
             {

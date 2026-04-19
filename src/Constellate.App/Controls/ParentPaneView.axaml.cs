@@ -1,8 +1,8 @@
 using Avalonia;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 using Constellate.App.Controls.Panes;
 
 namespace Constellate.App.Controls
@@ -22,6 +22,15 @@ namespace Constellate.App.Controls
             AvaloniaXamlLoader.Load(this);
             _commandBarScroll = this.FindControl<ScrollViewer>("CommandBarScroll");
             _root = this.FindControl<PaneChrome>("ParentChrome");
+
+            // Wire body-region hover so empty body space (not over child/splitter) lights the outer shell halo.
+            var bodyRegion = _root?.BodyRegionControl;
+            if (bodyRegion is not null)
+            {
+                bodyRegion.PointerEntered += BodyRegion_OnPointerEnteredOrMoved;
+                bodyRegion.PointerMoved += BodyRegion_OnPointerEnteredOrMoved;
+                bodyRegion.PointerExited += BodyRegion_OnPointerExited;
+            }
         }
 
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -76,6 +85,46 @@ namespace Constellate.App.Controls
             var dx = -e.Delta.Y * 24.0;
             _commandBarScroll.Offset = new Vector(_commandBarScroll.Offset.X + dx, 0);
             e.Handled = true;
+        }
+
+        // Body-region hover helpers: light halo only when over empty parent body (not over child panes or splitters).
+        private void BodyRegion_OnPointerEnteredOrMoved(object? sender, PointerEventArgs e)
+        {
+            if (_root is null)
+            {
+                return;
+            }
+
+            // Determine the deepest visual under the pointer and see if it lives inside a ChildPaneView or GridSplitter.
+            var srcVisual = (e.Source as Visual) ?? (sender as Visual);
+            if (IsWithinChildOrSplitter(srcVisual))
+            {
+                // Over a child or splitter – do not show shell-level drag-hover.
+                PaneChromeInputHelper.SetPaneDragHover(_root, PaneChromeRegion.Body, false);
+                return;
+            }
+
+            // Empty body surface – show shell-level halo to advertise valid drag-start.
+            PaneChromeInputHelper.SetPaneDragHover(_root, PaneChromeRegion.Body, true);
+        }
+
+        private void BodyRegion_OnPointerExited(object? sender, PointerEventArgs e)
+        {
+            if (_root is null)
+            {
+                return;
+            }
+
+            PaneChromeInputHelper.SetPaneDragHover(_root, PaneChromeRegion.Body, false);
+        }
+
+        private static bool IsWithinChildOrSplitter(Visual? v)
+        {
+            for (var cur = v; cur is not null; cur = cur.GetVisualParent())
+            {
+                if (cur is ChildPaneView || cur is GridSplitter) return true;
+            }
+            return false;
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Avalonia;
 
 namespace Constellate.App;
 
@@ -41,10 +42,36 @@ public sealed partial class MainWindowViewModel
                 return;
             }
 
-            var fx = ChildPaneDragShadowLeft;
-            var fy = ChildPaneDragShadowTop;
-            var fw = ChildPaneDragShadowWidth > 0 ? ChildPaneDragShadowWidth : paneCurrent.FloatingWidth;
-            var fh = ChildPaneDragShadowHeight > 0 ? ChildPaneDragShadowHeight : paneCurrent.FloatingHeight;
+            // Use the current drag-shadow rect (window coordinates) and the
+            // canonical floating surface rect to compute pane-local floating
+            // coordinates. This mirrors the parent-floating path, which already
+            // uses relative coordinates inside CurrentShellLayout.FloatingSurfaceRect.
+            var surface = CurrentShellLayout.FloatingSurfaceRect;
+
+            var fw = ChildPaneDragShadowWidth > 0
+                ? ChildPaneDragShadowWidth
+                : paneCurrent.FloatingWidth;
+            var fh = ChildPaneDragShadowHeight > 0
+                ? ChildPaneDragShadowHeight
+                : paneCurrent.FloatingHeight;
+
+            var globalLeft = ChildPaneDragShadowLeft;
+            var globalTop = ChildPaneDragShadowTop;
+
+            // Convert to coordinates relative to the floating surface origin.
+            var relLeft = globalLeft - surface.X;
+            var relTop = globalTop - surface.Y;
+
+            // Clamp so the child remains fully inside the floating surface.
+            relLeft = Math.Clamp(
+                relLeft,
+                0.0,
+                Math.Max(0.0, surface.Width - fw));
+            relTop = Math.Clamp(
+                relTop,
+                0.0,
+                Math.Max(0.0, surface.Height - fh));
+
             var assignedZ = paneCurrent.ParentId is null && paneCurrent.FloatingZIndex > 0
                 ? paneCurrent.FloatingZIndex
                 : GetNextFloatingPaneZIndex();
@@ -54,8 +81,8 @@ public sealed partial class MainWindowViewModel
                 ParentId = null,
                 ContainerIndex = 0,
                 SlideIndex = 0,
-                FloatingX = fx,
-                FloatingY = fy,
+                FloatingX = relLeft,
+                FloatingY = relTop,
                 FloatingWidth = fw,
                 FloatingHeight = fh,
                 FloatingZIndex = assignedZ
@@ -218,6 +245,41 @@ public sealed partial class MainWindowViewModel
         parentModel.FloatingZIndex = GetNextFloatingPaneZIndex();
 
         RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+    }
+
+    /// <summary>
+    /// Reposition an existing floating parent pane without changing its minimized
+    /// state or stored full-size geometry. Used when a parent that is already on
+    /// the floating host is being repositioned via drag, including minimized
+    /// header-only floating panes.
+    /// </summary>
+    public void SetFloatingParentPosition(string parentId, double x, double y)
+    {
+        if (string.IsNullOrWhiteSpace(parentId))
+        {
+            return;
+        }
+
+        var parent = ParentPaneModels.FirstOrDefault(p =>
+            string.Equals(p.Id, parentId, StringComparison.Ordinal));
+
+        if (parent is null)
+        {
+            return;
+        }
+
+        if (!string.Equals(NormalizeHostId(parent.HostId), "floating", StringComparison.Ordinal))
+        {
+            // Only reposition parents that are actually hosted on the floating layer.
+            return;
+        }
+
+        parent.FloatingX = Math.Max(0, x);
+        parent.FloatingY = Math.Max(0, y);
+
+        // No changes to IsMinimized, FloatingWidth / FloatingHeight, or the stored
+        // full-size geometry; we simply publish the new position.
+        RaiseParentPaneLayoutChanged();
     }
 
     public void MoveParentPaneToHost(string hostId)

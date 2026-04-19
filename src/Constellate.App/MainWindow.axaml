@@ -491,6 +491,7 @@
             Width="8"
             Background="Transparent"
             Cursor="SizeWestEast"
+            Tag="left"
             IsHitTestVisible="{Binding IsShellPaneOnLeft}"
             IsVisible="{Binding IsShellPaneOnLeft}" />
     <Border x:Name="RightPaneResizeGrip"
@@ -500,6 +501,7 @@
             Width="8"
             Background="Transparent"
             Cursor="SizeWestEast"
+            Tag="right"
             IsHitTestVisible="{Binding IsShellPaneOnRight}"
             IsVisible="{Binding IsShellPaneOnRight}" />
     <Border x:Name="TopPaneResizeGrip"
@@ -509,6 +511,7 @@
             Height="8"
             Background="Transparent"
             Cursor="SizeNorthSouth"
+            Tag="top"
             IsHitTestVisible="{Binding IsShellPaneOnTop}"
             IsVisible="{Binding IsShellPaneOnTop}" />
     <Border x:Name="BottomPaneResizeGrip"
@@ -518,6 +521,7 @@
             Height="8"
             Background="Transparent"
             Cursor="SizeNorthSouth"
+            Tag="bottom"
             IsHitTestVisible="{Binding IsShellPaneOnBottom}"
             IsVisible="{Binding IsShellPaneOnBottom}" />
 

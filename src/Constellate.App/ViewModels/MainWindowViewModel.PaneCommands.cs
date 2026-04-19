@@ -103,8 +103,11 @@ public sealed partial class MainWindowViewModel
             ? 0
             : ChildPanes.Max(pane => pane.Order) + 1;
 
+        // Generate a globally-unique child id of the form "child.N" by scanning
+        // existing children instead of relying on ChildPanes.Count. This prevents
+        // id reuse after deletions and avoids dictionary-key collisions in layout.
+        var id = GenerateNextChildId();
         var labelIndex = ChildPanes.Count + 1;
-        var id = $"child.{labelIndex}";
         var title = $"Pane {labelIndex}";
 
         ChildPanes.Add(new ChildPaneDescriptor(
@@ -127,6 +130,32 @@ public sealed partial class MainWindowViewModel
 
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Generate a new child id of the form "child.N" where N is one greater than
+    /// any existing numeric suffix on child ids. This avoids reusing ids after
+    /// deletions or other reordering operations.
+    /// </summary>
+    private string GenerateNextChildId()
+    {
+        var maxOrdinal = 0;
+
+        foreach (var pane in ChildPanes)
+        {
+            if (!pane.Id.StartsWith("child.", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var suffix = pane.Id.Substring("child.".Length);
+            if (int.TryParse(suffix, out var n) && n > maxOrdinal)
+            {
+                maxOrdinal = n;
+            }
+        }
+
+        return $"child.{maxOrdinal + 1}";
     }
 
     private bool CanMoveChildPane(string id, int delta)

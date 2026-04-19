@@ -250,9 +250,14 @@ public sealed partial class MainWindowViewModel
     public ParentPaneModel? ActiveParentPaneBottom => ParentPaneModelsBottom.FirstOrDefault();
 
     // Parentless, non-minimized floating child panes (rendered on FloatingHost Canvas)
+    // Parentless floating child panes (rendered on FloatingHost Canvas).
+    // Minimized floating children remain in this set; ChildPaneView binds
+    // PaneChrome.IsBodyVisible to !IsMinimized, so minimizing a floating
+    // child collapses it to a header-only chrome instead of making it
+    // disappear from the overlay.
     public IReadOnlyList<ChildPaneDescriptor> FloatingChildPanes =>
         ChildPanes
-            .Where(p => p.ParentId is null && !p.IsMinimized)
+            .Where(p => p.ParentId is null)
             .OrderBy(p => p.Order)
             .ToArray();
     // Sorted child lists and minimized taskbar

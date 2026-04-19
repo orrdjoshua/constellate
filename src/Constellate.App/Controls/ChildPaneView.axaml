@@ -10,7 +10,7 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <Style Selector="panes|PaneChrome#ChildChrome.dragHover Border#PART_PaneChromeRoot">
+    <Style Selector="panes|PaneChrome#ChildChrome.dragHover Border#PART_PaneChromeOutline">
       <Setter Property="BorderBrush" Value="#FFC48A2F"/>
       <Setter Property="BorderThickness" Value="2"/>
     </Style>
