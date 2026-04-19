@@ -113,12 +113,11 @@ namespace Constellate.App
 
         private void PaneResizeGrip_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
-            if (_activeParentResizeSession is null)
-            {
-                return;
-            }
-
-            ResetActiveParentPaneResize(commit: false);
+            // Intentionally ignore grip-level capture loss for docked resize:
+            // the gesture system re-captures the pointer on the Window at start,
+            // which causes the grip to lose capture immediately. The active
+            // resize session remains valid and is finalized by the global
+            // pointer-released handler (Window_OnGlobalPointerReleased).
         }
 
         private void PaneResizeGrip_OnPointerMoved(object? sender, PointerEventArgs e)
