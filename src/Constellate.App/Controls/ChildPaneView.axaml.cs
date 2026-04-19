@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Constellate.App.Controls.Panes;
+using Avalonia.VisualTree;
 
 namespace Constellate.App.Controls
 {
@@ -66,26 +67,70 @@ namespace Constellate.App.Controls
 
         private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
-            if (_commandBarScroll is null)
+            if (_root is null || _commandBarScroll is null)
             {
                 return;
             }
 
-            if (e.Delta.Y == 0)
+            // Ignore if pointer is over body region; header-only behavior.
+            var srcVisual = (e.Source as Visual) ?? (sender as Visual);
+            if (IsWithinBodyRegion(srcVisual))
             {
                 return;
             }
 
-            var offset = _commandBarScroll.Offset;
-            // Scroll horizontally in response to vertical wheel; negative to match parent-pane semantics
-            var newOffset = new Vector(offset.X - e.Delta.Y * 40, offset.Y);
-            _commandBarScroll.Offset = newOffset;
-            e.Handled = true;
+            // Prefer native horizontal (Delta.X), else map vertical (Delta.Y) to horizontal.
+            double dx;
+            if (Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y))
+            {
+                dx = e.Delta.X;
+            }
+            else
+            {
+                dx = -e.Delta.Y;
+            }
+
+            if (Math.Abs(dx) < 0.01)
+            {
+                return;
+            }
+
+            var current = _commandBarScroll.Offset;
+            var factor = 40.0;
+
+            var extent = _commandBarScroll.Extent;
+            var viewport = _commandBarScroll.Viewport;
+            var maxX = Math.Max(0.0, extent.Width - viewport.Width);
+            var nextX = Math.Clamp(current.X + dx * factor, 0.0, maxX);
+
+            if (Math.Abs(nextX - current.X) > 0.5)
+            {
+                _commandBarScroll.Offset = new Vector(nextX, current.Y);
+                e.Handled = true;
+            }
         }
 
         private void OnCommandBarPointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
+            // Reuse the same horizontal scroll mapping (X or Y).
             OnPaneChromePointerWheelChanged(sender, e);
+        }
+
+        private bool IsWithinBodyRegion(Visual? v)
+        {
+            if (_root?.BodyRegionControl is null)
+            {
+                return false;
+            }
+
+            for (var cur = v; cur is not null; cur = cur.GetVisualParent())
+            {
+                if (ReferenceEquals(cur, _root.BodyRegionControl))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

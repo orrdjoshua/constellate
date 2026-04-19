@@ -60,19 +60,46 @@ namespace Constellate.App.Controls
 
         private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
-            // Route wheel input over the pane shell (typically header region) to the command bar scroll viewer.
-            var scroll = this.FindControl<ScrollViewer>("CommandBarScroll");
-            if (scroll is null)
+            // Only act for header: ignore if the event is within the body region.
+            if (_root is null || _commandBarScroll is null)
             {
                 return;
             }
 
-            if (Math.Abs(e.Delta.Y) > 0.01)
+            var srcVisual = (e.Source as Visual) ?? (sender as Visual);
+            if (IsWithinBodyRegion(srcVisual))
             {
-                var current = scroll.Offset;
-                // Map vertical wheel to horizontal scroll: positive delta.Y (wheel up) scrolls left, negative scrolls right.
-                var deltaX = -e.Delta.Y * 40;
-                scroll.Offset = new Vector(current.X + deltaX, current.Y);
+                return;
+            }
+
+            // Prefer native horizontal scrolling when present; otherwise map vertical wheel to horizontal.
+            double dx;
+            if (Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y))
+            {
+                dx = e.Delta.X;           // two‑finger side scroll on trackpads
+            }
+            else
+            {
+                dx = -e.Delta.Y;          // wheel/trackpad vertical → horizontal
+            }
+
+            if (Math.Abs(dx) < 0.01)
+            {
+                return;
+            }
+
+            var current = _commandBarScroll.Offset;
+            var factor = 40.0; // sensitivity multiplier
+
+            // Clamp to the ScrollViewer’s content width.
+            var extent = _commandBarScroll.Extent;
+            var viewport = _commandBarScroll.Viewport;
+            var maxX = Math.Max(0.0, extent.Width - viewport.Width);
+            var nextX = Math.Clamp(current.X + dx * factor, 0.0, maxX);
+
+            if (Math.Abs(nextX - current.X) > 0.5)
+            {
+                _commandBarScroll.Offset = new Vector(nextX, current.Y);
                 e.Handled = true;
             }
         }
@@ -84,9 +111,8 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            var dx = -e.Delta.Y * 24.0;
-            _commandBarScroll.Offset = new Vector(_commandBarScroll.Offset.X + dx, 0);
-            e.Handled = true;
+            // Delegate to the same logic as header-wide scrolling (handles X or Y).
+            OnPaneChromePointerWheelChanged(sender, e);
         }
 
         // Body-region hover helpers: light halo only when over empty parent body (not over child panes or splitters).
@@ -135,6 +161,23 @@ namespace Constellate.App.Controls
             }
 
             if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e)) e.Handled = true;
+        }
+
+        private bool IsWithinBodyRegion(Visual? v)
+        {
+            if (_root?.BodyRegionControl is null)
+            {
+                return false;
+            }
+
+            for (var cur = v; cur is not null; cur = cur.GetVisualParent())
+            {
+                if (ReferenceEquals(cur, _root.BodyRegionControl))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static bool IsWithinChildOrSplitter(Visual? v)
