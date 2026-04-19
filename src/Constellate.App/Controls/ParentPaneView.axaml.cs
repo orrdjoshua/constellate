@@ -11,7 +11,7 @@ namespace Constellate.App.Controls
 {
     public partial class ParentPaneView : UserControl
     {
-        private ScrollViewer? _commandBarScroll;
+        private ScrollViewer? _headerScroll;
         private PaneChrome? _root;
 
         public ParentPaneView()
@@ -22,9 +22,9 @@ namespace Constellate.App.Controls
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
-            _commandBarScroll = this.FindControl<ScrollViewer>("CommandBarScroll");
             _root = this.FindControl<PaneChrome>("ParentChrome");
-            Debug.WriteLine($"[HeaderScroll][Parent][Wire] init: chrome={_root is not null} cmdBar={_commandBarScroll is not null}");
+            _headerScroll = _root?.FindControl<ScrollViewer>("PART_HeaderScroll");
+            Debug.WriteLine($"[HeaderScroll][Parent][Wire] init: chrome={_root is not null} headerScroll={_headerScroll is not null}");
 
             // Wire body-region hover so empty body space (not over child/splitter) lights the outer shell halo.
             var bodyRegion = _root?.BodyRegionControl;
@@ -64,9 +64,9 @@ namespace Constellate.App.Controls
         private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
             // Only act for header: ignore if the event is within the body region.
-            if (_root is null || _commandBarScroll is null)
+            if (_root is null || _headerScroll is null)
             {
-                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing refs chrome={_root is not null} cmdBar={_commandBarScroll is not null}");
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing refs chrome={_root is not null} headerScroll={_headerScroll is not null}");
                 return;
             }
 
@@ -96,18 +96,18 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            var current = _commandBarScroll.Offset;
+            var current = _headerScroll.Offset;
             var factor = 40.0; // sensitivity multiplier
 
             // Clamp to the ScrollViewer’s content width.
-            var extent = _commandBarScroll.Extent;
-            var viewport = _commandBarScroll.Viewport;
+            var extent = _headerScroll.Extent;
+            var viewport = _headerScroll.Viewport;
             var maxX = Math.Max(0.0, extent.Width - viewport.Width);
             var nextX = Math.Clamp(current.X + dx * factor, 0.0, maxX);
 
             if (Math.Abs(nextX - current.X) > 0.5)
             {
-                _commandBarScroll.Offset = new Vector(nextX, current.Y);
+                _headerScroll.Offset = new Vector(nextX, current.Y);
                 e.Handled = true;
                 Debug.WriteLine($"[HeaderScroll][Parent] applied: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={current.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} factor={factor}");
             }
@@ -119,11 +119,6 @@ namespace Constellate.App.Controls
 
         private void OnCommandBarPointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
-            if (_commandBarScroll is null)
-            {
-                return;
-            }
-
             // Delegate to the same logic as header-wide scrolling (handles X or Y).
             OnPaneChromePointerWheelChanged(sender, e);
             Debug.WriteLine($"[HeaderScroll][Parent][CmdBar] delegated wheel delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00})");

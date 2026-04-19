@@ -98,25 +98,20 @@
     </panes:PaneChrome.EmptyHeaderContent>
 
     <panes:PaneChrome.CommandBarContent>
-      <ScrollViewer x:Name="ChildCommandBarScroll"
-                    HorizontalScrollBarVisibility="Auto"
-                    VerticalScrollBarVisibility="Disabled"
-                    PointerWheelChanged="OnCommandBarPointerWheelChanged">
-        <StackPanel Orientation="Horizontal"
-                    Spacing="4"
-                    HorizontalAlignment="Left"
-                    Margin="0,0,2,0">
-          <Button Width="20"
-                  Height="20"
-                  Padding="0"
-                  Content="–"
-                  Foreground="#E5EDF7"
-                  Background="#233142"
-                  ToolTip.Tip="Minimize child pane"
-                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
-                  CommandParameter="{Binding Id}" />
-        </StackPanel>
-      </ScrollViewer>
+      <StackPanel Orientation="Horizontal"
+                  Spacing="4"
+                  HorizontalAlignment="Left"
+                  Margin="0,0,2,0">
+        <Button Width="20"
+                Height="20"
+                Padding="0"
+                Content="–"
+                Foreground="#E5EDF7"
+                Background="#233142"
+                ToolTip.Tip="Minimize child pane"
+                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                CommandParameter="{Binding Id}" />
+      </StackPanel>
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.BodyContent>

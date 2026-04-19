@@ -82,16 +82,12 @@
 
     <panes:PaneChrome.CommandBarContent>
       <Grid>
-        <!-- Full command bar for expanded panes -->
-        <ScrollViewer x:Name="CommandBarScroll"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Disabled"
-                      PointerWheelChanged="OnCommandBarPointerWheelChanged"
-                      IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
-          <StackPanel Orientation="Horizontal"
-                      Spacing="10"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center">
+        <!-- Full command bar for expanded panes (now scrolled by header-level ScrollViewer) -->
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
             <Border Background="#1B2A3A"
                     Padding="4,2"
                     CornerRadius="3"
@@ -199,8 +195,7 @@
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyParentPaneCommand}"
                       CommandParameter="{Binding Id}" />
             </StackPanel>
-          </StackPanel>
-        </ScrollViewer>
+        </StackPanel>
 
         <!-- Minimal command bar for minimized panes: restore + destroy only -->
         <StackPanel Orientation="Horizontal"

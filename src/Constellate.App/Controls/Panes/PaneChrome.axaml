@@ -26,18 +26,24 @@
                 Background="#121A23"
                 CornerRadius="4"
                 Padding="6,4">
-          <Grid ColumnDefinitions="Auto,Auto,*"
-                ColumnSpacing="8">
-            <ContentPresenter x:Name="PART_LabelRegion"
-                              Grid.Column="0"
-                              Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            <ContentPresenter x:Name="PART_EmptyHeaderRegion"
-                              Grid.Column="1"
-                              Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-            <ContentPresenter x:Name="PART_CommandBarRegion"
-                              Grid.Column="2"
-                              Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
-          </Grid>
+          <!-- Entire header scrolls horizontally (no visible scrollbars). -->
+          <ScrollViewer x:Name="PART_HeaderScroll"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Disabled"
+                        ClipToBounds="True">
+            <Grid ColumnDefinitions="Auto,Auto,*"
+                  ColumnSpacing="8">
+              <ContentPresenter x:Name="PART_LabelRegion"
+                                Grid.Column="0"
+                                Content="{Binding LabelContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+              <ContentPresenter x:Name="PART_EmptyHeaderRegion"
+                                Grid.Column="1"
+                                Content="{Binding EmptyHeaderContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+              <ContentPresenter x:Name="PART_CommandBarRegion"
+                                Grid.Column="2"
+                                Content="{Binding CommandBarContent, RelativeSource={RelativeSource AncestorType=local:PaneChrome}}" />
+            </Grid>
+          </ScrollViewer>
         </Border>
 
         <ContentPresenter Grid.Row="1"
