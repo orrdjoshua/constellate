@@ -103,7 +103,32 @@ namespace Constellate.App
 
             if (preview.IsFloatingPreview)
             {
-                session.UpdateFloatingPreview(currentPoint, preview.PreviewBounds);
+                // Align the floating child preview to preserve the pointer's offset from the child's
+                // original top-left instead of re-centering the preview under the cursor.
+                var surface = GetShellFloatingSurfaceRect();
+                Rect alignedRect = preview.PreviewBounds;
+
+                // We can compute the child's origin absolute rect from VM (paneId captured in session)
+                // using current floating geometry.
+                var child = vm.ChildPanes.FirstOrDefault(c => string.Equals(c.Id, session.PaneId, StringComparison.Ordinal));
+                if (child is not null)
+                {
+                    var originTopLeft = new Point(surface.X + child.FloatingX, surface.Y + child.FloatingY);
+                    var offset = new Vector(session.StartPoint.X - originTopLeft.X, session.StartPoint.Y - originTopLeft.Y);
+                    var w = Math.Max(1.0, child.FloatingWidth);
+                    var h = Math.Max(1.0, child.FloatingHeight);
+
+                    var left = currentPoint.X - offset.X;
+                    var top = currentPoint.Y - offset.Y;
+
+                    left = Math.Clamp(left, surface.X, Math.Max(surface.X, surface.Right - w));
+                    top = Math.Clamp(top, surface.Y, Math.Max(surface.Y, surface.Bottom - h));
+
+                    alignedRect = new Rect(left, top, w, h);
+                }
+
+                vm.SetChildPaneDragShadow(true, alignedRect.X, alignedRect.Y, alignedRect.Width, alignedRect.Height);
+                session.UpdateFloatingPreview(currentPoint, alignedRect);
                 StopChildAutoSlide();
                 return;
             }

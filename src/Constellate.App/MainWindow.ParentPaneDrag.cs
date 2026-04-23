@@ -174,6 +174,31 @@ namespace Constellate.App
                 return;
             }
 
+            // If the origin pane was already floating, align the preview/shadow to preserve the
+            // exact pointer offset from the pane's original top-left instead of re-centering.
+            var originHost = MainWindowViewModel.NormalizeHostId(originAttachment.ToHostId());
+            if (string.Equals(originHost, "floating", System.StringComparison.Ordinal) && session.OriginBounds.Width > 0 && session.OriginBounds.Height > 0)
+            {
+                var surface = GetShellFloatingSurfaceRect();
+                var originTopLeft = new Point(session.OriginBounds.X, session.OriginBounds.Y);
+                var offset = new Vector(session.StartPoint.X - originTopLeft.X, session.StartPoint.Y - originTopLeft.Y);
+
+                var w = session.OriginBounds.Width;
+                var h = session.OriginBounds.Height;
+
+                var left = currentPoint.X - offset.X;
+                var top = currentPoint.Y - offset.Y;
+
+                // Clamp inside floating surface
+                left = Math.Clamp(left, surface.X, Math.Max(surface.X, surface.Right - w));
+                top = Math.Clamp(top, surface.Y, Math.Max(surface.Y, surface.Bottom - h));
+
+                var aligned = new Rect(left, top, w, h);
+                vm.SetParentPaneDragShadow(true, aligned.X, aligned.Y, aligned.Width, aligned.Height);
+                session.UpdatePreview(currentPoint, originAttachment, aligned);
+                return;
+            }
+
             var preview = ParentPaneMoveGesturePlanner.ComputePreview(
                 currentPoint,
                 windowSize,

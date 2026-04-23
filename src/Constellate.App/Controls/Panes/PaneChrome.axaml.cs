@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
+using Avalonia.Input;
+using Constellate.App;
 
 namespace Constellate.App.Controls.Panes
 {
@@ -143,6 +145,12 @@ namespace Constellate.App.Controls.Panes
             _commandBarRegion = this.FindControl<Control>(PaneChromeRegionNames.CommandBar);
             _bodyRegion = this.FindControl<Control>(PaneChromeRegionNames.Body);
 
+            // Bring-to-front on hover for any floating pane (parent or child).
+            if (_rootBorder is not null)
+            {
+                _rootBorder.PointerEntered += OnRootPointerEntered;
+            }
+
             // Wire basic change notifications so the center width recomputes when header viewport
             // or child regions change size.
             if (_headerScroll is not null)
@@ -167,6 +175,29 @@ namespace Constellate.App.Controls.Panes
 
             // First pass after load
             UpdateHeaderCenterWidth();
+        }
+
+        private void OnRootPointerEntered(object? sender, PointerEventArgs e)
+        {
+            var vm = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
+            if (vm is null)
+                return;
+
+            switch (DataContext)
+            {
+                case ParentPaneModel parent:
+                    if (string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), "floating", System.StringComparison.Ordinal))
+                    {
+                        vm.BringFloatingParentToFront(parent.Id);
+                    }
+                    break;
+                case ChildPaneDescriptor child:
+                    if (child.ParentId is null)
+                    {
+                        vm.BringFloatingChildToFront(child.Id);
+                    }
+                    break;
+            }
         }
 
         private void OnAnyHeaderMetricChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
