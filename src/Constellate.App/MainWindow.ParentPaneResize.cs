@@ -25,8 +25,7 @@ namespace Constellate.App
 
         private bool BeginParentPaneResizeSession(string edge, PointerPressedEventArgs e)
         {
-            var rootGrid = GetShellRootGrid();
-            if (rootGrid is null || DataContext is not MainWindowViewModel vm)
+            if (DataContext is not MainWindowViewModel vm)
             {
                 return false;
             }
@@ -47,6 +46,14 @@ namespace Constellate.App
                 startPoint: startPoint,
                 fullWindowBounds: fullWindowBounds,
                 currentDockExtent: GetCurrentDockSize(edge));
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[OverlayGrip][ResizeStart] host={edge} paneId={paneId} pointer={e.Pointer.Id} start=({startPoint.X:0.##},{startPoint.Y:0.##}) extent={GetCurrentDockSize(edge):0.##}");
+            }
+            catch
+            {
+            }
 
             return PaneGestureSessionCoordinator.Start(
                 ref _activeParentResizeSession,
@@ -125,18 +132,14 @@ namespace Constellate.App
 
         private double GetCurrentDockSize(string edge)
         {
-            var rootGrid = GetShellRootGrid();
-            if (rootGrid is null)
+            if (DataContext is not MainWindowViewModel vm) return 0.0;
+            var norm = MainWindowViewModel.NormalizeHostId(edge);
+            return norm switch
             {
-                return 0.0;
-            }
-
-            return edge switch
-            {
-                "left" => rootGrid.ColumnDefinitions[0].ActualWidth,
-                "right" => rootGrid.ColumnDefinitions[2].ActualWidth,
-                "top" => rootGrid.RowDefinitions[0].ActualHeight,
-                "bottom" => rootGrid.RowDefinitions[2].ActualHeight,
+                "left"   => vm.CurrentShellLayout.LeftDock?.Bounds.Width   ?? 0.0,
+                "right"  => vm.CurrentShellLayout.RightDock?.Bounds.Width  ?? 0.0,
+                "top"    => vm.CurrentShellLayout.TopDock?.Bounds.Height   ?? 0.0,
+                "bottom" => vm.CurrentShellLayout.BottomDock?.Bounds.Height?? 0.0,
                 _ => 0.0
             };
         }

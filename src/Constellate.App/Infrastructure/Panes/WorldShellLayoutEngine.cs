@@ -93,7 +93,7 @@ namespace Constellate.App.Infrastructure.Panes
             return new WorldShellLayoutResult(
                 FullBounds: fullBounds,
                 ResidualViewportRect: residualRect,
-                FloatingSurfaceRect: residualRect,
+                FloatingSurfaceRect: fullBounds,
                 LeftDock: leftParent is null
                     ? null
                     : new DockHostLayout(

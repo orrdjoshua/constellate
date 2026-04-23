@@ -1,0 +1,19 @@
+--- a/CONSTELLATE/src/Constellate.App/Controls/FloatingPaneLayerController.cs
++++ b/CONSTELLATE/src/Constellate.App/Controls/FloatingPaneLayerController.cs
+*** Begin Patch
+*** Update File: CONSTELLATE/src/Constellate.App/Controls/FloatingPaneLayerController.cs
+@@ -62,8 +62,8 @@
+-            // Shared controller used by resize grips (commit geometry + bring-to-front).
+-            // Note: FloatingPaneSurfaceController ctor does not accept a 'canvas' argument.
+-            _surfaceController = new FloatingPaneSurfaceController(
+-                owner: _owner,
+-                parentPanesSelector: _parentPanesSelector,
+-                childPanesSelector: _childPanesSelector);
++            // Shared controller used by resize grips (commit geometry + bring-to-front).
++            // Use positional args to match the ctor signature and avoid CS1739.
++            _surfaceController = new FloatingPaneSurfaceController(
++                _owner,
++                _parentPanesSelector,
++                _childPanesSelector);
+             Sync();
+         }

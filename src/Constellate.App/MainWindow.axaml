@@ -3,8 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:rt="clr-namespace:Constellate.Renderer.OpenTK.Controls;assembly=Constellate.Renderer.OpenTK"
         xmlns:app="clr-namespace:Constellate.App"
-        xmlns:cap="clr-namespace:Constellate.Core.Capabilities;assembly=Constellate.Core"
-        xmlns:style="clr-namespace:Avalonia.Styling;assembly=Avalonia"
         xmlns:ctrl="clr-namespace:Constellate.App.Controls"
         x:Class="Constellate.App.MainWindow"
         x:DataType="app:MainWindowViewModel"
@@ -12,45 +10,38 @@
         Height="760"
         Title="Constellate — Hybrid 2D/3D">
 
-  <Window.Resources>
-  </Window.Resources>
-
   <Window.Styles>
-    <!-- Base styles for corner-intersection hit targets so pointerover highlight can take effect -->
-    <Style Selector="Border#TopLeftIntersectionHit">
-      <Setter Property="BorderBrush" Value="#2A394B" />
-      <Setter Property="BorderThickness" Value="0,0,2,2" />
-      <Setter Property="Background" Value="Transparent" />
+    <!-- Overlay dock-resize grip hover affordances -->
+    <Style Selector="Border#OverlayLeftResizeGrip:pointerover, Border#OverlayRightResizeGrip:pointerover, Border#OverlayTopResizeGrip:pointerover, Border#OverlayBottomResizeGrip:pointerover">
+      <Setter Property="Background" Value="#20313A46"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="1"/>
     </Style>
-    <Style Selector="Border#TopRightIntersectionHit">
-      <Setter Property="BorderBrush" Value="#2A394B" />
-      <Setter Property="BorderThickness" Value="2,0,0,2" />
-      <Setter Property="Background" Value="Transparent" />
+    <!-- Corner intersection hit-target hover -->
+    <Style Selector="Border#OverlayCornerTopLeft:pointerover, Border#OverlayCornerTopRight:pointerover, Border#OverlayCornerBottomLeft:pointerover, Border#OverlayCornerBottomRight:pointerover">
+      <Setter Property="Background" Value="#20313A46"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="4"/>
     </Style>
-    <Style Selector="Border#BottomLeftIntersectionHit">
-      <Setter Property="BorderBrush" Value="#2A394B" />
-      <Setter Property="BorderThickness" Value="0,2,2,0" />
-      <Setter Property="Background" Value="Transparent" />
+    <!-- Corner affordance styles (unchanged) -->
+    <Style Selector="Polygon.cornerAff">
+      <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Border#BottomRightIntersectionHit">
-      <Setter Property="BorderBrush" Value="#2A394B" />
-      <Setter Property="BorderThickness" Value="2,2,0,0" />
-      <Setter Property="Background" Value="Transparent" />
+    <Style Selector="Polygon.cornerAff:pointerover">
+      <Setter Property="StrokeThickness" Value="2"/>
+      <Setter Property="Opacity" Value="0.9"/>
     </Style>
+    <!-- Hover highlight for triangle states (same as before) -->
     <Style Selector="Polygon#TopLeft_LeftTriangle">
       <Setter Property="Fill" Value="#60313A46" />
     </Style>
     <Style Selector="Polygon#TopLeft_LeftTriangle.hasMinLeft">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
-    <!-- Visible (expanded) cyan state for LEFT host -->
     <Style Selector="Polygon#TopLeft_LeftTriangle.hasVisibleLeft">
       <Setter Property="Fill" Value="#00D3FF" />
     </Style>
-    <Style Selector="Polygon#BottomLeft_LeftTriangle.hasVisibleLeft">
-      <Setter Property="Fill" Value="#00D3FF" />
-    </Style>
-
     <Style Selector="Polygon#BottomLeft_LeftTriangle">
       <Setter Property="Fill" Value="#60313A46" />
     </Style>
@@ -64,7 +55,6 @@
     <Style Selector="Polygon#TopLeft_TopTriangle.hasMinTop">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
-    <!-- Visible (expanded) cyan state for TOP host -->
     <Style Selector="Polygon#TopLeft_TopTriangle.hasVisibleTop">
       <Setter Property="Fill" Value="#00D3FF" />
     </Style>
@@ -85,7 +75,6 @@
     <Style Selector="Polygon#TopRight_RightTriangle.hasMinRight">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
-    <!-- Visible (expanded) cyan state for RIGHT host -->
     <Style Selector="Polygon#TopRight_RightTriangle.hasVisibleRight">
       <Setter Property="Fill" Value="#00D3FF" />
     </Style>
@@ -106,7 +95,6 @@
     <Style Selector="Polygon#BottomLeft_BottomTriangle.hasMinBottom">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
-    <!-- Visible (expanded) cyan state for BOTTOM host -->
     <Style Selector="Polygon#BottomLeft_BottomTriangle.hasVisibleBottom">
       <Setter Property="Fill" Value="#00D3FF" />
     </Style>
@@ -120,519 +108,203 @@
     <Style Selector="Polygon#BottomRight_BottomTriangle.hasMinBottom">
       <Setter Property="Fill" Value="#FFC48A2F" />
     </Style>
-
-    <!-- New: general hover affordance for all corner triangles -->
-    <Style Selector="Polygon.cornerAff">
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Polygon.cornerAff:pointerover">
-      <Setter Property="StrokeThickness" Value="2"/>
-      <Setter Property="Opacity" Value="0.9"/>
-    </Style>
-
-    <!-- Docked parent-pane resize grip hover styles -->
-    <Style Selector="Border#LeftPaneResizeGrip:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#RightPaneResizeGrip:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#TopPaneResizeGrip:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#BottomPaneResizeGrip:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <!-- Corner intersection hover affordance (same look as resize grips) -->
-    <Style Selector="Border#TopLeftIntersectionHit:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#TopRightIntersectionHit:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#BottomLeftIntersectionHit:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
-    <Style Selector="Border#BottomRightIntersectionHit:pointerover">
-      <Setter Property="Background" Value="#172231" />
-      <Setter Property="BorderBrush" Value="#FFC48A2F" />
-      <Setter Property="BorderThickness" Value="2" />
-    </Style>
   </Window.Styles>
 
-  <Grid x:Name="RootGrid"
-        Background="#050911">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="Auto" />
-      <ColumnDefinition Width="*" />
-      <ColumnDefinition Width="Auto" />
-    </Grid.ColumnDefinitions>
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
-
-    <!-- Left parent-pane host -->
-    <Border x:Name="LeftPaneHost"
-            Grid.Row="{Binding LeftPaneRow}"
-            Grid.RowSpan="{Binding LeftPaneRowSpan}"
-            Grid.Column="0"
-            Background="#0E141B"
-            Padding="0"
-            MinWidth="260"
-            IsVisible="{Binding IsShellPaneOnLeft}">
-      <Border.ContextMenu>
-        <ContextMenu>
-          <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}"
-                    CommandParameter="left" />
-          <MenuItem Header="Destroy pane"
-                    Command="{Binding DestroyParentPaneCommand}"
-                    CommandParameter="left" />
-        </ContextMenu>
-      </Border.ContextMenu>
-
-      <ContentControl Content="{Binding ActiveParentPaneLeft}"
-                      HorizontalContentAlignment="Stretch"
-                      VerticalContentAlignment="Stretch">
-        <ContentControl.ContentTemplate>
-          <DataTemplate>
-            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Stretch"/>
-          </DataTemplate>
-        </ContentControl.ContentTemplate>
-      </ContentControl>
-    </Border>
-
-    <!-- Top parent-pane host -->
-    <Border x:Name="TopPaneHost"
-            Grid.Column="{Binding TopPaneColumn}"
-            Grid.ColumnSpan="{Binding TopPaneColumnSpan}"
-            Grid.Row="0"
-            Background="#0E141B"
-            Padding="0"
-            MinHeight="220"
-            IsVisible="{Binding IsShellPaneOnTop}">
-      <Border.ContextMenu>
-        <ContextMenu>
-          <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}"
-                    CommandParameter="top" />
-          <MenuItem Header="Destroy pane"
-                    Command="{Binding DestroyParentPaneCommand}"
-                    CommandParameter="top" />
-        </ContextMenu>
-      </Border.ContextMenu>
-
-      <ContentControl Content="{Binding ActiveParentPaneTop}"
-                      HorizontalContentAlignment="Stretch"
-                      VerticalContentAlignment="Stretch">
-        <ContentControl.ContentTemplate>
-          <DataTemplate>
-            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Stretch"/>
-          </DataTemplate>
-        </ContentControl.ContentTemplate>
-      </ContentControl>
-    </Border>
-
-    <!-- Right parent-pane host -->
-    <Border x:Name="RightPaneHost"
-            Grid.Row="{Binding RightPaneRow}"
-            Grid.RowSpan="{Binding RightPaneRowSpan}"
-            Grid.Column="2"
-            Background="#0E141B"
-            Padding="0"
-            MinWidth="260"
-            IsVisible="{Binding IsShellPaneOnRight}">
-      <Border.ContextMenu>
-        <ContextMenu>
-          <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}"
-                    CommandParameter="right" />
-          <MenuItem Header="Destroy pane"
-                    Command="{Binding DestroyParentPaneCommand}"
-                    CommandParameter="right" />
-        </ContextMenu>
-      </Border.ContextMenu>
-
-      <ContentControl Content="{Binding ActiveParentPaneRight}"
-                      HorizontalContentAlignment="Stretch"
-                      VerticalContentAlignment="Stretch">
-        <ContentControl.ContentTemplate>
-          <DataTemplate>
-            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Stretch"/>
-          </DataTemplate>
-        </ContentControl.ContentTemplate>
-      </ContentControl>
-    </Border>
-
-    <!-- Center viewport host -->
-    <Border x:Name="CenterViewportHost"
-            Grid.Column="1"
-            Grid.Row="1">
+  <!-- Root grid remains only as a neutral root to layer viewport (below) and overlay (above). -->
+  <Grid x:Name="RootGrid" Background="#050911">
+    <!-- Layer 0: Full-window 3D viewport -->
+    <Border x:Name="ViewportHost"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
       <rt:OpenTkViewportControl />
     </Border>
 
-    <!-- Bottom parent-pane host -->
-    <Border x:Name="BottomPaneHost"
-            Grid.Column="{Binding BottomPaneColumn}"
-            Grid.ColumnSpan="{Binding BottomPaneColumnSpan}"
-            Grid.Row="2"
-            Background="#0E141B"
-            Padding="0"
-            MinHeight="220"
-            IsVisible="{Binding IsShellPaneOnBottom}">
-      <Border.ContextMenu>
-        <ContextMenu>
-          <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}"
-                    CommandParameter="bottom" />
-          <MenuItem Header="Destroy pane"
-                    Command="{Binding DestroyParentPaneCommand}"
-                    CommandParameter="bottom" />
-        </ContextMenu>
-      </Border.ContextMenu>
+    <!-- Layer 1+: Unified 2D overlay (hit-testable only where controls exist) -->
+    <Grid x:Name="OverlayRoot"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          IsHitTestVisible="True"
+          ZIndex="900">
 
-      <ContentControl Content="{Binding ActiveParentPaneBottom}"
-                      HorizontalContentAlignment="Stretch"
-                      VerticalContentAlignment="Stretch">
-        <ContentControl.ContentTemplate>
-          <DataTemplate>
-            <ctrl:ParentPaneView HorizontalAlignment="Stretch"
-                                 VerticalAlignment="Stretch"/>
-          </DataTemplate>
-        </ContentControl.ContentTemplate>
-      </ContentControl>
-    </Border>
+      <!-- Unified overlay: docked + floating in one layer -->
+      <ctrl:OverlayPaneLayer DataContext="{Binding}"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch"
+                             ZIndex="0" />
 
-    <!-- Floating parent-pane host -->
-    <Border x:Name="FloatingPaneHost"
-            Grid.Column="1"
-            Grid.Row="1"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            Margin="0"
-            Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="0"
-            CornerRadius="8"
-            IsVisible="{Binding IsFloatingLayerVisible}">
-      <Border.ContextMenu>
-        <ContextMenu>
-          <MenuItem Header="Minimize pane"
-                    Command="{Binding MinimizeShellPaneCommand}"
-                    CommandParameter="floating" />
-          <MenuItem Header="Destroy pane"
-                    Command="{Binding DestroyParentPaneCommand}"
-                    CommandParameter="floating" />
-        </ContextMenu>
-      </Border.ContextMenu>
+      <!-- Dock resize grips in overlay (gesture host binds to the Border names) -->
+      <ctrl:OverlayResizeGripLayer DataContext="{Binding}"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   ZIndex="10" />
 
-      <ctrl:FloatingPaneLayer ParentPanes="{Binding ParentPaneModelsFloating}"
-                              ChildPanes="{Binding FloatingChildPanes}" />
-    </Border>
+      <!-- Drag shadow overlays (pointer-transparent) -->
+      <Canvas IsHitTestVisible="False"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              ClipToBounds="True"
+              ZIndex="20">
+        <Border IsVisible="{Binding IsParentPaneDragShadowVisible}"
+                Canvas.Left="{Binding ParentPaneDragShadowLeft}"
+                Canvas.Top="{Binding ParentPaneDragShadowTop}"
+                Width="{Binding ParentPaneDragShadowWidth}"
+                Height="{Binding ParentPaneDragShadowHeight}"
+                Background="#40FFFFFF"
+                BorderBrush="#80FFFFFF"
+                BorderThickness="2"
+                CornerRadius="4" />
+        <Border IsVisible="{Binding IsChildPaneDragShadowVisible}"
+                Canvas.Left="{Binding ChildPaneDragShadowLeft}"
+                Canvas.Top="{Binding ChildPaneDragShadowTop}"
+                Width="{Binding ChildPaneDragShadowWidth}"
+                Height="{Binding ChildPaneDragShadowHeight}"
+                Background="#4040C0FF"
+                BorderBrush="#80FFFFFF"
+                BorderThickness="1.5"
+                CornerRadius="3" />
+      </Canvas>
 
-    <!-- Corner affordances (triangles) -->
-    <Canvas Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            Width="44"
-            Height="44"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Margin="6">
-      <Polygon x:Name="TopLeft_LeftTriangle"
-               Points="0,0 14,14 0,28"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="left"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
-               Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Left pane" />
-        </ToolTip.Tip>
-      </Polygon>
-      <Polygon x:Name="TopLeft_TopTriangle"
-               Points="0,0 28,0 14,14"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="top"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinTop="{Binding HasMinimizedParentTop}"
-               Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Top pane" />
-        </ToolTip.Tip>
-      </Polygon>
-    </Canvas>
+      <!-- Corner affordances: overlay, anchored to window corners -->
+      <Canvas Width="44" Height="44"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Top"
+              Margin="6"
+              ZIndex="30">
+        <Polygon x:Name="TopLeft_LeftTriangle"
+                 Points="0,0 14,14 0,28"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="left"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
+                 Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Left pane" />
+          </ToolTip.Tip>
+        </Polygon>
+        <Polygon x:Name="TopLeft_TopTriangle"
+                 Points="0,0 28,0 14,14"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="top"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinTop="{Binding HasMinimizedParentTop}"
+                 Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Top pane" />
+          </ToolTip.Tip>
+        </Polygon>
+      </Canvas>
 
-    <Canvas Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            Width="44"
-            Height="44"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            Margin="6">
-      <Polygon x:Name="TopRight_TopTriangle"
-               Points="44,0 16,0 30,14"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="top"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinTop="{Binding HasMinimizedParentTop}"
-               Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Top pane" />
-        </ToolTip.Tip>
-      </Polygon>
-      <Polygon x:Name="TopRight_RightTriangle"
-               Points="44,0 30,14 44,28"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="right"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinRight="{Binding HasMinimizedParentRight}"
-               Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Right pane" />
-        </ToolTip.Tip>
-      </Polygon>
-    </Canvas>
+      <Canvas Width="44" Height="44"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Top"
+              Margin="6"
+              ZIndex="30">
+        <Polygon x:Name="TopRight_TopTriangle"
+                 Points="44,0 16,0 30,14"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="top"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinTop="{Binding HasMinimizedParentTop}"
+                 Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Top pane" />
+          </ToolTip.Tip>
+        </Polygon>
+        <Polygon x:Name="TopRight_RightTriangle"
+                 Points="44,0 30,14 44,28"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="right"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinRight="{Binding HasMinimizedParentRight}"
+                 Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Right pane" />
+          </ToolTip.Tip>
+        </Polygon>
+      </Canvas>
 
-    <Canvas Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            Width="44"
-            Height="44"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Bottom"
-            Margin="6">
-      <Polygon x:Name="BottomLeft_LeftTriangle"
-               Points="0,44 14,30 0,16"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="left"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
-               Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Left pane" />
-        </ToolTip.Tip>
-      </Polygon>
-      <Polygon x:Name="BottomLeft_BottomTriangle"
-               Points="0,44 28,44 14,30"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="bottom"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
-               Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Bottom pane" />
-        </ToolTip.Tip>
-      </Polygon>
-    </Canvas>
+      <Canvas Width="44" Height="44"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Margin="6"
+              ZIndex="30">
+        <Polygon x:Name="BottomLeft_LeftTriangle"
+                 Points="0,44 14,30 0,16"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="left"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
+                 Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Left pane" />
+          </ToolTip.Tip>
+        </Polygon>
+        <Polygon x:Name="BottomLeft_BottomTriangle"
+                 Points="0,44 28,44 14,30"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="bottom"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
+                 Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Bottom pane" />
+          </ToolTip.Tip>
+        </Polygon>
+      </Canvas>
 
-    <Canvas Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            Width="44"
-            Height="44"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Bottom"
-            Margin="6"
-            ZIndex="1000">
-      <Polygon x:Name="BottomRight_BottomTriangle"
-               Points="44,44 16,44 30,30"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="bottom"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
-               Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Bottom pane" />
-        </ToolTip.Tip>
-      </Polygon>
-      <Polygon x:Name="BottomRight_RightTriangle"
-               Points="44,44 30,30 44,16"
-               Stroke="#E5EDF7"
-               StrokeThickness="1.2"
-               Cursor="Hand"
-               Tag="right"
-               Classes="cornerAff"
-               PointerPressed="CornerTriangle_OnPointerPressed"
-               Classes.hasMinRight="{Binding HasMinimizedParentRight}"
-               Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
-        <ToolTip.Tip>
-          <TextBlock Text="Create or restore Right pane" />
-        </ToolTip.Tip>
-      </Polygon>
-    </Canvas>
+      <Canvas Width="44" Height="44"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Bottom"
+              Margin="6"
+              ZIndex="30">
+        <Polygon x:Name="BottomRight_BottomTriangle"
+                 Points="44,44 16,44 30,30"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="bottom"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
+                 Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Bottom pane" />
+          </ToolTip.Tip>
+        </Polygon>
+        <Polygon x:Name="BottomRight_RightTriangle"
+                 Points="44,44 30,30 44,16"
+                 Stroke="#E5EDF7"
+                 StrokeThickness="1.2"
+                 Cursor="Hand"
+                 Tag="right"
+                 Classes="cornerAff"
+                 PointerPressed="CornerTriangle_OnPointerPressed"
+                 Classes.hasMinRight="{Binding HasMinimizedParentRight}"
+                 Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
+          <ToolTip.Tip>
+            <TextBlock Text="Create or restore Right pane" />
+          </ToolTip.Tip>
+        </Polygon>
+      </Canvas>
 
-    <!-- Top-corner intersection toggles -->
-    <Border x:Name="TopLeftIntersectionHit"
-            Grid.Row="0"
-            Grid.Column="0"
-            Width="14"
-            Height="14"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Bottom"
-            Classes="cornerHit"
-            IsVisible="{Binding IsShellPaneOnTop}"
-            Cursor="Hand"
-            ZIndex="1002"
-            DoubleTapped="OnTopCornerIntersectionDoubleTapped">
-      <ToolTip.Tip>
-        <TextBlock Text="Flip corner ownership (Top ↔ Left)" />
-      </ToolTip.Tip>
-    </Border>
-    <Border x:Name="TopRightIntersectionHit"
-            Grid.Row="0"
-            Grid.Column="2"
-            Width="14"
-            Height="14"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Bottom"
-            Classes="cornerHit"
-            IsVisible="{Binding IsShellPaneOnTop}"
-            Cursor="Hand"
-            ZIndex="1002"
-            DoubleTapped="OnTopCornerIntersectionDoubleTapped">
-      <ToolTip.Tip>
-        <TextBlock Text="Flip corner ownership (Top ↔ Right)" />
-      </ToolTip.Tip>
-    </Border>
-
-    <!-- Resize grips -->
-    <Border x:Name="LeftPaneResizeGrip"
-            Grid.Row="1"
-            Grid.Column="0"
-            HorizontalAlignment="Right"
-            Width="8"
-            Background="Transparent"
-            Cursor="SizeWestEast"
-            Tag="left"
-            IsHitTestVisible="{Binding IsShellPaneOnLeft}"
-            IsVisible="{Binding IsShellPaneOnLeft}" />
-    <Border x:Name="RightPaneResizeGrip"
-            Grid.Row="1"
-            Grid.Column="2"
-            HorizontalAlignment="Left"
-            Width="8"
-            Background="Transparent"
-            Cursor="SizeWestEast"
-            Tag="right"
-            IsHitTestVisible="{Binding IsShellPaneOnRight}"
-            IsVisible="{Binding IsShellPaneOnRight}" />
-    <Border x:Name="TopPaneResizeGrip"
-            Grid.Row="0"
-            Grid.Column="1"
-            VerticalAlignment="Bottom"
-            Height="8"
-            Background="Transparent"
-            Cursor="SizeNorthSouth"
-            Tag="top"
-            IsHitTestVisible="{Binding IsShellPaneOnTop}"
-            IsVisible="{Binding IsShellPaneOnTop}" />
-    <Border x:Name="BottomPaneResizeGrip"
-            Grid.Row="2"
-            Grid.Column="1"
-            VerticalAlignment="Top"
-            Height="8"
-            Background="Transparent"
-            Cursor="SizeNorthSouth"
-            Tag="bottom"
-            IsHitTestVisible="{Binding IsShellPaneOnBottom}"
-            IsVisible="{Binding IsShellPaneOnBottom}" />
-
-    <!-- Drag shadow overlays -->
-    <!-- (debug HUD removed) -->
-
-    <Canvas Grid.RowSpan="3"
-            Grid.ColumnSpan="3"
-            IsHitTestVisible="False">
-      <Border IsVisible="{Binding IsParentPaneDragShadowVisible}"
-              Canvas.Left="{Binding ParentPaneDragShadowLeft}"
-              Canvas.Top="{Binding ParentPaneDragShadowTop}"
-              Width="{Binding ParentPaneDragShadowWidth}"
-              Height="{Binding ParentPaneDragShadowHeight}"
-              Background="#40FFFFFF"
-              BorderBrush="#80FFFFFF"
-              BorderThickness="2"
-              CornerRadius="4" />
-      <Border IsVisible="{Binding IsChildPaneDragShadowVisible}"
-              Canvas.Left="{Binding ChildPaneDragShadowLeft}"
-              Canvas.Top="{Binding ChildPaneDragShadowTop}"
-              Width="{Binding ChildPaneDragShadowWidth}"
-              Height="{Binding ChildPaneDragShadowHeight}"
-              Background="#4040C0FF"
-              BorderBrush="#80FFFFFF"
-              BorderThickness="1.5"
-              CornerRadius="3" />
-    </Canvas>
-
-    <!-- Bottom-corner intersection toggles -->
-    <Border x:Name="BottomLeftIntersectionHit"
-            Grid.Row="2"
-            Grid.Column="0"
-            Width="14"
-            Height="14"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            Classes="cornerHit"
-            IsVisible="{Binding IsShellPaneOnBottom}"
-            Cursor="Hand"
-            ZIndex="1002"
-            DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
-      <ToolTip.Tip>
-        <TextBlock Text="Flip corner ownership (Bottom ↔ Left)" />
-      </ToolTip.Tip>
-    </Border>
-    <Border x:Name="BottomRightIntersectionHit"
-            Grid.Row="2"
-            Grid.Column="2"
-            Width="14"
-            Height="14"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            Classes="cornerHit"
-            IsVisible="{Binding IsShellPaneOnBottom}"
-            Cursor="Hand"
-            ZIndex="1002"
-            DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
-      <ToolTip.Tip>
-        <TextBlock Text="Flip corner ownership (Bottom ↔ Right)" />
-      </ToolTip.Tip>
-    </Border>
+    </Grid>
   </Grid>
 </Window>

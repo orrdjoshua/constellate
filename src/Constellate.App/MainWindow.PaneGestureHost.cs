@@ -10,9 +10,10 @@ namespace Constellate.App
     {
         private void InitializePaneGestureHost()
         {
+            // Initial bind attempt (may run before overlay children exist).
             PaneGestureHostBinder.BindGrip(
                 this,
-                "LeftPaneResizeGrip",
+                "OverlayLeftResizeGrip",
                 "left",
                 PaneResizeGrip_OnPointerPressed,
                 PaneResizeGrip_OnPointerReleased,
@@ -21,7 +22,7 @@ namespace Constellate.App
 
             PaneGestureHostBinder.BindGrip(
                 this,
-                "RightPaneResizeGrip",
+                "OverlayRightResizeGrip",
                 "right",
                 PaneResizeGrip_OnPointerPressed,
                 PaneResizeGrip_OnPointerReleased,
@@ -30,7 +31,7 @@ namespace Constellate.App
 
             PaneGestureHostBinder.BindGrip(
                 this,
-                "TopPaneResizeGrip",
+                "OverlayTopResizeGrip",
                 "top",
                 PaneResizeGrip_OnPointerPressed,
                 PaneResizeGrip_OnPointerReleased,
@@ -39,7 +40,7 @@ namespace Constellate.App
 
             PaneGestureHostBinder.BindGrip(
                 this,
-                "BottomPaneResizeGrip",
+                "OverlayBottomResizeGrip",
                 "bottom",
                 PaneResizeGrip_OnPointerPressed,
                 PaneResizeGrip_OnPointerReleased,
@@ -50,6 +51,52 @@ namespace Constellate.App
                 this,
                 Window_OnGlobalPointerMoved,
                 Window_OnGlobalPointerReleased);
+
+            // Late bind after visual tree is fully realized to ensure overlay grips exist.
+            // This fixes the case where programmatically-created borders aren't yet in the tree.
+            this.Opened += (_, __) =>
+            {
+                TryRebindOverlayGrips();
+            };
+        }
+
+        private void TryRebindOverlayGrips()
+        {
+            PaneGestureHostBinder.BindGrip(
+                this,
+                "OverlayLeftResizeGrip",
+                "left",
+                PaneResizeGrip_OnPointerPressed,
+                PaneResizeGrip_OnPointerReleased,
+                PaneResizeGrip_OnPointerMoved,
+                PaneResizeGrip_OnPointerCaptureLost);
+
+            PaneGestureHostBinder.BindGrip(
+                this,
+                "OverlayRightResizeGrip",
+                "right",
+                PaneResizeGrip_OnPointerPressed,
+                PaneResizeGrip_OnPointerReleased,
+                PaneResizeGrip_OnPointerMoved,
+                PaneResizeGrip_OnPointerCaptureLost);
+
+            PaneGestureHostBinder.BindGrip(
+                this,
+                "OverlayTopResizeGrip",
+                "top",
+                PaneResizeGrip_OnPointerPressed,
+                PaneResizeGrip_OnPointerReleased,
+                PaneResizeGrip_OnPointerMoved,
+                PaneResizeGrip_OnPointerCaptureLost);
+
+            PaneGestureHostBinder.BindGrip(
+                this,
+                "OverlayBottomResizeGrip",
+                "bottom",
+                PaneResizeGrip_OnPointerPressed,
+                PaneResizeGrip_OnPointerReleased,
+                PaneResizeGrip_OnPointerMoved,
+                PaneResizeGrip_OnPointerCaptureLost);
         }
 
         internal bool TryBeginPressedPaneDrag(object? sender, object? paneDataContext, PointerPressedEventArgs e)

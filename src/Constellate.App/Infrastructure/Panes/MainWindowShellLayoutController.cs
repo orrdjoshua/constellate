@@ -153,6 +153,13 @@ namespace Constellate.App.Infrastructure.Panes
                 return;
             }
 
+            // Overlay architecture: if the grid is not the legacy 3×3 (Auto,*,Auto) x (Auto,*,Auto),
+            // we skip applying row/col sizes and let overlay rects be authoritative.
+            if (_rootGrid.ColumnDefinitions.Count < 3 || _rootGrid.RowDefinitions.Count < 3)
+            {
+                return;
+            }
+
             var layout = vm.CurrentShellLayout;
 
             var leftWidth = layout.LeftDock?.Bounds.Width ?? 0.0;
@@ -185,6 +192,11 @@ namespace Constellate.App.Infrastructure.Panes
         private void AdjustGridForHostVisibility(MainWindowViewModel? vm)
         {
             if (_rootGrid is null || vm is null)
+            {
+                return;
+            }
+
+            if (_rootGrid.ColumnDefinitions.Count < 3 || _rootGrid.RowDefinitions.Count < 3)
             {
                 return;
             }

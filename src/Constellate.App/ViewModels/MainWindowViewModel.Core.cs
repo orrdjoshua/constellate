@@ -425,6 +425,21 @@ public sealed partial class MainWindowViewModel
     /// Current number of parent panes in this VM instance.
     /// </summary>
     public int ParentPaneCount => ParentPaneModels.Count;
+
+    // Overlay-dock migration toggle: when true, docked parents are also realized
+    // via the overlay coordinate space (OverlayDockLayer). Default false to avoid
+    // duplicate visuals during the cutover; flip on selectively for validation.
+    private bool _isOverlayDockLayerEnabled;
+    public bool IsOverlayDockLayerEnabled
+    {
+        get => _isOverlayDockLayerEnabled;
+        set
+        {
+            if (_isOverlayDockLayerEnabled == value) return;
+            _isOverlayDockLayerEnabled = value;
+            OnPropertyChanged();
+        }
+    }
     // Settings child floating flag
     public bool IsSettingsChildFloating
     {

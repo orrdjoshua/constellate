@@ -30,11 +30,17 @@ namespace Constellate.App
                 vm.BringFloatingParentToFront(parent.Id);
             }
 
-            return BeginParentPaneMoveSession(
+            var ok = BeginParentPaneMoveSession(
                 parent,
                 parent.Id,
                 e,
                 markHandled: true);
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[ParentDrag][Start] originParentId={parent.Id} host={MainWindowViewModel.NormalizeHostId(parent.HostId)} pointer={e.Pointer.Id}");
+            }
+            catch { }
+            return ok;
         }
 
         private bool BeginParentPaneMoveSession(

@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 
 namespace Constellate.App.Infrastructure.Panes.Gestures;
 
@@ -30,7 +31,28 @@ internal static class PaneGestureHostBinder
         var grip = window.FindControl<Border>(name);
         if (grip is null)
         {
+            // Fallback: overlay grips are created programmatically and may not be in the Window’s NameScope.
+            // Search the visual tree for a Border with the requested Name.
+            grip = FindNamedDescendant<Border>(window, name);
+        }
+        if (grip is null)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[OverlayGrip][Bind][MISS] name={name} tag={tag}");
+            }
+            catch
+            {
+            }
             return;
+        }
+
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"[OverlayGrip][Bind][OK] name={name} tag={tag}");
+        }
+        catch
+        {
         }
 
         grip.Tag = tag;
@@ -46,6 +68,16 @@ internal static class PaneGestureHostBinder
 
         grip.PointerCaptureLost -= onCaptureLost;
         grip.PointerCaptureLost += onCaptureLost;
+    }
+
+    private static T? FindNamedDescendant<T>(Control root, string name) where T : Control
+    {
+        foreach (var v in root.GetVisualDescendants())
+        {
+            if (v is T c && string.Equals(c.Name, name, StringComparison.Ordinal))
+                return c;
+        }
+        return null;
     }
 
     public static bool TryBeginPressedPaneDrag(

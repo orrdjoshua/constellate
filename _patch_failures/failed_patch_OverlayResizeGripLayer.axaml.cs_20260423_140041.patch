@@ -1,0 +1,193 @@
+--- a/CONSTELLATE/src/Constellate.App/Controls/OverlayResizeGripLayer.axaml.cs
++++ b/CONSTELLATE/src/Constellate.App/Controls/OverlayResizeGripLayer.axaml.cs
+*** Begin Patch
+*** Update File: CONSTELLATE/src/Constellate.App/Controls/OverlayResizeGripLayer.axaml.cs
+@@ -27,4 +27,8 @@
+         private Border? _leftGrip;
+         private Border? _rightGrip;
+         private Border? _topGrip;
+         private Border? _bottomGrip;
++        private Border? _cornerTopLeft;
++        private Border? _cornerTopRight;
++        private Border? _cornerBottomLeft;
++        private Border? _cornerBottomRight;
+@@ -41,10 +41,20 @@
+         private void InitializeComponent()
+         {
+             AvaloniaXamlLoader.Load(this);
+             _canvas = this.FindControl<Canvas>("PART_Canvas");
+ 
+             _leftGrip = CreateGrip("OverlayLeftResizeGrip", "left", StandardCursorType.SizeWestEast);
+             _rightGrip = CreateGrip("OverlayRightResizeGrip", "right", StandardCursorType.SizeWestEast);
+             _topGrip = CreateGrip("OverlayTopResizeGrip", "top", StandardCursorType.SizeNorthSouth);
+             _bottomGrip = CreateGrip("OverlayBottomResizeGrip", "bottom", StandardCursorType.SizeNorthSouth);
+ 
++            // Corner hit-targets for intersection toggles (double-tap)
++            _cornerTopLeft = CreateCorner("OverlayCornerTopLeft");
++            _cornerTopRight = CreateCorner("OverlayCornerTopRight");
++            _cornerBottomLeft = CreateCorner("OverlayCornerBottomLeft");
++            _cornerBottomRight = CreateCorner("OverlayCornerBottomRight");
++            if (_cornerTopLeft is not null) _cornerTopLeft.DoubleTapped += OnCornerDoubleTapped;
++            if (_cornerTopRight is not null) _cornerTopRight.DoubleTapped += OnCornerDoubleTapped;
++            if (_cornerBottomLeft is not null) _cornerBottomLeft.DoubleTapped += OnCornerDoubleTapped;
++            if (_cornerBottomRight is not null) _cornerBottomRight.DoubleTapped += OnCornerDoubleTapped;
++
+@@ -51,8 +51,12 @@
+             if (_canvas is not null)
+             {
+                 if (_leftGrip is not null) _canvas.Children.Add(_leftGrip);
+                 if (_rightGrip is not null) _canvas.Children.Add(_rightGrip);
+                 if (_topGrip is not null) _canvas.Children.Add(_topGrip);
+                 if (_bottomGrip is not null) _canvas.Children.Add(_bottomGrip);
++                if (_cornerTopLeft is not null) _canvas.Children.Add(_cornerTopLeft);
++                if (_cornerTopRight is not null) _canvas.Children.Add(_cornerTopRight);
++                if (_cornerBottomLeft is not null) _canvas.Children.Add(_cornerBottomLeft);
++                if (_cornerBottomRight is not null) _canvas.Children.Add(_cornerBottomRight);
+             }
+         }
+@@ -60,13 +60,28 @@
+         private static Border CreateGrip(string name, string tag, StandardCursorType cursor)
+         {
+             return new Border
+             {
+                 Name = name,
+                 Tag = tag,
+                 Background = Brushes.Transparent,
+                 BorderBrush = Brushes.Transparent,
+                 BorderThickness = new Thickness(0),
+                 IsHitTestVisible = true,
+                 Cursor = new Cursor(cursor),
+             };
+         }
++
++        private static Border CreateCorner(string name)
++        {
++            return new Border
++            {
++                Name = name,
++                Width = 22,
++                Height = 22,
++                Background = Brushes.Transparent,
++                BorderBrush = Brushes.Transparent,
++                BorderThickness = new Thickness(0),
++                IsHitTestVisible = true,
++                Cursor = new Cursor(StandardCursorType.Hand),
++            };
++        }
+@@ -122,12 +122,17 @@
+         private void SyncAll()
+         {
+             if (_vm is null || _canvas is null)
+             {
+                 return;
+             }
+ 
+             PositionLeftGrip(_vm.CurrentShellLayout.LeftDock);
+             PositionRightGrip(_vm.CurrentShellLayout.RightDock);
+             PositionTopGrip(_vm.CurrentShellLayout.TopDock);
+             PositionBottomGrip(_vm.CurrentShellLayout.BottomDock);
++
++            PositionCornerHits(_vm.CurrentShellLayout.LeftDock,
++                               _vm.CurrentShellLayout.TopDock,
++                               _vm.CurrentShellLayout.RightDock,
++                               _vm.CurrentShellLayout.BottomDock);
+         }
+@@ -189,18 +189,98 @@
+         private void PositionBottomGrip(DockHostLayout? layout)
+         {
+             if (_bottomGrip is null) return;
+             if (layout is { IsVisible: true })
+             {
+                 var r = layout.Bounds;
+                 _bottomGrip.IsVisible = true;
+                 _bottomGrip.Width = Math.Max(0.0, r.Width);
+                 _bottomGrip.Height = Thickness;
+                 Canvas.SetLeft(_bottomGrip, r.X);
+                 Canvas.SetTop(_bottomGrip, r.Y - (Thickness / 2.0));
+             }
+             else
+             {
+                 _bottomGrip.IsVisible = false;
+             }
+         }
++
++        private void PositionCornerHits(DockHostLayout? left, DockHostLayout? top, DockHostLayout? right, DockHostLayout? bottom)
++        {
++            // Top-Left intersection: visible when both top and left are visible
++            if (_cornerTopLeft is not null)
++            {
++                if (left is { IsVisible: true } && top is { IsVisible: true })
++                {
++                    var x = left.Bounds.Right - _cornerTopLeft.Width / 2.0;
++                    var y = top.Bounds.Bottom - _cornerTopLeft.Height / 2.0;
++                    Canvas.SetLeft(_cornerTopLeft, x);
++                    Canvas.SetTop(_cornerTopLeft, y);
++                    _cornerTopLeft.IsVisible = true;
++                }
++                else _cornerTopLeft.IsVisible = false;
++            }
++
++            // Top-Right
++            if (_cornerTopRight is not null)
++            {
++                if (right is { IsVisible: true } && top is { IsVisible: true })
++                {
++                    var x = right.Bounds.X - _cornerTopRight.Width / 2.0;
++                    var y = top.Bounds.Bottom - _cornerTopRight.Height / 2.0;
++                    Canvas.SetLeft(_cornerTopRight, x);
++                    Canvas.SetTop(_cornerTopRight, y);
++                    _cornerTopRight.IsVisible = true;
++                }
++                else _cornerTopRight.IsVisible = false;
++            }
++
++            // Bottom-Left
++            if (_cornerBottomLeft is not null)
++            {
++                if (left is { IsVisible: true } && bottom is { IsVisible: true })
++                {
++                    var x = left.Bounds.Right - _cornerBottomLeft.Width / 2.0;
++                    var y = bottom.Bounds.Y - _cornerBottomLeft.Height / 2.0;
++                    Canvas.SetLeft(_cornerBottomLeft, x);
++                    Canvas.SetTop(_cornerBottomLeft, y);
++                    _cornerBottomLeft.IsVisible = true;
++                }
++                else _cornerBottomLeft.IsVisible = false;
++            }
++
++            // Bottom-Right
++            if (_cornerBottomRight is not null)
++            {
++                if (right is { IsVisible: true } && bottom is { IsVisible: true })
++                {
++                    var x = right.Bounds.X - _cornerBottomRight.Width / 2.0;
++                    var y = bottom.Bounds.Y - _cornerBottomRight.Height / 2.0;
++                    Canvas.SetLeft(_cornerBottomRight, x);
++                    Canvas.SetTop(_cornerBottomRight, y);
++                    _cornerBottomRight.IsVisible = true;
++                }
++                else _cornerBottomRight.IsVisible = false;
++            }
++        }
++
++        private void OnCornerDoubleTapped(object? sender, TappedEventArgs e)
++        {
++            if (_vm is null || sender is not Border b) return;
++            switch (b.Name)
++            {
++                case "OverlayCornerTopLeft":
++                    _vm.ToggleTopCornerOwnership();
++                    break;
++                case "OverlayCornerTopRight":
++                    _vm.ToggleTopRightCornerOwnership();
++                    break;
++                case "OverlayCornerBottomLeft":
++                    _vm.ToggleBottomLeftCornerOwnership();
++                    break;
++                case "OverlayCornerBottomRight":
++                    _vm.ToggleBottomRightCornerOwnership();
++                    break;
++            }
++            e.Handled = true;
++        }
+     }

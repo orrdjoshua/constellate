@@ -10,17 +10,19 @@ namespace Constellate.App.Controls
     internal static class FloatingPaneResizeController
     {
         public static void AttachResizeGrips(
-            Border chrome,
+            Control chrome,
             Canvas canvas,
             Panel panel,
             FloatingPaneSurfaceController surfaceController)
         {
             if (panel.Classes.Contains("floatingPaneResizeHost"))
             {
+                try { System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Attach][SKIP] already attached dc={chrome.DataContext?.GetType().Name ?? "null"}"); } catch { }
                 return;
             }
 
             panel.Classes.Add("floatingPaneResizeHost");
+            try { System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Attach][OK] dc={chrome.DataContext?.GetType().Name ?? "null"} panel={panel.GetType().Name}"); } catch { }
 
             foreach (var spec in GripSpecs.All)
             {
@@ -30,19 +32,19 @@ namespace Constellate.App.Controls
 
         private static void AddGrip(
             Panel panel,
-            Border chrome,
+            Control chrome,
             Canvas canvas,
             FloatingPaneSurfaceController surfaceController,
             GripSpec spec)
         {
-            var normalBrush = new SolidColorBrush(Color.FromArgb(1, 255, 196, 138));
-            var hoverBrush = new SolidColorBrush(Color.FromArgb(110, 255, 196, 138));
-            var pressedBrush = new SolidColorBrush(Color.FromArgb(150, 0, 211, 255));
+            var normalBrush = new SolidColorBrush(Color.FromArgb(40, 255, 196, 138));
+            var hoverBrush = new SolidColorBrush(Color.FromArgb(170, 255, 196, 138));
+            var pressedBrush = new SolidColorBrush(Color.FromArgb(220, 0, 211, 255));
             var transparentBrush = Brushes.Transparent;
 
             var grip = new Border
             {
-                Background = normalBrush,
+                Background = transparentBrush,
                 HorizontalAlignment = spec.HorizontalAlignment,
                 VerticalAlignment = spec.VerticalAlignment,
                 Width = spec.Width > 0 ? spec.Width : double.NaN,
@@ -50,29 +52,33 @@ namespace Constellate.App.Controls
                 Cursor = new Cursor(spec.Cursor),
                 BorderBrush = transparentBrush,
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(2)
+                CornerRadius = new CornerRadius(3)
             };
 
             grip.Classes.Add("floatingPaneResizeGrip");
+            grip.ZIndex = 500;
 
             var isPressed = false;
 
             grip.PointerEntered += (_, __) =>
             {
+                try { System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Hover][ENTER] cursor={spec.Cursor} dc={chrome.DataContext?.GetType().Name ?? "null"}"); } catch { }
                 surfaceController.BringToFront(chrome);
                 SetGripVisual(grip, hoverBrush, hoverBrush);
             };
 
             grip.PointerExited += (_, __) =>
             {
+                try { System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Hover][EXIT] cursor={spec.Cursor} dc={chrome.DataContext?.GetType().Name ?? "null"}"); } catch { }
                 if (!isPressed)
                 {
-                    SetGripVisual(grip, normalBrush, transparentBrush);
+                    SetGripVisual(grip, transparentBrush, transparentBrush);
                 }
             };
 
             grip.PointerPressed += (_, e) =>
             {
+                try { System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Press] cursor={spec.Cursor} dc={chrome.DataContext?.GetType().Name ?? "null"} pointer={e.Pointer.Id}"); } catch { }
                 surfaceController.BringToFront(chrome);
 
                 if (!e.GetCurrentPoint(chrome).Properties.IsLeftButtonPressed)
@@ -164,7 +170,7 @@ namespace Constellate.App.Controls
                     isPressed = false;
                     SetGripVisual(
                         grip,
-                        grip.IsPointerOver ? hoverBrush : normalBrush,
+                        grip.IsPointerOver ? hoverBrush : transparentBrush,
                         grip.IsPointerOver ? hoverBrush : transparentBrush);
 
                     grip.PointerMoved -= OnMove;
@@ -275,8 +281,8 @@ namespace Constellate.App.Controls
                 new(
                     HorizontalAlignment.Left,
                     VerticalAlignment.Top,
-                    14,
-                    14,
+                    11,
+                    11,
                     StandardCursorType.TopLeftCorner,
                     left: true,
                     top: true,
@@ -285,8 +291,8 @@ namespace Constellate.App.Controls
                 new(
                     HorizontalAlignment.Right,
                     VerticalAlignment.Top,
-                    14,
-                    14,
+                    11,
+                    11,
                     StandardCursorType.TopRightCorner,
                     left: false,
                     top: true,
@@ -295,8 +301,8 @@ namespace Constellate.App.Controls
                 new(
                     HorizontalAlignment.Left,
                     VerticalAlignment.Bottom,
-                    14,
-                    14,
+                    11,
+                    11,
                     StandardCursorType.BottomLeftCorner,
                     left: true,
                     top: false,
@@ -305,8 +311,8 @@ namespace Constellate.App.Controls
                 new(
                     HorizontalAlignment.Right,
                     VerticalAlignment.Bottom,
-                    14,
-                    14,
+                    11,
+                    11,
                     StandardCursorType.BottomRightCorner,
                     left: false,
                     top: false,

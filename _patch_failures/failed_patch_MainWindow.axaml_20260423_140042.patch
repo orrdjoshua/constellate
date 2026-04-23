@@ -1,0 +1,85 @@
+--- a/CONSTELLATE/src/Constellate.App/MainWindow.axaml
++++ b/CONSTELLATE/src/Constellate.App/MainWindow.axaml
+*** Begin Patch
+*** Update File: CONSTELLATE/src/Constellate.App/MainWindow.axaml
+@@ -13,1 +13,14 @@
+   <Window.Styles>
++    <!-- Overlay dock-resize grip hover affordances -->
++    <Style Selector="Border#OverlayLeftResizeGrip:pointerover, Border#OverlayRightResizeGrip:pointerover, Border#OverlayTopResizeGrip:pointerover, Border#OverlayBottomResizeGrip:pointerover">
++      <Setter Property="Background" Value="#20313A46"/>
++      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
++      <Setter Property="BorderThickness" Value="1"/>
++    </Style>
++    <!-- Corner intersection hit-target hover -->
++    <Style Selector="Border#OverlayCornerTopLeft:pointerover, Border#OverlayCornerTopRight:pointerover, Border#OverlayCornerBottomLeft:pointerover, Border#OverlayCornerBottomRight:pointerover">
++      <Setter Property="Background" Value="#20313A46"/>
++      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
++      <Setter Property="BorderThickness" Value="1"/>
++      <Setter Property="CornerRadius" Value="4"/>
++    </Style>
+@@ -110,1 +110,1 @@
+-    <Grid x:Name="OverlayRoot"
++    <Grid x:Name="OverlayRoot"
+@@ -111,9 +111,10 @@
+           HorizontalAlignment="Stretch"
+           VerticalAlignment="Stretch"
+           IsHitTestVisible="True"
+           ZIndex="900">
+ 
+       <!-- Unified overlay: docked + floating in one layer -->
+-      <ctrl:OverlayPaneLayer DataContext="{Binding}"
+-                             HorizontalAlignment="Stretch"
+-                             VerticalAlignment="Stretch" />
++      <ctrl:OverlayPaneLayer DataContext="{Binding}"
++                             HorizontalAlignment="Stretch"
++                             VerticalAlignment="Stretch"
++                             Grid.ZIndex="0" />
+@@ -120,5 +120,6 @@
+ 
+       <!-- Dock resize grips in overlay (gesture host binds to the Border names) -->
+-      <ctrl:OverlayResizeGripLayer DataContext="{Binding}"
+-                                   HorizontalAlignment="Stretch"
+-                                   VerticalAlignment="Stretch" />
++      <ctrl:OverlayResizeGripLayer DataContext="{Binding}"
++                                   HorizontalAlignment="Stretch"
++                                   VerticalAlignment="Stretch"
++                                   Grid.ZIndex="10" />
+@@ -125,6 +125,7 @@
+ 
+       <!-- Drag shadow overlays (pointer-transparent) -->
+       <Canvas IsHitTestVisible="False"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch"
+-              ClipToBounds="True">
++              ClipToBounds="True"
++              Grid.ZIndex="20">
+@@ -152,4 +152,5 @@
+       <Canvas Width="44" Height="44"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"
+-              Margin="6">
++              Margin="6"
++              Grid.ZIndex="30">
+@@ -186,4 +186,5 @@
+       <Canvas Width="44" Height="44"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Top"
+-              Margin="6">
++              Margin="6"
++              Grid.ZIndex="30">
+@@ -220,4 +220,5 @@
+       <Canvas Width="44" Height="44"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Bottom"
+-              Margin="6">
++              Margin="6"
++              Grid.ZIndex="30">
+@@ -254,6 +254,6 @@
+       <Canvas Width="44" Height="44"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Bottom"
+-              Margin="6"
+-              ZIndex="1000">
++              Margin="6"
++              Grid.ZIndex="30">
+         <Polygon x:Name="BottomRight_BottomTriangle"

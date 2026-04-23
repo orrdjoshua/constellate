@@ -1,0 +1,35 @@
+--- a/CONSTELLATE/src/Constellate.App/Controls/OverlayPaneLayer.axaml.cs
++++ b/CONSTELLATE/src/Constellate.App/Controls/OverlayPaneLayer.axaml.cs
+*** Begin Patch
+*** Update File: CONSTELLATE/src/Constellate.App/Controls/OverlayPaneLayer.axaml.cs
+@@ -64,6 +64,7 @@
+         private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+         {
+             HookVm();
+             EnsureFloatingController();
+-            SyncAll();
++            SyncAll();
++            _floatingController?.Sync();
+         }
+@@ -151,10 +151,11 @@
+             if (e.PropertyName is nameof(MainWindowViewModel.ParentPaneModelsFloating) or
+                                     nameof(MainWindowViewModel.FloatingChildPanes))
+             {
+                 if (_vm is not null)
+                 {
+                     ParentPanes = _vm.ParentPaneModelsFloating;
+                     ChildPanes = _vm.FloatingChildPanes;
+                 }
++                _floatingController?.Sync();
+             }
+         }
+@@ -162,7 +162,7 @@
+         private void SyncAll()
+         {
+             SyncDocked();
+ 
+-            // Floating visuals are kept in sync by FloatingPaneLayerController observing our styled props.
+-            // No explicit call is required here if the controller is attached; styled-prop changes suffice.
++            // Ensure floating visuals are in sync as well.
++            _floatingController?.Sync();
+         }
