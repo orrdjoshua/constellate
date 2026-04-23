@@ -227,14 +227,14 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        // Single child in lane: give it the full lane.
+        // Single child in lane: keep the explicit MVP default of 25% of the fixed dimension.
         if (laneChildren.Count == 1)
         {
             var only = laneChildren[0];
             UpdateLanePreferredRatios(
                 parentId,
                 laneIndex,
-                new[] { (only.Id, 1.0) });
+                new[] { (only.Id, 0.25) });
             return;
         }
 

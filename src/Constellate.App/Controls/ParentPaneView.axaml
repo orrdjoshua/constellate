@@ -234,37 +234,7 @@
     <panes:PaneChrome.BodyContent>
       <Grid IsVisible="{Binding HasExpandedContent}"
             ToolTip.Tip="Drag empty parent-body space to move this parent pane.">
-        <ItemsControl ItemsSource="{Binding LanesVisible}"
-                      IsVisible="{Binding IsHostLeftOrRight}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Horizontal" Spacing="6"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="app:LaneView">
-              <Border Background="#151E28" CornerRadius="4">
-                <ctrl:LanePresenter/>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <ItemsControl ItemsSource="{Binding LanesVisible}"
-                      IsVisible="{Binding IsHostTopOrBottom}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Orientation="Vertical" Spacing="6"/>
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="app:LaneView">
-              <Border Background="#151E28" CornerRadius="4">
-                <ctrl:LanePresenter/>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <ctrl:ParentBodyPresenter />
       </Grid>
     </panes:PaneChrome.BodyContent>
   </panes:PaneChrome>

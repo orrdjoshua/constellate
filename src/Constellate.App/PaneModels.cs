@@ -20,6 +20,7 @@ namespace Constellate.App
         private string _id = string.Empty;
         private string _title = string.Empty;
         private string _hostId = "left";
+        private bool _isVerticalBodyOrientation = true;
         private bool _isMinimized;
         private double _floatingX;
         private double _floatingY;
@@ -77,12 +78,42 @@ namespace Constellate.App
                 }
 
                 _hostId = normalized;
+                if (!string.Equals(normalized, "floating", StringComparison.Ordinal))
+                {
+                    IsVerticalBodyOrientation =
+                        string.Equals(normalized, "left", StringComparison.Ordinal) ||
+                        string.Equals(normalized, "right", StringComparison.Ordinal);
+                }
+
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(IsFloating));
                 OnPropertyChanged(nameof(IsHostLeftOrRight));
                 OnPropertyChanged(nameof(IsHostTopOrBottom));
             }
         }
+
+        /// <summary>
+        /// First-class parent-body orientation state.
+        /// True = child lanes flow vertically; false = child lanes flow horizontally.
+        /// This is preserved while floating and updated when the pane is attached to a dock host.
+        /// </summary>
+        public bool IsVerticalBodyOrientation
+        {
+            get => _isVerticalBodyOrientation;
+            set
+            {
+                if (_isVerticalBodyOrientation == value)
+                {
+                    return;
+                }
+
+                _isVerticalBodyOrientation = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsHorizontalBodyOrientation));
+            }
+        }
+
+        public bool IsHorizontalBodyOrientation => !_isVerticalBodyOrientation;
 
         /// <summary>
         /// When true, the parent pane is minimized and has no visible footprint on its host.

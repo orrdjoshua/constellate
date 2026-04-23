@@ -12,8 +12,7 @@ namespace Constellate.App.Infrastructure.Panes.Layout
             IEnumerable<ChildPaneDescriptor>? allChildren)
         {
             var attachment = DockAttachmentModel.FromHostId(parent.HostId);
-            var isVerticalFlow = attachment.Kind == DockAttachmentKind.Left ||
-                                 attachment.Kind == DockAttachmentKind.Right;
+            var isVerticalFlow = parent.IsVerticalBodyOrientation;
 
             var visibleChildren = (allChildren ?? Enumerable.Empty<ChildPaneDescriptor>())
                 .Where(child =>
@@ -129,7 +128,12 @@ namespace Constellate.App.Infrastructure.Panes.Layout
                     .ToArray();
             }
 
-            return raw.Select(value => value / sum).ToArray();
+            if (sum > 1.0 + 1e-6)
+            {
+                return raw.Select(value => value / sum).ToArray();
+            }
+
+            return raw;
         }
     }
 }

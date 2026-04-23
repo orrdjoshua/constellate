@@ -4,9 +4,9 @@ using System.Linq;
 namespace Constellate.App;
 
 /// <summary>
-/// Partial definition of MainWindowViewModel containing pane and child-pane command methods
-/// centered on creation, default sizing, and simple reorder behavior. Host/dock/floating
-/// transition logic now lives in MainWindowViewModel.PaneHostState.cs.
+    /// Generate the next globally-unique child ordinal by scanning existing
+    /// child ids instead of relying on ChildPanes.Count. This prevents id/title
+    /// reuse after deletions and keeps user-visible pane numbering stable.
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
@@ -37,21 +37,22 @@ public sealed partial class MainWindowViewModel
     /// - a host id ("left"|"top"|"right"|"bottom"|"floating"), in which case we pick a parent
     ///   on that host (or fall back to the first parent) and attach the child there.
     /// </summary>
-    private static bool HostUsesHorizontalChildFlow(string hostId)
+    private static double GetDefaultChildPanePreferredSizeRatio(ParentPaneModel parent)
     {
-        var normalizedHost = NormalizeHostId(hostId);
-        return string.Equals(normalizedHost, "top", StringComparison.Ordinal) ||
-               string.Equals(normalizedHost, "bottom", StringComparison.Ordinal);
+        // MVP rule:
+        // - child creation seeds 25% of the parent's FixedSize
+        // - the child's AdjustableSize is not uniquely owned by the child; it is
+        //   inherited from the active split/lane and therefore remains parent-controlled.
+        //
+        // The actual visual axis that this ratio applies to is determined later by the
+        // parent's first-class body orientation and LanePresenter flow direction.
+        _ = parent;
+        return 0.25;
     }
 
-    private static double GetDefaultChildPanePreferredSizeRatio(string hostId)
+    private static double ResolveChildPanePreferredSizeRatio(ParentPaneModel parent, double? preferredSizeRatio)
     {
-        return HostUsesHorizontalChildFlow(hostId) ? 0.25 : 0.25;
-    }
-
-    private static double ResolveChildPanePreferredSizeRatio(string hostId, double? preferredSizeRatio)
-    {
-        var resolved = preferredSizeRatio ?? GetDefaultChildPanePreferredSizeRatio(hostId);
+        var resolved = preferredSizeRatio ?? GetDefaultChildPanePreferredSizeRatio(parent);
         return Math.Clamp(resolved, 0.05, 0.95);
     }
 
@@ -96,16 +97,15 @@ public sealed partial class MainWindowViewModel
 
         var parentId = parent.Id;
         var slideIndex = parent.SlideIndex;
-        var resolvedPreferredSizeRatio =
-            ResolveChildPanePreferredSizeRatio(normalizedHost, preferredSizeRatio);
+        var resolvedPreferredSizeRatio = ResolveChildPanePreferredSizeRatio(parent, preferredSizeRatio);
 
         var nextOrder = ChildPanes.Count == 0
             ? 0
             : ChildPanes.Max(pane => pane.Order) + 1;
 
-        // Generate a globally-unique child id of the form "child.N" by scanning
-        // existing children instead of relying on ChildPanes.Count. This prevents
-        // id reuse after deletions and avoids dictionary-key collisions in layout.
+        var nextOrdinal = GenerateNextChildOrdinal();
+        var id = $"child.{nextOrdinal}";
+        var title = $"Pane #{nextOrdinal}";
         var id = GenerateNextChildId();
         var labelIndex = ChildPanes.Count + 1;
         var title = $"Pane {labelIndex}";
@@ -137,7 +137,7 @@ public sealed partial class MainWindowViewModel
     /// any existing numeric suffix on child ids. This avoids reusing ids after
     /// deletions or other reordering operations.
     /// </summary>
-    private string GenerateNextChildId()
+    private int GenerateNextChildOrdinal()
     {
         var maxOrdinal = 0;
 
@@ -155,7 +155,7 @@ public sealed partial class MainWindowViewModel
             }
         }
 
-        return $"child.{maxOrdinal + 1}";
+        return maxOrdinal + 1;
     }
 
     private bool CanMoveChildPane(string id, int delta)
@@ -227,7 +227,7 @@ public sealed partial class MainWindowViewModel
             HostId = normalizedHost,
             IsMinimized = false,
             SplitCount = 1,
-            SlideIndex = GetSlideIndexForHost(normalizedHost),
+            SlideIndex = 0,
             FloatingWidth = 320,
             FloatingHeight = 240
         };

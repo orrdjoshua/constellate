@@ -14,7 +14,7 @@ namespace Constellate.App.Controls
     /// Renders a single lane (either a column of vertically-flowing children for Left/Right parents,
     /// or a row of horizontally-flowing children for Top/Bottom parents).
     /// The presenter applies per-child proportional sizing along the lane’s free dimension using star Grid sizing
-    /// based on each child's PreferredSizeRatio (normalized with clamping), and includes GridSplitters
+    /// based on each child's PreferredSizeRatio, and includes GridSplitters
     /// so users can drag-resize children. After resize, ratios are recomputed and persisted to the VM.
     /// </summary>
     public sealed class LanePresenter : UserControl
@@ -23,7 +23,6 @@ namespace Constellate.App.Controls
 
         public LanePresenter()
         {
-            // Build a root that we replace as DataContext changes
             _root = new Border { Background = Brushes.Transparent };
             Content = _root;
             DataContextChanged += (_, __) => Rebuild();
@@ -51,14 +50,12 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            // Create ScrollViewer per lane with proper scroll orientation
             var scroll = new ScrollViewer
             {
                 HorizontalScrollBarVisibility = lane.IsHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = lane.IsVerticalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled
             };
 
-            // Grid that hosts children with star sizing along the lane's free dimension
             var grid = new Grid
             {
                 ColumnSpacing = 6,
@@ -71,34 +68,41 @@ namespace Constellate.App.Controls
 
             if (count == 0)
             {
-                // Empty lane -> nothing to render (still have scroll container)
                 scroll.Content = grid;
                 _root.Child = scroll;
                 return;
             }
 
+            var consumedRatio = ratios
+                .Take(count)
+                .Select(r => Math.Max(0.0, r))
+                .Sum();
+
+            var remainderRatio = Math.Max(0.0, 1.0 - consumedRatio);
+
             if (lane.IsVerticalFlow)
             {
-                // Vertical flow: one column; interleave star rows with splitter rows
                 grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-                // Build 2*count-1 rows (child, splitter, child, splitter, ...)
+
                 for (int i = 0; i < count; i++)
                 {
-                    var star = Math.Max(0.0001, ratios[i]); // safety clamp
+                    var star = Math.Max(0.0001, ratios[i]);
                     grid.RowDefinitions.Add(new RowDefinition(new GridLength(star, GridUnitType.Star)));
+
                     var chrome = new Border
                     {
                         Background = Brushes.Transparent,
                         Child = new ChildPaneView { DataContext = children[i] }
                     };
+
                     Grid.SetColumn(chrome, 0);
                     Grid.SetRow(chrome, i * 2);
                     grid.Children.Add(chrome);
 
-                    // Add splitter row after each child except the last
                     if (i < count - 1)
                     {
                         grid.RowDefinitions.Add(new RowDefinition(new GridLength(6, GridUnitType.Pixel)));
+
                         var splitter = new GridSplitter
                         {
                             ResizeDirection = GridResizeDirection.Rows,
@@ -107,26 +111,34 @@ namespace Constellate.App.Controls
                             Height = 6,
                             Cursor = new Cursor(StandardCursorType.SizeNorthSouth)
                         };
+
                         splitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
                         Grid.SetColumn(splitter, 0);
                         Grid.SetRow(splitter, i * 2 + 1);
                         grid.Children.Add(splitter);
                     }
                 }
+
+                if (remainderRatio > 1e-6)
+                {
+                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(remainderRatio, GridUnitType.Star)));
+                }
             }
             else
             {
-                // Horizontal flow: one row; interleave star columns with splitter columns
                 grid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+
                 for (int i = 0; i < count; i++)
                 {
                     var star = Math.Max(0.0001, ratios[i]);
                     grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(star, GridUnitType.Star)));
+
                     var chrome = new Border
                     {
                         Background = Brushes.Transparent,
                         Child = new ChildPaneView { DataContext = children[i] }
                     };
+
                     Grid.SetRow(chrome, 0);
                     Grid.SetColumn(chrome, i * 2);
                     grid.Children.Add(chrome);
@@ -134,6 +146,7 @@ namespace Constellate.App.Controls
                     if (i < count - 1)
                     {
                         grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(6, GridUnitType.Pixel)));
+
                         var splitter = new GridSplitter
                         {
                             ResizeDirection = GridResizeDirection.Columns,
@@ -142,11 +155,17 @@ namespace Constellate.App.Controls
                             Width = 6,
                             Cursor = new Cursor(StandardCursorType.SizeWestEast)
                         };
+
                         splitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
                         Grid.SetRow(splitter, 0);
                         Grid.SetColumn(splitter, i * 2 + 1);
                         grid.Children.Add(splitter);
                     }
+                }
+
+                if (remainderRatio > 1e-6)
+                {
+                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(remainderRatio, GridUnitType.Star)));
                 }
             }
 
@@ -156,14 +175,14 @@ namespace Constellate.App.Controls
 
         private void PersistRatios(LaneView lane, Grid grid)
         {
-            // Measure displayed child sizes in the free dimension
             var list = new List<(string childId, double size)>();
+
             foreach (var child in lane.Children ?? Array.Empty<ChildPaneDescriptor>())
             {
-                // Find the Border that wraps this child's ChildPaneView
                 var chrome = grid.Children
                     .OfType<Border>()
                     .FirstOrDefault(b => b.Child is ChildPaneView cpv && ReferenceEquals(cpv.DataContext, child));
+
                 if (chrome is null)
                 {
                     list.Add((child.Id, 1.0));
@@ -177,9 +196,11 @@ namespace Constellate.App.Controls
 
             var total = list.Sum(x => x.size);
             if (total <= 1e-6) return;
+
             var updates = list.Select(x => (x.childId, x.size / total)).ToArray();
             var vm = GetVm();
             if (vm is null) return;
+
             vm.UpdateLanePreferredRatios(lane.ParentId, lane.LaneIndex, updates);
         }
     }
