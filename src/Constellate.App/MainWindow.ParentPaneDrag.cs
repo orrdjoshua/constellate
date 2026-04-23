@@ -143,6 +143,9 @@ namespace Constellate.App
                         floatingRect.Y,
                         floatingRect.Width,
                         floatingRect.Height);
+                    // Ensure new float is topmost at drop time (hover-to-front of neighbors
+                    // may have occurred during drag).
+                    vm.BringFloatingParentToFront(session.OriginReferenceId);
                 }
             }
             else
@@ -171,6 +174,34 @@ namespace Constellate.App
             if (!TryGetParentDragOriginAttachment(out var originAttachment))
             {
                 ResetActiveParentPaneDrag(vm, commit: false);
+                return;
+            }
+
+            // Determine the intended target host for the current pointer.
+            // If the user is aiming at a dock host, we must show the dock preview rect
+            // (even for floating-origin panes) instead of an anchored floating preview.
+            var targetHostId = PaneDragPreviewPlanner.ResolveTargetHost(currentPoint, windowSize);
+            if (!string.Equals(targetHostId, "floating", StringComparison.Ordinal))
+            {
+                var dockPreview = ParentPaneMoveGesturePlanner.ComputePreview(
+                    currentPoint,
+                    windowSize,
+                    GetShellFloatingSurfaceRect(),
+                    originAttachment,
+                    session.OriginBounds,
+                    vm.IsDockHostOccupied);
+
+                vm.SetParentPaneDragShadow(
+                    true,
+                    dockPreview.PreviewBounds.X,
+                    dockPreview.PreviewBounds.Y,
+                    dockPreview.PreviewBounds.Width,
+                    dockPreview.PreviewBounds.Height);
+
+                session.UpdatePreview(
+                    currentPoint,
+                    dockPreview.PreviewAttachment,
+                    dockPreview.PreviewBounds);
                 return;
             }
 
