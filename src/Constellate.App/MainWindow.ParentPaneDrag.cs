@@ -22,6 +22,14 @@ namespace Constellate.App
                 return false;
             }
 
+            // If this parent is already floating, bring it to the front immediately
+            // so the drag-preview/commit occurs at the top of the floating stack.
+            if (DataContext is MainWindowViewModel vm &&
+                string.Equals(MainWindowViewModel.NormalizeHostId(parent.HostId), "floating", StringComparison.Ordinal))
+            {
+                vm.BringFloatingParentToFront(parent.Id);
+            }
+
             return BeginParentPaneMoveSession(
                 parent,
                 parent.Id,

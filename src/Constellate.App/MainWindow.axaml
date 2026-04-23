@@ -16,6 +16,27 @@
   </Window.Resources>
 
   <Window.Styles>
+    <!-- Base styles for corner-intersection hit targets so pointerover highlight can take effect -->
+    <Style Selector="Border#TopLeftIntersectionHit">
+      <Setter Property="BorderBrush" Value="#2A394B" />
+      <Setter Property="BorderThickness" Value="0,0,2,2" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border#TopRightIntersectionHit">
+      <Setter Property="BorderBrush" Value="#2A394B" />
+      <Setter Property="BorderThickness" Value="2,0,0,2" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border#BottomLeftIntersectionHit">
+      <Setter Property="BorderBrush" Value="#2A394B" />
+      <Setter Property="BorderThickness" Value="0,2,2,0" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border#BottomRightIntersectionHit">
+      <Setter Property="BorderBrush" Value="#2A394B" />
+      <Setter Property="BorderThickness" Value="2,2,0,0" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
     <Style Selector="Polygon#TopLeft_LeftTriangle">
       <Setter Property="Fill" Value="#60313A46" />
     </Style>
@@ -447,7 +468,7 @@
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Margin="6"
-            Panel.ZIndex="1000">
+            ZIndex="1000">
       <Polygon x:Name="BottomRight_BottomTriangle"
                Points="44,44 16,44 30,30"
                Stroke="#E5EDF7"
@@ -486,13 +507,10 @@
             Height="14"
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
-            Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="0,0,2,2"
+            Classes="cornerHit"
             IsVisible="{Binding IsShellPaneOnTop}"
             Cursor="Hand"
-            IsHitTestVisible="True"
-            Panel.ZIndex="1002"
+            ZIndex="1002"
             DoubleTapped="OnTopCornerIntersectionDoubleTapped">
       <ToolTip.Tip>
         <TextBlock Text="Flip corner ownership (Top ↔ Left)" />
@@ -505,13 +523,10 @@
             Height="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
-            Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="2,0,0,2"
+            Classes="cornerHit"
             IsVisible="{Binding IsShellPaneOnTop}"
             Cursor="Hand"
-            IsHitTestVisible="True"
-            Panel.ZIndex="1002"
+            ZIndex="1002"
             DoubleTapped="OnTopCornerIntersectionDoubleTapped">
       <ToolTip.Tip>
         <TextBlock Text="Flip corner ownership (Top ↔ Right)" />
@@ -594,13 +609,10 @@
             Height="14"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
-            Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="0,2,2,0"
+            Classes="cornerHit"
             IsVisible="{Binding IsShellPaneOnBottom}"
             Cursor="Hand"
-            IsHitTestVisible="True"
-            Panel.ZIndex="1002"
+            ZIndex="1002"
             DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
       <ToolTip.Tip>
         <TextBlock Text="Flip corner ownership (Bottom ↔ Left)" />
@@ -613,13 +625,10 @@
             Height="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
-            Background="Transparent"
-            BorderBrush="#2A394B"
-            BorderThickness="2,2,0,0"
+            Classes="cornerHit"
             IsVisible="{Binding IsShellPaneOnBottom}"
             Cursor="Hand"
-            IsHitTestVisible="True"
-            Panel.ZIndex="1002"
+            ZIndex="1002"
             DoubleTapped="OnBottomCornerIntersectionDoubleTapped">
       <ToolTip.Tip>
         <TextBlock Text="Flip corner ownership (Bottom ↔ Right)" />

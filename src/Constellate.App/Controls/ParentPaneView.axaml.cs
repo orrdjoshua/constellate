@@ -129,21 +129,83 @@ namespace Constellate.App.Controls
 
         private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)
         {
-            // Only act for header: ignore if the event is within the body region.
-            if (_root is null || _headerScroll is null)
+            if (_root is null)
             {
-                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing refs chrome={_root is not null} headerScroll={_headerScroll is not null}");
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing chrome");
                 return;
             }
 
             var srcVisual = (e.Source as Visual) ?? (sender as Visual);
+
+            // If pointer is inside the Parent body (including over children, splitters, etc.),
+            // interpret the wheel as a slide gesture for this parent. Header remains header-only.
             if (IsWithinBodyRegion(srcVisual))
             {
-                Debug.WriteLine($"[HeaderScroll][Parent] wheel: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) region=Body ignored");
+                if (_model is null)
+                {
+                    Debug.WriteLine("[Slide][Parent] wheel: no model; ignoring");
+                    return;
+                }
+
+                var vm = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
+                if (vm is null)
+                {
+                    Debug.WriteLine("[Slide][Parent] wheel: no VM; ignoring");
+                    return;
+                }
+
+                // Orientation-aware step. For Left/Right parents prefer horizontal delta (X),
+                // else map vertical (Y) to horizontal semantics. For Top/Bottom use vertical (Y).
+                var host = MainWindowViewModel.NormalizeHostId(_model.HostId);
+                int step = 0;
+
+                if (string.Equals(host, "left", StringComparison.Ordinal) ||
+                    string.Equals(host, "right", StringComparison.Ordinal))
+                {
+                    var useX = Math.Abs(e.Delta.X) >= Math.Abs(e.Delta.Y);
+                    var dxSlide = useX ? e.Delta.X : -e.Delta.Y;
+                    if (Math.Abs(dxSlide) > 0.01)
+                    {
+                        // Right/positive -> next slide; Left/negative -> previous slide
+                        step = dxSlide > 0 ? +1 : -1;
+                    }
+                }
+                else
+                {
+                    // Top/Bottom: vertical scroll
+                    var dy = e.Delta.Y;
+                    if (Math.Abs(dy) > 0.01)
+                    {
+                        // Wheel up (positive) -> previous; wheel down (negative) -> next
+                        step = dy < 0 ? +1 : -1;
+                    }
+                }
+
+                if (step != 0)
+                {
+                    var curSlide = _model.SlideIndex;
+                    var next = Math.Clamp(curSlide + step, 0, 2);
+                    if (next != curSlide)
+                    {
+                        vm.SetParentSlideIndex(_model.Id, next);
+                        Debug.WriteLine($"[Slide][Parent] host={host} step={step} {curSlide}→{next}");
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // If no step resolved or already at boundary, swallow nothing; let other handlers proceed.
+                return; 
+            }
+
+            // Header-only behavior (header scroll viewer): scroll only when event is not in body
+            if (_headerScroll is null)
+            {
+                Debug.WriteLine($"[HeaderScroll][Parent] wheel: missing headerScroll");
                 return;
             }
 
-            // Prefer native horizontal scrolling when present; otherwise map vertical wheel to horizontal.
+            // Prefer native horizontal scrolling when present; otherwise map vertical wheel to horizontal
             double dx;
             if (Math.Abs(e.Delta.X) > Math.Abs(e.Delta.Y))
             {
@@ -162,24 +224,24 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            var current = _headerScroll.Offset;
+            var headerOffset = _headerScroll.Offset;
             var factor = 20.0; // sensitivity multiplier (reduced by ~50%)
 
             // Clamp to the ScrollViewer’s content width.
             var extent = _headerScroll.Extent;
             var viewport = _headerScroll.Viewport;
             var maxX = Math.Max(0.0, extent.Width - viewport.Width);
-            var nextX = Math.Clamp(current.X + dx * factor, 0.0, maxX);
+            var nextX = Math.Clamp(headerOffset.X + dx * factor, 0.0, maxX);
 
-            if (Math.Abs(nextX - current.X) > 0.5)
+            if (Math.Abs(nextX - headerOffset.X) > 0.5)
             {
-                _headerScroll.Offset = new Vector(nextX, current.Y);
+                _headerScroll.Offset = new Vector(nextX, headerOffset.Y);
                 e.Handled = true;
-                Debug.WriteLine($"[HeaderScroll][Parent] applied: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={current.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} factor={factor}");
+                Debug.WriteLine($"[HeaderScroll][Parent] applied: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={headerOffset.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} factor={factor}");
             }
             else
             {
-                Debug.WriteLine($"[HeaderScroll][Parent] noop: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={current.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} (no change)");
+                Debug.WriteLine($"[HeaderScroll][Parent] noop: src={(srcVisual?.GetType().Name ?? "null")} delta=(X={e.Delta.X:0.00},Y={e.Delta.Y:0.00}) currentX={headerOffset.X:0.0} maxX={maxX:0.0} nextX={nextX:0.0} (no change)");
             }
         }
 

@@ -23,6 +23,12 @@ namespace Constellate.App
                 return false;
             }
 
+            // If the child is already floating, bring it to front before starting drag.
+            if (DataContext is MainWindowViewModel vm && descriptor.ParentId is null)
+            {
+                vm.BringFloatingChildToFront(descriptor.Id);
+            }
+
             return BeginChildPaneDragSession(originControl, descriptor, e);
         }
 

@@ -227,7 +227,8 @@ public sealed partial class MainWindowViewModel
 
         parentModel.HostId = "floating";
         parentModel.IsMinimized = false;
-        parentModel.SlideIndex = GetSlideIndexForHost("floating");
+        // Preserve the parent's current SlideIndex; do not force a per-host slide
+        // when transitioning to floating so layout remains exactly as last used.
 
         parentModel.FloatingX = Math.Max(0, x);
         parentModel.FloatingY = Math.Max(0, y);
@@ -313,7 +314,8 @@ public sealed partial class MainWindowViewModel
 
         parentModel.HostId = normalizedTarget;
         parentModel.IsMinimized = false;
-        parentModel.SlideIndex = GetSlideIndexForHost(normalizedTarget);
+        // Preserve the parent's current SlideIndex across host transitions
+        // so the visible slide/splits remain as the user last left them.
 
         if (string.Equals(normalizedTarget, "floating", StringComparison.Ordinal))
         {
@@ -336,6 +338,61 @@ public sealed partial class MainWindowViewModel
         }
 
         RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+    }
+
+    /// <summary>
+    /// Immediately raise a floating parent to the topmost Z index.
+    /// </summary>
+    public void BringFloatingParentToFront(string parentId)
+    {
+        if (string.IsNullOrWhiteSpace(parentId))
+        {
+            return;
+        }
+
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null)
+        {
+            return;
+        }
+
+        if (!string.Equals(NormalizeHostId(parent.HostId), "floating", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        parent.FloatingZIndex = GetNextFloatingPaneZIndex();
+        RaiseParentPaneLayoutChanged();
+    }
+
+    /// <summary>
+    /// Immediately raise a floating child to the topmost Z index.
+    /// </summary>
+    public void BringFloatingChildToFront(string childId)
+    {
+        if (string.IsNullOrWhiteSpace(childId))
+        {
+            return;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (!string.Equals(c.Id, childId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            // Only for floating children (ParentId == null).
+            if (c.ParentId is not null)
+            {
+                return;
+            }
+
+            ChildPanes[i] = c with { FloatingZIndex = GetNextFloatingPaneZIndex() };
+            RaiseChildPaneCollectionsChanged();
+            return;
+        }
     }
 
     public void SetShellPaneMinimized(bool minimized)
