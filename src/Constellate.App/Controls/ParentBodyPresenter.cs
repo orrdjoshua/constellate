@@ -1,5 +1,8 @@
+using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 
 namespace Constellate.App.Controls
@@ -15,6 +18,10 @@ namespace Constellate.App.Controls
     /// Horizontal parent orientation:
     /// - child flow inside a lane is horizontal,
     /// - lanes are arranged as equal-height rows across the body's vertical adjustable axis.
+    ///
+    /// This presenter also measures the actual visible body viewport and writes that
+    /// geometry back to the ParentPaneModel. Child creation/sizing semantics must be
+    /// based on this visible body viewport only, never on header size or content extent.
     /// </summary>
     public sealed class ParentBodyPresenter : UserControl
     {
@@ -26,7 +33,16 @@ namespace Constellate.App.Controls
             VerticalAlignment = VerticalAlignment.Stretch;
 
             DataContextChanged += (_, __) => HookParent();
-            AttachedToVisualTree += (_, __) => Rebuild();
+            AttachedToVisualTree += (_, __) =>
+            {
+                UpdateMeasuredViewport();
+                Rebuild();
+            };
+            SizeChanged += (_, __) =>
+            {
+                UpdateMeasuredViewport();
+                Rebuild();
+            };
         }
 
         private void HookParent()
@@ -43,6 +59,7 @@ namespace Constellate.App.Controls
                 newNotify.PropertyChanged += OnParentPropertyChanged;
             }
 
+            UpdateMeasuredViewport();
             Rebuild();
         }
 
@@ -54,6 +71,48 @@ namespace Constellate.App.Controls
             {
                 Rebuild();
             }
+        }
+
+        private void UpdateMeasuredViewport()
+        {
+            if (_parent is null)
+            {
+                return;
+            }
+
+            var width = Math.Max(0.0, Bounds.Width);
+            var height = Math.Max(0.0, Bounds.Height);
+
+            var changed = false;
+
+            if (TopLevel.GetTopLevel(this) is Window window &&
+                window.DataContext is MainWindowViewModel vm)
+            {
+                changed = vm.UpdateParentBodyViewport(_parent.Id, width, height);
+            }
+            else
+            {
+                changed =
+                    Math.Abs(_parent.BodyViewportWidth - width) > double.Epsilon ||
+                    Math.Abs(_parent.BodyViewportHeight - height) > double.Epsilon;
+
+                if (changed)
+                {
+                    _parent.BodyViewportWidth = width;
+                    _parent.BodyViewportHeight = height;
+                }
+            }
+
+            if (!changed)
+            {
+                return;
+            }
+
+            Debug.WriteLine(
+                $"[ParentBodyViewport] parent={_parent.Id} orientation={(_parent.IsVerticalBodyOrientation ? "vertical" : "horizontal")} " +
+                $"bodyW={_parent.BodyViewportWidth:0.##} bodyH={_parent.BodyViewportHeight:0.##} " +
+                $"fixed={_parent.BodyViewportFixedSize:0.##} adjustable={_parent.BodyViewportAdjustableSize:0.##} " +
+                $"lanes={_parent.LanesVisible.Count} slide={_parent.SlideIndex} splits={_parent.SplitCount}");
         }
 
         private void Rebuild()

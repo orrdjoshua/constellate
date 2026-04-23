@@ -301,7 +301,7 @@ namespace Constellate.App.Controls
                 Canvas.SetLeft(_bottomGrip, r.X);
                 Canvas.SetTop(_bottomGrip, r.Y - (Thickness / 2.0));
                 try { System.Diagnostics.Debug.WriteLine($"[OverlayGrip][Layout] bottom x={Canvas.GetLeft(_bottomGrip):0.##} y={Canvas.GetTop(_bottomGrip):0.##} w={_bottomGrip.Width:0.##} h={_bottomGrip.Height:0.##}"); } catch { }
-            }
+             }
             else
             {
                 _bottomGrip.IsVisible = false;

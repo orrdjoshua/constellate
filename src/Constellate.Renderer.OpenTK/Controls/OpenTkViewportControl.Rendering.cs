@@ -240,7 +240,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                 GLDiagnostics.DumpBasicState("After pipeline creation");
                 if (!_selfTest && _locMvp < 0)
                 {
-                    Debug.WriteLine("[GLDiag] Warning: uMVP location < 0; uniform may be optimized out.");
+                    Debug.WriteLine("kag] Warning: uMVP location < 0; uniform may be optimized out.");
                 }
             }
         }

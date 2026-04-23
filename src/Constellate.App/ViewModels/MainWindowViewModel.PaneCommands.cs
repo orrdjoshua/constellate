@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Constellate.App;
@@ -98,6 +99,8 @@ public sealed partial class MainWindowViewModel
         var parentId = parent.Id;
         var slideIndex = parent.SlideIndex;
         var resolvedPreferredSizeRatio = ResolveChildPanePreferredSizeRatio(parent, preferredSizeRatio);
+        var activeLane = parent.LanesVisible.FirstOrDefault(lane => lane.LaneIndex == 0);
+        var activeLaneChildCountBeforeCreate = activeLane?.Children.Count ?? 0;
 
         var nextOrder = ChildPanes.Count == 0
             ? 0
@@ -106,9 +109,15 @@ public sealed partial class MainWindowViewModel
         var nextOrdinal = GenerateNextChildOrdinal();
         var id = $"child.{nextOrdinal}";
         var title = $"Pane #{nextOrdinal}";
-        var id = GenerateNextChildId();
-        var labelIndex = ChildPanes.Count + 1;
-        var title = $"Pane {labelIndex}";
+
+        Debug.WriteLine(
+            $"[ChildCreate] parent={parent.Id} orientation={(parent.IsVerticalBodyOrientation ? "vertical" : "horizontal")} " +
+            $"slide={slideIndex} splitCount={parent.SplitCount} targetLane=0 existingLaneChildren={activeLaneChildCountBeforeCreate} " +
+            $"bodyW={parent.BodyViewportWidth:0.##} bodyH={parent.BodyViewportHeight:0.##} " +
+            $"fixed={parent.BodyViewportFixedSize:0.##} adjustable={parent.BodyViewportAdjustableSize:0.##} " +
+            $"laneViewportW={(activeLane?.ViewportWidth ?? 0):0.##} laneViewportH={(activeLane?.ViewportHeight ?? 0):0.##} " +
+            $"laneFixed={(activeLane?.FixedViewportSize ?? 0):0.##} laneAdjustable={(activeLane?.AdjustableViewportSize ?? 0):0.##} " +
+            $"requestedRatio={resolvedPreferredSizeRatio:0.###} newChildId={id} title=\"{title}\"");
 
         ChildPanes.Add(new ChildPaneDescriptor(
             id,

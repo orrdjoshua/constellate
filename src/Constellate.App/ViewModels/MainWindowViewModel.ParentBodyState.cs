@@ -120,9 +120,26 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        // Critical MVP semantics:
+        // if total occupancy is <= 100% of the lane fixed dimension, preserve the
+        // raw ratios so unused space remains as remainder in the lane.
+        //
+        // Example:
+        // - first child created at 0.25 should remain 0.25, not be normalized to 1.0
+        //   and then clamped down to 0.95.
+        //
+        // We only normalize when ratios exceed the available fixed dimension.
+        if (sum > 1.0 + 1e-6)
+        {
+            foreach (var kv in map.Keys.ToArray())
+            {
+                map[kv] = map[kv] / sum;
+            }
+        }
+
         foreach (var kv in map.Keys.ToArray())
         {
-            map[kv] = map[kv] / sum;
+            map[kv] = Math.Clamp(map[kv], 0.05, 0.95);
         }
 
         for (var i = 0; i < ChildPanes.Count; i++)
@@ -132,7 +149,7 @@ public sealed partial class MainWindowViewModel
             {
                 if (map.TryGetValue(c.Id, out var r))
                 {
-                    ChildPanes[i] = c with { PreferredSizeRatio = Math.Clamp(r, 0.05, 0.95) };
+                    ChildPanes[i] = c with { PreferredSizeRatio = r };
                 }
             }
         }

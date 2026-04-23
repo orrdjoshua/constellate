@@ -76,6 +76,18 @@ namespace Constellate.App.Infrastructure.Panes.Layout
                 return Array.Empty<LaneView>();
             }
 
+            var visibleLaneCount = Math.Max(1, activeSlide.Lanes.Count);
+            var bodyViewportWidth = Math.Max(0.0, parent.BodyViewportWidth);
+            var bodyViewportHeight = Math.Max(0.0, parent.BodyViewportHeight);
+            var laneViewportWidth = parent.IsVerticalBodyOrientation
+                ? bodyViewportWidth / visibleLaneCount
+                : bodyViewportWidth;
+            var laneViewportHeight = parent.IsVerticalBodyOrientation
+                ? bodyViewportHeight
+                : bodyViewportHeight / visibleLaneCount;
+            var fixedViewportSize = parent.IsVerticalBodyOrientation ? laneViewportHeight : laneViewportWidth;
+            var adjustableViewportSize = parent.IsVerticalBodyOrientation ? laneViewportWidth : laneViewportHeight;
+
             var lanes = new List<LaneView>();
 
             foreach (var lane in activeSlide.Lanes.OrderBy(entry => entry.LaneIndex))
@@ -99,6 +111,10 @@ namespace Constellate.App.Infrastructure.Panes.Layout
                     ParentId = parent.Id,
                     LaneIndex = lane.LaneIndex,
                     IsVerticalFlow = lane.IsVerticalFlow,
+                    ViewportWidth = Math.Max(0.0, laneViewportWidth),
+                    ViewportHeight = Math.Max(0.0, laneViewportHeight),
+                    FixedViewportSize = Math.Max(0.0, fixedViewportSize),
+                    AdjustableViewportSize = Math.Max(0.0, adjustableViewportSize),
                     IsVerticalScroll = lane.IsVerticalFlow,
                     Children = resolvedChildren.ToArray(),
                     Ratios = NormalizeRatios(resolvedPlacements)

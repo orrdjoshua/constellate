@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -13,9 +14,11 @@ namespace Constellate.App.Controls
     /// <summary>
     /// Renders a single lane (either a column of vertically-flowing children for Left/Right parents,
     /// or a row of horizontally-flowing children for Top/Bottom parents).
-    /// The presenter applies per-child proportional sizing along the lane’s free dimension using star Grid sizing
+    /// The presenter applies per-child proportional sizing along the lane’s fixed dimension using star Grid sizing
     /// based on each child's PreferredSizeRatio, and includes GridSplitters
-    /// so users can drag-resize children. After resize, ratios are recomputed and persisted to the VM.
+    /// so users can drag-resize children. The lane viewport itself is explicitly constrained
+    /// to the measured visible body viewport of the parent pane so header size and content extent
+    /// do not affect initial child sizing semantics.
     /// </summary>
     public sealed class LanePresenter : UserControl
     {
@@ -27,6 +30,7 @@ namespace Constellate.App.Controls
             Content = _root;
             DataContextChanged += (_, __) => Rebuild();
             AttachedToVisualTree += (_, __) => Rebuild();
+            SizeChanged += (_, __) => Rebuild();
         }
 
         private MainWindowViewModel? GetVm()
@@ -50,24 +54,43 @@ namespace Constellate.App.Controls
                 return;
             }
 
+            var viewportWidth = lane.ViewportWidth > 0 ? lane.ViewportWidth : Math.Max(1.0, Bounds.Width);
+            var viewportHeight = lane.ViewportHeight > 0 ? lane.ViewportHeight : Math.Max(1.0, Bounds.Height);
+
             var scroll = new ScrollViewer
             {
                 HorizontalScrollBarVisibility = lane.IsHorizontalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = lane.IsVerticalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled
+                VerticalScrollBarVisibility = lane.IsVerticalScroll ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Width = viewportWidth,
+                Height = viewportHeight
             };
 
             var grid = new Grid
             {
                 ColumnSpacing = 6,
-                RowSpacing = 6
+                RowSpacing = 6,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                MinWidth = viewportWidth,
+                MinHeight = viewportHeight
             };
 
             var children = lane.Children ?? Array.Empty<ChildPaneDescriptor>();
             var ratios = lane.Ratios ?? Array.Empty<double>();
             var count = Math.Min(children.Count, ratios.Count);
 
+            Debug.WriteLine(
+                $"[LaneViewport] parent={lane.ParentId} lane={lane.LaneIndex} flow={(lane.IsVerticalFlow ? "vertical" : "horizontal")} " +
+                $"laneViewportW={viewportWidth:0.##} laneViewportH={viewportHeight:0.##} " +
+                $"fixedViewport={lane.FixedViewportSize:0.##} adjustableViewport={lane.AdjustableViewportSize:0.##} " +
+                $"children={count} ratios=[{string.Join(",", ratios.Take(count).Select(r => r.ToString("0.###")))}]");
+
             if (count == 0)
             {
+                grid.Width = viewportWidth;
+                grid.Height = viewportHeight;
                 scroll.Content = grid;
                 _root.Child = scroll;
                 return;
@@ -82,6 +105,8 @@ namespace Constellate.App.Controls
 
             if (lane.IsVerticalFlow)
             {
+                grid.Width = viewportWidth;
+                grid.Height = viewportHeight;
                 grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 
                 for (int i = 0; i < count; i++)
@@ -126,6 +151,8 @@ namespace Constellate.App.Controls
             }
             else
             {
+                grid.Width = viewportWidth;
+                grid.Height = viewportHeight;
                 grid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
 
                 for (int i = 0; i < count; i++)

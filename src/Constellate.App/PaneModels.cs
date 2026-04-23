@@ -35,6 +35,8 @@ namespace Constellate.App
         private IReadOnlyList<ChildPaneDescriptor> _visibleChildrenPrimary1 = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<ChildPaneDescriptor> _minimizedChildren = Array.Empty<ChildPaneDescriptor>();
         private IReadOnlyList<LaneView> _lanesVisible = Array.Empty<LaneView>();
+        private double _bodyViewportWidth;
+        private double _bodyViewportHeight;
         private ParentBodyLayoutModel? _currentBodyLayout;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -301,6 +303,7 @@ namespace Constellate.App
 
                 _slideIndex = clamped;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SplitCount));
             }
         }
 
@@ -361,6 +364,52 @@ namespace Constellate.App
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        /// Actual currently visible width of the parent pane body viewport, excluding header/pre-body.
+        /// This is the authoritative width used for child sizing semantics.
+        /// </summary>
+        public double BodyViewportWidth
+        {
+            get => _bodyViewportWidth;
+            set
+            {
+                if (Math.Abs(_bodyViewportWidth - value) < double.Epsilon)
+                {
+                    return;
+                }
+
+                _bodyViewportWidth = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BodyViewportFixedSize));
+                OnPropertyChanged(nameof(BodyViewportAdjustableSize));
+            }
+        }
+
+        /// <summary>
+        /// Actual currently visible height of the parent pane body viewport, excluding header/pre-body.
+        /// This is the authoritative height used for child sizing semantics.
+        /// </summary>
+        public double BodyViewportHeight
+        {
+            get => _bodyViewportHeight;
+            set
+            {
+                if (Math.Abs(_bodyViewportHeight - value) < double.Epsilon)
+                {
+                    return;
+                }
+
+                _bodyViewportHeight = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BodyViewportFixedSize));
+                OnPropertyChanged(nameof(BodyViewportAdjustableSize));
+            }
+        }
+
+        public double BodyViewportFixedSize => IsVerticalBodyOrientation ? BodyViewportHeight : BodyViewportWidth;
+
+        public double BodyViewportAdjustableSize => IsVerticalBodyOrientation ? BodyViewportWidth : BodyViewportHeight;
 
         /// <summary>
         /// Canonical parent-body layout projection used during the pane-first refactor.
@@ -433,6 +482,10 @@ namespace Constellate.App
         public bool IsVerticalScroll { get; init; }
         public bool IsHorizontalScroll => !IsVerticalScroll;
         public IReadOnlyList<ChildPaneDescriptor> Children { get; init; } = Array.Empty<ChildPaneDescriptor>();
+        public double ViewportWidth { get; init; }
+        public double ViewportHeight { get; init; }
+        public double FixedViewportSize { get; init; }
+        public double AdjustableViewportSize { get; init; }
         public IReadOnlyList<double> Ratios { get; init; } = Array.Empty<double>();
 
         public static LaneView Create(
