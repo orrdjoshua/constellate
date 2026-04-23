@@ -181,7 +181,7 @@
                  Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
                  Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Left pane" />
+            <TextBlock Text="Create, restore, or re-expand the Left pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
         <Polygon x:Name="TopLeft_TopTriangle"
@@ -195,7 +195,7 @@
                  Classes.hasMinTop="{Binding HasMinimizedParentTop}"
                  Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Top pane" />
+            <TextBlock Text="Create, restore, or re-expand the Top pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
       </Canvas>
@@ -216,7 +216,7 @@
                  Classes.hasMinTop="{Binding HasMinimizedParentTop}"
                  Classes.hasVisibleTop="{Binding IsShellPaneOnTop}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Top pane" />
+            <TextBlock Text="Create, restore, or re-expand the Top pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
         <Polygon x:Name="TopRight_RightTriangle"
@@ -230,7 +230,7 @@
                  Classes.hasMinRight="{Binding HasMinimizedParentRight}"
                  Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Right pane" />
+            <TextBlock Text="Create, restore, or re-expand the Right pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
       </Canvas>
@@ -251,7 +251,7 @@
                  Classes.hasMinLeft="{Binding HasMinimizedParentLeft}"
                  Classes.hasVisibleLeft="{Binding IsShellPaneOnLeft}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Left pane" />
+            <TextBlock Text="Create, restore, or re-expand the Left pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
         <Polygon x:Name="BottomLeft_BottomTriangle"
@@ -265,7 +265,7 @@
                  Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
                  Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Bottom pane" />
+            <TextBlock Text="Create, restore, or re-expand the Bottom pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
       </Canvas>
@@ -286,7 +286,7 @@
                  Classes.hasMinBottom="{Binding HasMinimizedParentBottom}"
                  Classes.hasVisibleBottom="{Binding IsShellPaneOnBottom}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Bottom pane" />
+            <TextBlock Text="Create, restore, or re-expand the Bottom pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
         <Polygon x:Name="BottomRight_RightTriangle"
@@ -300,7 +300,7 @@
                  Classes.hasMinRight="{Binding HasMinimizedParentRight}"
                  Classes.hasVisibleRight="{Binding IsShellPaneOnRight}">
           <ToolTip.Tip>
-            <TextBlock Text="Create or restore Right pane" />
+            <TextBlock Text="Create, restore, or re-expand the Right pane from this corner affordance." />
           </ToolTip.Tip>
         </Polygon>
       </Canvas>

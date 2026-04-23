@@ -57,6 +57,7 @@ namespace Constellate.App.Controls
 
             grip.Classes.Add("floatingPaneResizeGrip");
             grip.ZIndex = 500;
+            ToolTip.SetTip(grip, BuildResizeTooltip(spec));
 
             var isPressed = false;
 
@@ -189,6 +190,26 @@ namespace Constellate.App.Controls
         {
             grip.Background = background;
             grip.BorderBrush = borderBrush;
+        }
+
+        private static string BuildResizeTooltip(GripSpec spec)
+        {
+            if ((spec.Left || spec.Right) && (spec.Top || spec.Bottom))
+            {
+                return "Drag this corner to resize the floating pane.";
+            }
+
+            if (spec.Left || spec.Right)
+            {
+                return "Drag this edge to resize the floating pane horizontally.";
+            }
+
+            if (spec.Top || spec.Bottom)
+            {
+                return "Drag this edge to resize the floating pane vertically.";
+            }
+
+            return "Drag to resize the floating pane.";
         }
 
         private readonly struct GripSpec

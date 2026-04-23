@@ -88,6 +88,7 @@ namespace Constellate.App.Controls
                 Cursor = new Cursor(cursor),
             };
             b.ZIndex = 1000;
+            ToolTip.SetTip(b, BuildDockResizeTooltip(tag));
             b.PointerEntered += (_, __) =>
             {
                 try { System.Diagnostics.Debug.WriteLine($"[OverlayGrip][Hover][ENTER] name={name} tag={tag}"); } catch { }
@@ -108,21 +109,23 @@ namespace Constellate.App.Controls
             var b = new Border
             {
                 Name = name,
-                Width = 11,
-                Height = 11,
+                Width = 22,
+                Height = 22,
                 Background = Brushes.Transparent,
                 BorderBrush = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(6),
                 IsHitTestVisible = true,
                 Cursor = new Cursor(StandardCursorType.Hand),
             };
             b.ZIndex = 1100;
+            ToolTip.SetTip(b, BuildCornerIntersectionTooltip(name));
             // Add simple hover visuals so intersections are discoverable.
             b.PointerEntered += (_, __) =>
             {
                 try { System.Diagnostics.Debug.WriteLine($"[OverlayCorner][Hover][ENTER] name={name}"); } catch { }
-                b.Background = new SolidColorBrush(Color.FromArgb(0x33, 0x31, 0x3A, 0x46));
-                b.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xC4, 0x8A, 0x2F)); // orange
+                b.Background = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xC4, 0x8A));
+                b.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xC4, 0x8A));
                 b.BorderThickness = new Thickness(1);
             };
             b.PointerExited += (_, __) =>
@@ -137,6 +140,30 @@ namespace Constellate.App.Controls
                 try { System.Diagnostics.Debug.WriteLine($"[OverlayCorner][Press] name={name} pointer={e.Pointer.Id}"); } catch { }
             };
             return b;
+        }
+
+        private static string BuildDockResizeTooltip(string tag)
+        {
+            return tag switch
+            {
+                "left" => "Drag to resize the left docked pane.",
+                "right" => "Drag to resize the right docked pane.",
+                "top" => "Drag to resize the top docked pane.",
+                "bottom" => "Drag to resize the bottom docked pane.",
+                _ => "Drag to resize the docked pane."
+            };
+        }
+
+        private static string BuildCornerIntersectionTooltip(string name)
+        {
+            return name switch
+            {
+                "OverlayCornerTopLeft" => "Toggle top-left corner ownership between the Top and Left panes.",
+                "OverlayCornerTopRight" => "Toggle top-right corner ownership between the Top and Right panes.",
+                "OverlayCornerBottomLeft" => "Toggle bottom-left corner ownership between the Bottom and Left panes.",
+                "OverlayCornerBottomRight" => "Toggle bottom-right corner ownership between the Bottom and Right panes.",
+                _ => "Toggle dock-corner ownership at this pane intersection."
+            };
         }
 
         private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)

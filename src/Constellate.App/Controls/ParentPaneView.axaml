@@ -39,6 +39,7 @@
               BorderBrush="#314B62"
               BorderThickness="1"
               Cursor="Hand"
+              ToolTip.Tip="Drag to move this parent pane."
               Padding="4,0"
               PointerPressed="Header_OnPointerPressed"
               PointerEntered="Header_OnPointerEntered"
@@ -65,6 +66,7 @@
               CornerRadius="3"
               BorderBrush="#24384A"
               Cursor="Hand"
+              ToolTip.Tip="Drag to move this parent pane. Double-click to minimize it."
               BorderThickness="1"
               PointerEntered="Header_OnPointerEntered"
               PointerExited="Header_OnPointerExited"
@@ -230,7 +232,8 @@
     </panes:PaneChrome.PreBodyContent>
 
     <panes:PaneChrome.BodyContent>
-      <Grid IsVisible="{Binding HasExpandedContent}">
+      <Grid IsVisible="{Binding HasExpandedContent}"
+            ToolTip.Tip="Drag empty parent-body space to move this parent pane.">
         <ItemsControl ItemsSource="{Binding LanesVisible}"
                       IsVisible="{Binding IsHostLeftOrRight}">
           <ItemsControl.ItemsPanel>
