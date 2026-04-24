@@ -13,4 +13,6 @@ public sealed record ChildPaneDescriptor(
     double FloatingWidth = 260,
     double FloatingHeight = 160,
     string? ParentId = null,
-    int FloatingZIndex = 0);
+    int FloatingZIndex = 0,
+    // Authoritative fixed-dimension size (pixels) for docked layout; when 0, view will migrate from prior ratio.
+    double FixedSizePixels = 0.0);

@@ -66,6 +66,7 @@ public sealed partial class MainWindowViewModel
                     $"[ParentBodyProjection] parent={parent.Id} lane={lane.LaneIndex} flow={(lane.IsVerticalFlow ? "vertical" : "horizontal")} " +
                     $"laneViewportW={lane.ViewportWidth:0.##} laneViewportH={lane.ViewportHeight:0.##} " +
                     $"fixedViewport={lane.FixedViewportSize:0.##} adjustableViewport={lane.AdjustableViewportSize:0.##} " +
+                    $"childFixed=[{string.Join(",", lane.Children.Select(c => $"{c.Id}:{c.FixedSizePixels:0.##}"))}] " +
                     $"children={lane.Children.Count} ratios=[{string.Join(",", lane.Ratios.Select(r => r.ToString("0.###")))}]");
             }
         }

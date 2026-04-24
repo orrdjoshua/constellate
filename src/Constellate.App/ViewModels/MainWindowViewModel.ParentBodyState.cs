@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace Constellate.App;
 
@@ -142,6 +143,58 @@ public sealed partial class MainWindowViewModel
                 }
             }
         }
+
+        RaiseChildPaneCollectionsChanged();
+    }
+
+    /// <summary>
+    /// Persist per-child absolute pixel sizes for a given lane. This is now the authoritative
+    /// persistence path used by LanePresenter after splitter release. The stored size represents
+    /// the child's extent in the lane's fixed dimension (height for vertical-flow lanes, width for horizontal-flow lanes).
+    /// </summary>
+    public void UpdateLaneFixedSizesPixels(string parentId, int laneIndex, IEnumerable<(string childId, double pixels)> updates)
+    {
+        var map = updates?
+            .Where(x => !string.IsNullOrWhiteSpace(x.childId))
+            .ToDictionary(x => x.childId, x => Math.Max(1.0, x.pixels), StringComparer.Ordinal)
+            ?? new Dictionary<string, double>(StringComparer.Ordinal);
+
+        if (map.Count == 0)
+        {
+            return;
+        }
+
+        var before = ChildPanes
+            .Where(c => string.Equals(c.ParentId, parentId, StringComparison.Ordinal) && c.ContainerIndex == laneIndex)
+            .Select(c => $"{c.Id}:{c.FixedSizePixels:0.##}")
+            .ToArray();
+        var requested = map.Select(kvp => $"{kvp.Key}:{kvp.Value:0.##}").ToArray();
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var c = ChildPanes[i];
+            if (!string.Equals(c.ParentId, parentId, StringComparison.Ordinal) || c.ContainerIndex != laneIndex)
+            {
+                continue;
+            }
+
+            if (map.TryGetValue(c.Id, out var px))
+            {
+                if (Math.Abs(c.FixedSizePixels - px) > double.Epsilon)
+                {
+                    ChildPanes[i] = c with { FixedSizePixels = px };
+                }
+            }
+        }
+
+        var after = ChildPanes
+            .Where(c => string.Equals(c.ParentId, parentId, StringComparison.Ordinal) && c.ContainerIndex == laneIndex)
+            .Select(c => $"{c.Id}:{c.FixedSizePixels:0.##}")
+            .ToArray();
+
+        Debug.WriteLine(
+            $"[LanePersist][Apply] parent={parentId} lane={laneIndex} " +
+            $"before=[{string.Join(",", before)}] requested=[{string.Join(",", requested)}] after=[{string.Join(",", after)}]");
 
         RaiseChildPaneCollectionsChanged();
     }

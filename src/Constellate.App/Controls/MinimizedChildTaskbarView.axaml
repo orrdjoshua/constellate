@@ -8,7 +8,7 @@
     <Style Selector="Button.minimizedChildTaskbarButton">
       <Setter Property="Background" Value="#213244"/>
       <Setter Property="BorderBrush" Value="#314B62"/>
-      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderThickness" Value="2"/>
       <Setter Property="Foreground" Value="#E5EDF7"/>
       <!-- Tighter inner padding so more buttons fit before wrap -->
       <Setter Property="Padding" Value="4,2"/>
@@ -33,7 +33,6 @@
           CornerRadius="4"
           Padding="4"
           ZIndex="100"
-          ZIndex="10"
           HorizontalAlignment="Stretch"
           IsHitTestVisible="True"
           IsVisible="{Binding MinimizedChildren.Count}">

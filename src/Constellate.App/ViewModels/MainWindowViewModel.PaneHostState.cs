@@ -395,6 +395,36 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    public void SetChildPaneMinimized(string id, bool minimized)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var current = ChildPanes[i];
+            if (!string.Equals(current.Id, id, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (current.IsMinimized == minimized)
+            {
+                return;
+            }
+
+            ChildPanes[i] = current with { IsMinimized = minimized };
+            RaiseChildPaneCollectionsChanged();
+            _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+            _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+            _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
+            _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+            return;
+        }
+    }
+
     public void SetShellPaneMinimized(bool minimized)
     {
         if (ParentPaneModels.Count == 0)

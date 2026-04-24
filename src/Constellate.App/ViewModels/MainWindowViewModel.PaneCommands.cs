@@ -5,48 +5,17 @@ using System.Linq;
 namespace Constellate.App;
 
 /// <summary>
-    /// Generate the next globally-unique child ordinal by scanning existing
-    /// child ids instead of relying on ChildPanes.Count. This prevents id/title
-    /// reuse after deletions and keeps user-visible pane numbering stable.
+/// Partial definition of MainWindowViewModel containing child/parent pane creation,
+/// destruction, and simple in-collection reordering behavior.
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
-    private void SetChildPaneMinimized(string id, bool minimized)
-    {
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var current = ChildPanes[i];
-            if (!string.Equals(current.Id, id, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (current.IsMinimized == minimized)
-            {
-                return;
-            }
-
-            ChildPanes[i] = current with { IsMinimized = minimized };
-            RaiseChildPaneCollectionsChanged();
-            return;
-        }
-    }
-
     /// <summary>
-    /// Create a new generic child pane. The parameter may be either:
-    /// - a ParentPaneModel.Id (preferred), in which case the child is owned by that parent, or
-    /// - a host id ("left"|"top"|"right"|"bottom"|"floating"), in which case we pick a parent
-    ///   on that host (or fall back to the first parent) and attach the child there.
+    /// Legacy MVP rule retained only as a creation-time fallback.
+    /// Real persisted docked child sizing now lives in ChildPaneDescriptor.FixedSizePixels.
     /// </summary>
     private static double GetDefaultChildPanePreferredSizeRatio(ParentPaneModel parent)
     {
-        // MVP rule:
-        // - child creation seeds 25% of the parent's FixedSize
-        // - the child's AdjustableSize is not uniquely owned by the child; it is
-        //   inherited from the active split/lane and therefore remains parent-controlled.
-        //
-        // The actual visual axis that this ratio applies to is determined later by the
-        // parent's first-class body orientation and LanePresenter flow direction.
         _ = parent;
         return 0.25;
     }
@@ -66,6 +35,8 @@ public sealed partial class MainWindowViewModel
     {
         ParentPaneModel? parent = null;
         string normalizedHost;
+
+        // Creation is zero-impact. Existing children are never resized or rebalanced.
 
         if (!string.IsNullOrWhiteSpace(parentOrHost))
         {
@@ -100,6 +71,10 @@ public sealed partial class MainWindowViewModel
         var slideIndex = parent.SlideIndex;
         var resolvedPreferredSizeRatio = ResolveChildPanePreferredSizeRatio(parent, preferredSizeRatio);
         var activeLane = parent.LanesVisible.FirstOrDefault(lane => lane.LaneIndex == 0);
+        var existingLaneState = activeLane?.Children
+            .Select(child => $"{child.Id}(fixed={child.FixedSizePixels:0.##},ratio={child.PreferredSizeRatio:0.###},min={child.IsMinimized})")
+            .ToArray()
+            ?? Array.Empty<string>();
         var activeLaneChildCountBeforeCreate = activeLane?.Children.Count ?? 0;
 
         var nextOrder = ChildPanes.Count == 0
@@ -115,9 +90,25 @@ public sealed partial class MainWindowViewModel
             $"slide={slideIndex} splitCount={parent.SplitCount} targetLane=0 existingLaneChildren={activeLaneChildCountBeforeCreate} " +
             $"bodyW={parent.BodyViewportWidth:0.##} bodyH={parent.BodyViewportHeight:0.##} " +
             $"fixed={parent.BodyViewportFixedSize:0.##} adjustable={parent.BodyViewportAdjustableSize:0.##} " +
+            $"laneChildrenState=[{string.Join(", ", existingLaneState)}] " +
             $"laneViewportW={(activeLane?.ViewportWidth ?? 0):0.##} laneViewportH={(activeLane?.ViewportHeight ?? 0):0.##} " +
             $"laneFixed={(activeLane?.FixedViewportSize ?? 0):0.##} laneAdjustable={(activeLane?.AdjustableViewportSize ?? 0):0.##} " +
             $"requestedRatio={resolvedPreferredSizeRatio:0.###} newChildId={id} title=\"{title}\"");
+
+        // Authoritative creation size:
+        // 25% of the current fixed viewport of the first lane on the active slide.
+        var fixedViewport = (activeLane?.FixedViewportSize ?? 0) > 0
+            ? activeLane!.FixedViewportSize
+            : parent.BodyViewportFixedSize;
+
+        if (fixedViewport <= 0)
+        {
+            fixedViewport = parent.IsVerticalBodyOrientation
+                ? Math.Max(1.0, parent.BodyViewportHeight)
+                : Math.Max(1.0, parent.BodyViewportWidth);
+        }
+
+        var fixedPixels = Math.Max(1.0, fixedViewport * 0.25);
 
         ChildPanes.Add(new ChildPaneDescriptor(
             id,
@@ -127,12 +118,8 @@ public sealed partial class MainWindowViewModel
             IsMinimized: false,
             SlideIndex: slideIndex,
             PreferredSizeRatio: resolvedPreferredSizeRatio,
-            ParentId: parentId));
-
-        // Critical invariant:
-        // creating a new child must never mutate any existing sibling sizes.
-        // The new child already carries its own initial PreferredSizeRatio (0.25 by default),
-        // so no post-create lane rebalance should touch prior children here.
+            ParentId: parentId,
+            FixedSizePixels: fixedPixels));
 
         RaiseChildPaneCollectionsChanged();
 
@@ -150,11 +137,14 @@ public sealed partial class MainWindowViewModel
         var idx = -1;
         for (var i = 0; i < ChildPanes.Count; i++)
         {
-            if (string.Equals(ChildPanes[i].Id, id, StringComparison.Ordinal))
+            var current = ChildPanes[i];
+            if (!string.Equals(current.Id, id, StringComparison.Ordinal))
             {
-                idx = i;
-                break;
+                continue;
             }
+
+            idx = i;
+            break;
         }
 
         if (idx >= 0)
@@ -163,6 +153,7 @@ public sealed partial class MainWindowViewModel
             RaiseChildPaneCollectionsChanged();
         }
     }
+
     /// <summary>
     /// Generate a new child id of the form "child.N" where N is one greater than
     /// any existing numeric suffix on child ids. This avoids reusing ids after
@@ -234,7 +225,6 @@ public sealed partial class MainWindowViewModel
         }
 
         RaiseChildPaneCollectionsChanged();
-
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
         _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
@@ -246,9 +236,9 @@ public sealed partial class MainWindowViewModel
         var normalizedHost = NormalizeHostId(hostId);
         var nextOrdinal = ParentPaneModels.Count(parent =>
             string.Equals(NormalizeHostId(parent.HostId), normalizedHost, StringComparison.Ordinal)) + 1;
+
         // Simple global ordinal for visibility during QA; note this is
         // present-count based, so duplicates can occur if panes are removed/re-added.
-        // Good enough for test labeling; can be replaced later with a persistent counter.
         var globalOrdinal = ParentPaneModels.Count + 1;
 
         return new ParentPaneModel
