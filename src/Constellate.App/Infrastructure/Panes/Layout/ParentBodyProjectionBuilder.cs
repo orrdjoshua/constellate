@@ -44,6 +44,7 @@ internal static class ParentBodyProjectionBuilder
             MinimizedChildren = childArray
                 .Where(child =>
                     child.IsMinimized &&
+                    child.SlideIndex == slideIndex &&
                     string.Equals(child.ParentId, parentId, StringComparison.Ordinal))
                 .OrderBy(child => child.Order)
                 .ToArray(),

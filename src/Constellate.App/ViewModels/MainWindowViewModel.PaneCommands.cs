@@ -129,11 +129,10 @@ public sealed partial class MainWindowViewModel
             PreferredSizeRatio: resolvedPreferredSizeRatio,
             ParentId: parentId));
 
-        // Rebalance lane ratios so the new child defaults to ~25% of the lane’s
-        // BodySecondary while existing siblings share the remaining 75% proportionally.
-        // This operates purely in the parent-body frame (host-agnostic); actual on-screen
-        // orientation is handled by the layout projection layer.
-        ApplyDefaultChildSizeForNewLaneMember(parentId, laneIndex: 0, newChildId: id);
+        // Critical invariant:
+        // creating a new child must never mutate any existing sibling sizes.
+        // The new child already carries its own initial PreferredSizeRatio (0.25 by default),
+        // so no post-create lane rebalance should touch prior children here.
 
         RaiseChildPaneCollectionsChanged();
 
@@ -141,6 +140,29 @@ public sealed partial class MainWindowViewModel
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
     }
 
+    public void DestroyChildPane(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        var idx = -1;
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            if (string.Equals(ChildPanes[i].Id, id, StringComparison.Ordinal))
+            {
+                idx = i;
+                break;
+            }
+        }
+
+        if (idx >= 0)
+        {
+            ChildPanes.RemoveAt(idx);
+            RaiseChildPaneCollectionsChanged();
+        }
+    }
     /// <summary>
     /// Generate a new child id of the form "child.N" where N is one greater than
     /// any existing numeric suffix on child ids. This avoids reusing ids after

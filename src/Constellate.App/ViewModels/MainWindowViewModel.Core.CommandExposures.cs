@@ -71,6 +71,7 @@ public sealed partial class MainWindowViewModel
     public ICommand MoveChildPaneDownCommand => _moveChildPaneDownCommand;
     public ICommand FloatSettingsChildPaneCommand => _floatSettingsChildPaneCommand;
     public ICommand DockSettingsChildPaneCommand => _dockSettingsChildPaneCommand;
+    public ICommand DestroyChildPaneCommand => _destroyChildPaneCommand;
     public ICommand MoveChildPaneToLeftHostCommand => _moveChildPaneToLeftHostCommand;
     public ICommand MoveChildPaneToTopHostCommand => _moveChildPaneToTopHostCommand;
     public ICommand MoveChildPaneToRightHostCommand => _moveChildPaneToRightHostCommand;

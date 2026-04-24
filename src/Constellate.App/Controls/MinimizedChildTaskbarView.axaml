@@ -4,20 +4,56 @@
              xmlns:app="clr-namespace:Constellate.App"
              x:Class="Constellate.App.Controls.MinimizedChildTaskbarView"
              x:DataType="app:ParentPaneModel">
-  <ItemsControl ItemsSource="{Binding MinimizedChildren}">
-    <ItemsControl.ItemsPanel>
-      <ItemsPanelTemplate>
-        <StackPanel Orientation="Horizontal" Spacing="6"/>
-      </ItemsPanelTemplate>
-    </ItemsControl.ItemsPanel>
-    <ItemsControl.ItemTemplate>
-      <DataTemplate x:DataType="app:ChildPaneDescriptor">
-        <Button Padding="6,2"
-                MinWidth="72"
-                Content="{Binding Title}"
-                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RestoreChildPaneFromTaskbarCommand}"
-                CommandParameter="{Binding Id}" />
-      </DataTemplate>
-    </ItemsControl.ItemTemplate>
-  </ItemsControl>
+  <UserControl.Styles>
+    <Style Selector="Button.minimizedChildTaskbarButton">
+      <Setter Property="Background" Value="#213244"/>
+      <Setter Property="BorderBrush" Value="#314B62"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#E5EDF7"/>
+      <!-- Tighter inner padding so more buttons fit before wrap -->
+      <Setter Property="Padding" Value="4,2"/>
+      <!-- Lower minimum so labels can pack -->
+      <Setter Property="MinWidth" Value="72"/>
+      <!-- Very small inter-button gap -->
+      <Setter Property="Margin" Value="2,2,2,2"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.minimizedChildTaskbarButton:pointerover">
+      <Setter Property="Background" Value="#2A435A"/>
+      <Setter Property="BorderBrush" Value="#FFC48A2F"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#121A23"
+          BorderBrush="#24384A"
+          BorderThickness="1"
+          CornerRadius="4"
+          Padding="4"
+          ZIndex="100"
+          ZIndex="10"
+          HorizontalAlignment="Stretch"
+          IsHitTestVisible="True"
+          IsVisible="{Binding MinimizedChildren.Count}">
+    <ItemsControl ItemsSource="{Binding MinimizedChildren}" IsHitTestVisible="True">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <!-- Let buttons size-to-content; no fixed ItemWidth/ItemHeight so wrapping occurs later -->
+          <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="app:ChildPaneDescriptor">
+          <Button Classes="minimizedChildTaskbarButton"
+                  Content="{Binding Title}"
+                  ToolTip.Tip="Click to re-expand this child pane."
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RestoreChildPaneFromTaskbarCommand}"
+                  CommandParameter="{Binding Id}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </Border>
 </UserControl>

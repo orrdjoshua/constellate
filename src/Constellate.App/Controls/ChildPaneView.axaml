@@ -36,6 +36,10 @@
         <MenuItem Header="Move to Left"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToLeftHostCommand}"
                   CommandParameter="{Binding Id}" />
+        <Separator />
+        <MenuItem Header="Destroy This Pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
+                  CommandParameter="{Binding Id}" />
         <MenuItem Header="Move to Top"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MoveChildPaneToTopHostCommand}"
                   CommandParameter="{Binding Id}" />
@@ -112,6 +116,15 @@
                 Background="#233142"
                 ToolTip.Tip="Minimize child pane"
                 Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                CommandParameter="{Binding Id}" />
+        <Button Width="20"
+                Height="20"
+                Padding="0"
+                Content="×"
+                Foreground="#E5EDF7"
+                Background="#233142"
+                ToolTip.Tip="Destroy pane"
+                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
                 CommandParameter="{Binding Id}" />
       </StackPanel>
     </panes:PaneChrome.CommandBarContent>

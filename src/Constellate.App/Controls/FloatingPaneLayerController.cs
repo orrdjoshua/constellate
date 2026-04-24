@@ -253,7 +253,7 @@ namespace Constellate.App.Controls
 
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe] view={view.GetType().Name} dc={view.DataContext?.GetType().Name ?? "null"}");
+                // System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe] view={view.GetType().Name} dc={view.DataContext?.GetType().Name ?? "null"}");
             }
             catch
             {
@@ -274,7 +274,7 @@ namespace Constellate.App.Controls
             {
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine("[FloatingGrip][Probe][MISS] chrome=null");
+                    // System.Diagnostics.Debug.WriteLine("[FloatingGrip][Probe][MISS] chrome=null");
                 }
                 catch
                 {
@@ -286,7 +286,7 @@ namespace Constellate.App.Controls
             {
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine("[FloatingGrip][Probe][MISS] rootBorder=null");
+                    // System.Diagnostics.Debug.WriteLine("[FloatingGrip][Probe][MISS] rootBorder=null");
                 }
                 catch
                 {
@@ -299,7 +299,7 @@ namespace Constellate.App.Controls
             {
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe][MISS] panelHostType={(rootBorder.Parent?.GetType().Name ?? "null")}");
+                    // System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe][MISS] panelHostType={(rootBorder.Parent?.GetType().Name ?? "null")}");
                 }
                 catch
                 {
@@ -309,7 +309,7 @@ namespace Constellate.App.Controls
 
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe][OK] panelHost={panelHost.GetType().Name} width={view.Bounds.Width:0.##} height={view.Bounds.Height:0.##}");
+                // System.Diagnostics.Debug.WriteLine($"[FloatingGrip][Probe][OK] panelHost={panelHost.GetType().Name} width={view.Bounds.Width:0.##} height={view.Bounds.Height:0.##}");
             }
             catch
             {

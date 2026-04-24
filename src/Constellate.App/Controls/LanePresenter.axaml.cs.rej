@@ -1,0 +1,10 @@
+diff a/src/Constellate.App/Controls/LanePresenter.axaml.cs b/src/Constellate.App/Controls/LanePresenter.axaml.cs	(rejected hunks)
+@@ -161,7 +161,7 @@
+                         };
+                         // Hover affordance for intermediate splitters
+-                        splitter.PointerEntered += (_, __) => splitter.Background = new SolidColorBrush(Color.Parse("#20313A46"));
++                        splitter.PointerEntered += (_, __) => splitter.Background = new SolidColorBrush(Color.Parse("#20FFC48A"));
+                         splitter.PointerExited  += (_, __) => splitter.Background = Brushes.Transparent;
+ 
+                         splitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
+                         Grid.SetColumn(splitter, 0);

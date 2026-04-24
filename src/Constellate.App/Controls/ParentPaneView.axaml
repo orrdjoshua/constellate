@@ -228,12 +228,14 @@
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.PreBodyContent>
-      <ctrl:MinimizedChildTaskbarView IsVisible="{Binding HasExpandedContent}"/>
+      <ctrl:MinimizedChildTaskbarView IsVisible="{Binding HasExpandedContent}"
+                                      ZIndex="50"/>
     </panes:PaneChrome.PreBodyContent>
 
     <panes:PaneChrome.BodyContent>
       <Grid IsVisible="{Binding HasExpandedContent}"
-            ToolTip.Tip="Drag empty parent-body space to move this parent pane.">
+            ToolTip.Tip="Drag empty parent-body space to move this parent pane."
+            ZIndex="0">
         <ctrl:ParentBodyPresenter />
       </Grid>
     </panes:PaneChrome.BodyContent>

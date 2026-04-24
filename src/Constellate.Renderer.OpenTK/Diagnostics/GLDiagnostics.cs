@@ -21,12 +21,12 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
                 // Keep this compile-safe across OpenTK package variations.
                 // We still retain GL.GetError-based diagnostics and state dumps below.
                 _enabled = false;
-                Trace.WriteLine("[GLDiag] Native GL debug callback wiring is currently disabled for this OpenTK package/version; falling back to manual diagnostics.");
+                // Trace.WriteLine("[GLDiag] Native GL debug callback wiring is currently disabled for this OpenTK package/version; falling back to manual diagnostics.");
             }
             catch (Exception ex)
             {
                 _enabled = false;
-                Trace.WriteLine($"[GLDiag] Debug output setup skipped: {ex.Message}");
+                // Trace.WriteLine($"[GLDiag] Debug output setup skipped: {ex.Message}");
             }
         }
 
@@ -37,12 +37,12 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
             while ((err = GL.GetError()) != ErrorCode.NoError)
             {
                 any = true;
-                Trace.WriteLine($"[GLDiag] GL.GetError at {where}: {err}");
+                // Trace.WriteLine($"[GLDiag] GL.GetError at {where}: {err}");
             }
 
             if (!any)
             {
-                Trace.WriteLine($"[GLDiag] {where}: OK");
+                // Trace.WriteLine($"[GLDiag] {where}: OK");
             }
         }
 
@@ -60,11 +60,11 @@ namespace Constellate.Renderer.OpenTK.Diagnostics
                 bool depth = GL.IsEnabled(EnableCap.DepthTest);
                 bool cull = GL.IsEnabled(EnableCap.CullFace);
 
-                Trace.WriteLine($"[GLDiag] State {tag} -> prog={prog}, vao={vao}, vbo={vbo}, drawFBO={drawFbo}, readFBO={readFbo}, depth={depth} func={(DepthFunction)depthFunc}, cull={cull}, viewport0={vp0}");
+                // Trace.WriteLine($"[GLDiag] State {tag} -> prog={prog}, vao={vao}, vbo={vbo}, drawFBO={drawFbo}, readFBO={readFbo}, depth={depth} func={(DepthFunction)depthFunc}, cull={cull}, viewport0={vp0}");
             }
             catch (Exception ex)
             {
-                Trace.WriteLine($"[GLDiag] DumpBasicState failed: {ex.Message}");
+                // Trace.WriteLine($"[GLDiag] DumpBasicState failed: {ex.Message}");
             }
         }
 

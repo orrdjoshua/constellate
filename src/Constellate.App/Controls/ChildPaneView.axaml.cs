@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Constellate.App.Controls.Panes;
@@ -7,6 +8,7 @@ using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
 using Avalonia.Threading;
+using Avalonia.Layout;
 
 namespace Constellate.App.Controls
 {
@@ -32,6 +34,9 @@ namespace Constellate.App.Controls
             // ChildPaneDescriptor is a record; VM replaces the instance in the collection,
             // which triggers DataContextChanged for this view.
             DataContextChanged += OnDataContextChanged;
+            // Track header-height to enforce min size: header must always remain fully visible.
+            if (_root?.HeaderBorder is { } hdr)
+                hdr.PropertyChanged += OnHeaderMetricChanged;
 
             // Also run on initial attach (in case DataContext was available before this view attached).
             AttachedToVisualTree += (_, __) => Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
@@ -42,6 +47,26 @@ namespace Constellate.App.Controls
             _model = DataContext as ChildPaneDescriptor;
             // Defer to ensure region measurements are valid before computing desired width.
             Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
+            // Apply min-height rule initially after data context update
+            Dispatcher.UIThread.Post(ApplyMinHeightFromHeader, DispatcherPriority.Background);
+        }
+
+        private void OnHeaderMetricChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == BoundsProperty ||
+                e.Property?.Name == "Bounds" ||
+                e.Property == BoundsProperty)
+            {
+                ApplyMinHeightFromHeader();
+            }
+        }
+
+        private void ApplyMinHeightFromHeader()
+        {
+            if (_root?.HeaderBorder is null) return;
+            var headerH = _root.HeaderBorder.Bounds.Height;
+            // Provide a small cushion for borders/padding; header must remain visible.
+            MinHeight = Math.Max(1.0, headerH + 2.0);
         }
 
         private void ApplyFloatingMinimizedWidthIfNeeded()

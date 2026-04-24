@@ -108,38 +108,27 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Persist preferred-size ratios for a given lane by child id. Ratios should already be normalized, but we normalize defensively.
+    /// Persist preferred-size occupancies for a given lane by child id.
+    /// Ratios are interpreted as occupancy against the lane fixed viewport:
+    /// - 0.25 means 25% of the visible fixed viewport
+    /// - 1.20 means 120% of the visible fixed viewport, which should scroll
     /// </summary>
     public void UpdateLanePreferredRatios(string parentId, int laneIndex, IEnumerable<(string childId, double ratio)> updates)
     {
-        var map = updates?.ToDictionary(x => x.childId, x => Math.Max(0.01, x.ratio), StringComparer.Ordinal) ??
+        var map = updates?.ToDictionary(
+                      x => x.childId,
+                      x => Math.Max(0.05, x.ratio),
+                      StringComparer.Ordinal) ??
                   new Dictionary<string, double>(StringComparer.Ordinal);
-        var sum = map.Values.Sum();
-        if (sum <= 1e-6)
+
+        if (map.Count == 0)
         {
             return;
         }
 
-        // Critical MVP semantics:
-        // if total occupancy is <= 100% of the lane fixed dimension, preserve the
-        // raw ratios so unused space remains as remainder in the lane.
-        //
-        // Example:
-        // - first child created at 0.25 should remain 0.25, not be normalized to 1.0
-        //   and then clamped down to 0.95.
-        //
-        // We only normalize when ratios exceed the available fixed dimension.
-        if (sum > 1.0 + 1e-6)
-        {
-            foreach (var kv in map.Keys.ToArray())
-            {
-                map[kv] = map[kv] / sum;
-            }
-        }
-
         foreach (var kv in map.Keys.ToArray())
         {
-            map[kv] = Math.Clamp(map[kv], 0.05, 0.95);
+            map[kv] = Math.Max(0.05, map[kv]);
         }
 
         for (var i = 0; i < ChildPanes.Count; i++)
@@ -214,12 +203,10 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// After a new child has been added to a parent/lane/slide, rebalance that lane's
-    /// PreferredSizeRatio values so the new child defaults to ~25% of the lane's
-    /// BodySecondary while the existing children share the remaining ~75% proportionally.
-    ///
-    /// This operates purely in the parent-body frame; host orientation (left/top/right/bottom
-    /// vs floating) is handled later by the layout projection layer.
+    /// After a new child has been added to a parent/lane/slide, apply the MVP child sizing rule:
+    /// every newly created child begins at 25% occupancy of the lane's fixed viewport,
+    /// existing children keep their current occupancies,
+    /// and any remaining viewport space is filler until occupancy exceeds 1.0 and the lane scrolls.
     /// </summary>
     private void ApplyDefaultChildSizeForNewLaneMember(string parentId, int laneIndex, string newChildId)
     {
@@ -244,7 +231,6 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        // Single child in lane: keep the explicit MVP default of 25% of the fixed dimension.
         if (laneChildren.Count == 1)
         {
             var only = laneChildren[0];
@@ -255,46 +241,11 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        // Compute the sum of existing siblings' ratios (excluding the new child).
-        double oldSum = 0;
-        foreach (var child in laneChildren)
-        {
-            if (string.Equals(child.Id, newChildId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            oldSum += Math.Max(0.0, child.PreferredSizeRatio);
-        }
-
-        if (oldSum <= 1e-6)
-        {
-            // No meaningful existing ratios; treat all existing children uniformly.
-            oldSum = laneChildren.Count - 1;
-        }
-
-        const double newChildShare = 0.25;
-        const double existingShare = 0.75;
-        var scale = existingShare / oldSum;
-
-        var updates = new List<(string childId, double ratio)>(laneChildren.Count);
-        foreach (var child in laneChildren)
-        {
-            double raw;
-            if (string.Equals(child.Id, newChildId, StringComparison.Ordinal))
-            {
-                raw = newChildShare;
-            }
-            else
-            {
-                var baseRatio = child.PreferredSizeRatio;
-                if (baseRatio <= 0.0) baseRatio = 1.0;
-                raw = baseRatio * scale;
-            }
-
-            updates.Add((child.Id, raw));
-        }
-
-        UpdateLanePreferredRatios(parentId, laneIndex, updates);
+        // Preserve all existing child ratios exactly as-is.
+        // Only assign the newly created child to 0.25.
+        UpdateLanePreferredRatios(
+            parentId,
+            laneIndex,
+            new[] { (newChildId, 0.25) });
     }
 }

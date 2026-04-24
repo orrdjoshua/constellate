@@ -100,6 +100,7 @@ public sealed partial class MainWindowViewModel
     private readonly RelayCommand _restoreChildPaneFromTaskbarCommand;
     private readonly RelayCommand _moveChildPaneUpCommand;
     private readonly RelayCommand _moveChildPaneDownCommand;
+    private readonly RelayCommand _destroyChildPaneCommand;
     private readonly RelayCommand _floatSettingsChildPaneCommand;
     private readonly RelayCommand _dockSettingsChildPaneCommand;
     private readonly RelayCommand _moveChildPaneToLeftHostCommand;

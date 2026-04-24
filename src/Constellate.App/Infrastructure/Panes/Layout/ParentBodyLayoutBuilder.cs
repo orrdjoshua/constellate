@@ -37,7 +37,7 @@ namespace Constellate.App.Infrastructure.Panes.Layout
                         .Select((child, order) => new ChildPanePlacementModel(
                             ChildPaneId: child.Id,
                             Order: order,
-                            PreferredSizeRatio: Math.Clamp(child.PreferredSizeRatio, 0.05, 0.95),
+                            PreferredSizeRatio: Math.Max(0.05, child.PreferredSizeRatio),
                             IsMinimized: child.IsMinimized))
                         .ToArray();
 
@@ -133,7 +133,7 @@ namespace Constellate.App.Infrastructure.Panes.Layout
             }
 
             var raw = placements
-                .Select(placement => Math.Clamp(placement.PreferredSizeRatio, 0.05, 0.95))
+                .Select(placement => Math.Max(0.05, placement.PreferredSizeRatio))
                 .ToArray();
 
             var sum = raw.Sum();
@@ -144,11 +144,9 @@ namespace Constellate.App.Infrastructure.Panes.Layout
                     .ToArray();
             }
 
-            if (sum > 1.0 + 1e-6)
-            {
-                return raw.Select(value => value / sum).ToArray();
-            }
-
+            // Preserve raw occupancies.
+            // If the total exceeds 1.0, that means the lane content is larger than the parent
+            // fixed viewport and should be scrollable rather than normalized back into the viewport.
             return raw;
         }
     }

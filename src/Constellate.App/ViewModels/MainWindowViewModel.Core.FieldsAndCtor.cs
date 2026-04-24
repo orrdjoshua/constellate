@@ -554,6 +554,13 @@ namespace Constellate.App
                     return CanMoveChildPane(id, 1);
                 });
 
+            _destroyChildPaneCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id)) DestroyChildPane(id);
+                },
+                _ => true);
+
             _floatSettingsChildPaneCommand = new RelayCommand(
                 _ =>
                 {

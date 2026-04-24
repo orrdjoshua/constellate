@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -14,14 +10,19 @@ namespace Constellate.App.Controls
     /// <summary>
     /// Renders a single lane (either a column of vertically-flowing children for Left/Right parents,
     /// or a row of horizontally-flowing children for Top/Bottom parents).
-    /// The presenter applies per-child proportional sizing along the lane’s fixed dimension using star Grid sizing
-    /// based on each child's PreferredSizeRatio, and includes GridSplitters
-    /// so users can drag-resize children. The lane viewport itself is explicitly constrained
-    /// to the measured visible body viewport of the parent pane so header size and content extent
-    /// do not affect initial child sizing semantics.
+    ///
+    /// Child ratios are interpreted as occupancy against the lane's fixed viewport size:
+    /// - ratio 0.25 = 25% of the visible fixed viewport,
+    /// - ratio 1.25 = 125% of the visible fixed viewport.
+    ///
+    /// Therefore:
+    /// - total occupancy <= 1.0 leaves unused remainder/filler inside the lane viewport,
+    /// - total occupancy > 1.0 makes the lane content larger than the viewport and the lane scrolls,
+    /// - the ParentPane header remains sticky because scrolling is isolated to the lane/body region.
     /// </summary>
     public sealed class LanePresenter : UserControl
     {
+        private const double SplitterThickness = 6.0;
         private Border? _root;
 
         public LanePresenter()
@@ -36,13 +37,16 @@ namespace Constellate.App.Controls
         private MainWindowViewModel? GetVm()
         {
             if (VisualRoot is Window w && w.DataContext is MainWindowViewModel vm)
+            {
                 return vm;
+            }
+
             return null;
         }
 
         private void Rebuild()
         {
-            if (_root == null)
+            if (_root is null)
             {
                 _root = new Border { Background = Brushes.Transparent };
                 Content = _root;
@@ -56,6 +60,9 @@ namespace Constellate.App.Controls
 
             var viewportWidth = lane.ViewportWidth > 0 ? lane.ViewportWidth : Math.Max(1.0, Bounds.Width);
             var viewportHeight = lane.ViewportHeight > 0 ? lane.ViewportHeight : Math.Max(1.0, Bounds.Height);
+            var fixedViewport = lane.FixedViewportSize > 0
+                ? lane.FixedViewportSize
+                : (lane.IsVerticalFlow ? viewportHeight : viewportWidth);
 
             var scroll = new ScrollViewer
             {
@@ -69,10 +76,10 @@ namespace Constellate.App.Controls
 
             var grid = new Grid
             {
-                ColumnSpacing = 6,
-                RowSpacing = 6,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
+                ColumnSpacing = 0,
+                RowSpacing = 0,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
                 MinWidth = viewportWidth,
                 MinHeight = viewportHeight
             };
@@ -81,11 +88,13 @@ namespace Constellate.App.Controls
             var ratios = lane.Ratios ?? Array.Empty<double>();
             var count = Math.Min(children.Count, ratios.Count);
 
+            var occupancySum = ratios.Take(count).Sum(r => Math.Max(0.05, r));
+
             Debug.WriteLine(
                 $"[LaneViewport] parent={lane.ParentId} lane={lane.LaneIndex} flow={(lane.IsVerticalFlow ? "vertical" : "horizontal")} " +
                 $"laneViewportW={viewportWidth:0.##} laneViewportH={viewportHeight:0.##} " +
                 $"fixedViewport={lane.FixedViewportSize:0.##} adjustableViewport={lane.AdjustableViewportSize:0.##} " +
-                $"children={count} ratios=[{string.Join(",", ratios.Take(count).Select(r => r.ToString("0.###")))}]");
+                $"children={count} occupancy={occupancySum:0.###} ratios=[{string.Join(",", ratios.Take(count).Select(r => r.ToString("0.###")))}]");
 
             if (count == 0)
             {
@@ -96,27 +105,40 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            var consumedRatio = ratios
-                .Take(count)
-                .Select(r => Math.Max(0.0, r))
-                .Sum();
+            var splitterTotal = Math.Max(0, count - 1) * SplitterThickness;
 
-            var remainderRatio = Math.Max(0.0, 1.0 - consumedRatio);
+            // Important MVP rule:
+            // - until content genuinely exceeds the visible lane fixed viewport,
+            //   the presence of splitters alone should not force a scrollbar.
+            // Therefore, when total occupancy <= 1.0, we fit children + splitters inside
+            // the visible fixed viewport by reserving splitter space first and then applying
+            // ratios to the remaining fixed-size budget.
+            //
+            // Once occupancy > 1.0, children are realized directly against the full fixed viewport,
+            // causing content extent to exceed the lane and naturally enabling scrolling.
+            var fittingWithinViewport = occupancySum <= 1.0 + 1e-6;
+            var childBudgetForViewport = fittingWithinViewport
+                ? Math.Max(0.0, fixedViewport - splitterTotal)
+                : fixedViewport;
 
             if (lane.IsVerticalFlow)
             {
                 grid.Width = viewportWidth;
-                grid.Height = viewportHeight;
-                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+                grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(viewportWidth, GridUnitType.Pixel)));
 
-                for (int i = 0; i < count; i++)
+                var contentHeight = 0.0;
+
+                for (var i = 0; i < count; i++)
                 {
-                    var star = Math.Max(0.0001, ratios[i]);
-                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(star, GridUnitType.Star)));
+                    var ratio = Math.Max(0.05, ratios[i]);
+                    var childPixels = childBudgetForViewport * ratio;
+                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(childPixels, GridUnitType.Pixel)));
+                    contentHeight += childPixels;
 
                     var chrome = new Border
                     {
                         Background = Brushes.Transparent,
+                        Width = viewportWidth,
                         Child = new ChildPaneView { DataContext = children[i] }
                     };
 
@@ -126,16 +148,20 @@ namespace Constellate.App.Controls
 
                     if (i < count - 1)
                     {
-                        grid.RowDefinitions.Add(new RowDefinition(new GridLength(6, GridUnitType.Pixel)));
+                        grid.RowDefinitions.Add(new RowDefinition(new GridLength(SplitterThickness, GridUnitType.Pixel)));
+                        contentHeight += SplitterThickness;
 
                         var splitter = new GridSplitter
                         {
                             ResizeDirection = GridResizeDirection.Rows,
                             Background = Brushes.Transparent,
                             HorizontalAlignment = HorizontalAlignment.Stretch,
-                            Height = 6,
+                            Height = SplitterThickness,
                             Cursor = new Cursor(StandardCursorType.SizeNorthSouth)
                         };
+                        // Hover affordance for intermediate splitters
+                        splitter.PointerEntered += (_, __) => splitter.Background = new SolidColorBrush(Color.Parse("#20FFC48A"));
+                        splitter.PointerExited  += (_, __) => splitter.Background = Brushes.Transparent;
 
                         splitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
                         Grid.SetColumn(splitter, 0);
@@ -144,25 +170,55 @@ namespace Constellate.App.Controls
                     }
                 }
 
-                if (remainderRatio > 1e-6)
+                // Trailing resize between last child and remainder/filler so the last/only child is also resizable.
+                if (fittingWithinViewport && occupancySum < 1.0 - 1e-6)
                 {
-                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(remainderRatio, GridUnitType.Star)));
+                    // Insert a splitter before the filler so last child can be grown/shrunk against remainder.
+                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(SplitterThickness, GridUnitType.Pixel)));
+                    var tailSplitter = new GridSplitter
+                    {
+                        ResizeDirection = GridResizeDirection.Rows,
+                        Background = Brushes.Transparent,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        Height = SplitterThickness,
+                        Cursor = new Cursor(StandardCursorType.SizeNorthSouth)
+                    };
+                    tailSplitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
+                    // Hover highlight for affordance
+                    tailSplitter.PointerEntered += (_, __) => tailSplitter.Background = new SolidColorBrush(Color.Parse("#20FFC48A"));
+                    tailSplitter.PointerExited +=  (_, __) => tailSplitter.Background = Brushes.Transparent;
+                    Grid.SetColumn(tailSplitter, 0);
+                    Grid.SetRow(tailSplitter, (count - 1) * 2 + 1); // after the last child
+                    grid.Children.Add(tailSplitter);
                 }
+
+                if (fittingWithinViewport && occupancySum < 1.0 - 1e-6)
+                {
+                    var fillerPixels = childBudgetForViewport * (1.0 - occupancySum);
+                    grid.RowDefinitions.Add(new RowDefinition(new GridLength(fillerPixels, GridUnitType.Pixel)));
+                    contentHeight += fillerPixels;
+                }
+
+                grid.Height = Math.Max(viewportHeight, contentHeight);
             }
             else
             {
-                grid.Width = viewportWidth;
                 grid.Height = viewportHeight;
-                grid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+                grid.RowDefinitions.Add(new RowDefinition(new GridLength(viewportHeight, GridUnitType.Pixel)));
 
-                for (int i = 0; i < count; i++)
+                var contentWidth = 0.0;
+
+                for (var i = 0; i < count; i++)
                 {
-                    var star = Math.Max(0.0001, ratios[i]);
-                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(star, GridUnitType.Star)));
+                    var ratio = Math.Max(0.05, ratios[i]);
+                    var childPixels = childBudgetForViewport * ratio;
+                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(childPixels, GridUnitType.Pixel)));
+                    contentWidth += childPixels;
 
                     var chrome = new Border
                     {
                         Background = Brushes.Transparent,
+                        Height = viewportHeight,
                         Child = new ChildPaneView { DataContext = children[i] }
                     };
 
@@ -172,16 +228,20 @@ namespace Constellate.App.Controls
 
                     if (i < count - 1)
                     {
-                        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(6, GridUnitType.Pixel)));
+                        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(SplitterThickness, GridUnitType.Pixel)));
+                        contentWidth += SplitterThickness;
 
                         var splitter = new GridSplitter
                         {
                             ResizeDirection = GridResizeDirection.Columns,
                             Background = Brushes.Transparent,
                             VerticalAlignment = VerticalAlignment.Stretch,
-                            Width = 6,
+                            Width = SplitterThickness,
                             Cursor = new Cursor(StandardCursorType.SizeWestEast)
                         };
+                        // Hover affordance for intermediate splitters
+                        splitter.PointerEntered += (_, __) => splitter.Background = new SolidColorBrush(Color.Parse("#20313A46"));
+                        splitter.PointerExited  += (_, __) => splitter.Background = Brushes.Transparent;
 
                         splitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
                         Grid.SetRow(splitter, 0);
@@ -190,10 +250,35 @@ namespace Constellate.App.Controls
                     }
                 }
 
-                if (remainderRatio > 1e-6)
+                // Trailing resize between last child and remainder/filler so the last/only child is also resizable.
+                if (fittingWithinViewport && occupancySum < 1.0 - 1e-6)
                 {
-                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(remainderRatio, GridUnitType.Star)));
+                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(SplitterThickness, GridUnitType.Pixel)));
+                    var tailSplitter = new GridSplitter
+                    {
+                        ResizeDirection = GridResizeDirection.Columns,
+                        Background = Brushes.Transparent,
+                        VerticalAlignment = VerticalAlignment.Stretch,
+                        Width = SplitterThickness,
+                        Cursor = new Cursor(StandardCursorType.SizeWestEast)
+                    };
+                    tailSplitter.PointerReleased += (_, __) => PersistRatios(lane, grid);
+                    // Hover highlight for affordance
+                    tailSplitter.PointerEntered += (_, __) => tailSplitter.Background = new SolidColorBrush(Color.Parse("#20FFC48A"));
+                    tailSplitter.PointerExited  += (_, __) => tailSplitter.Background = Brushes.Transparent;
+                    Grid.SetRow(tailSplitter, 0);
+                    Grid.SetColumn(tailSplitter, (count - 1) * 2 + 1); // after the last child
+                    grid.Children.Add(tailSplitter);
                 }
+
+                if (fittingWithinViewport && occupancySum < 1.0 - 1e-6)
+                {
+                    var fillerPixels = childBudgetForViewport * (1.0 - occupancySum);
+                    grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(fillerPixels, GridUnitType.Pixel)));
+                    contentWidth += fillerPixels;
+                }
+
+                grid.Width = Math.Max(viewportWidth, contentWidth);
             }
 
             scroll.Content = grid;
@@ -202,7 +287,16 @@ namespace Constellate.App.Controls
 
         private void PersistRatios(LaneView lane, Grid grid)
         {
-            var list = new List<(string childId, double size)>();
+            var fixedViewport = lane.FixedViewportSize > 0
+                ? lane.FixedViewportSize
+                : (lane.IsVerticalFlow ? Math.Max(1.0, lane.ViewportHeight) : Math.Max(1.0, lane.ViewportWidth));
+
+            if (fixedViewport <= 1e-6)
+            {
+                return;
+            }
+
+            var list = new List<(string childId, double occupancy)>();
 
             foreach (var child in lane.Children ?? Array.Empty<ChildPaneDescriptor>())
             {
@@ -212,23 +306,25 @@ namespace Constellate.App.Controls
 
                 if (chrome is null)
                 {
-                    list.Add((child.Id, 1.0));
+                    list.Add((child.Id, 0.25));
                 }
                 else
                 {
-                    var sz = lane.IsVerticalFlow ? Math.Max(1.0, chrome.Bounds.Height) : Math.Max(1.0, chrome.Bounds.Width);
-                    list.Add((child.Id, sz));
+                    var size = lane.IsVerticalFlow
+                        ? Math.Max(1.0, chrome.Bounds.Height)
+                        : Math.Max(1.0, chrome.Bounds.Width);
+
+                    list.Add((child.Id, size / fixedViewport));
                 }
             }
 
-            var total = list.Sum(x => x.size);
-            if (total <= 1e-6) return;
-
-            var updates = list.Select(x => (x.childId, x.size / total)).ToArray();
             var vm = GetVm();
-            if (vm is null) return;
+            if (vm is null)
+            {
+                return;
+            }
 
-            vm.UpdateLanePreferredRatios(lane.ParentId, lane.LaneIndex, updates);
+            vm.UpdateLanePreferredRatios(lane.ParentId, lane.LaneIndex, list);
         }
     }
 }

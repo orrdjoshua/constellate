@@ -240,7 +240,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                 GLDiagnostics.DumpBasicState("After pipeline creation");
                 if (!_selfTest && _locMvp < 0)
                 {
-                    Debug.WriteLine("kag] Warning: uMVP location < 0; uniform may be optimized out.");
+                    // Debug.WriteLine("kag] Warning: uMVP location < 0; uniform may be optimized out.");
                 }
             }
         }
@@ -302,7 +302,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[OpenTkViewportControl] Teardown exception: {ex.Message}");
+                // Debug.WriteLine($"[OpenTkViewportControl] Teardown exception: {ex.Message}");
             }
             finally
             {
@@ -719,11 +719,11 @@ namespace Constellate.Renderer.OpenTK.Controls
                     255);
 
                 var nearClear = GLDiagnostics.Near(center, clear, tol: 5);
-                Debug.WriteLine($"[GLDiag] Center pixel {center}; near clear={nearClear}");
+                // Debug.WriteLine($"[GLDiag] Center pixel {center}; near clear={nearClear}");
 
                 if (nearClear)
                 {
-                    Debug.WriteLine("[GLDiag] Geometry might not be contributing this frame (center ~ clear). Check MVP/uniforms/VAO/depth.");
+                    // Debug.WriteLine("[GLDiag] Geometry might not be contributing this frame (center ~ clear). Check MVP/uniforms/VAO/depth.");
                 }
             }
 
