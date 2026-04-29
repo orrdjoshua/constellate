@@ -95,30 +95,19 @@ namespace Constellate.Core.Messaging
 
             resourceRegistryStore.Register(registration);
             nativeRecordStore.Create(initialState, initialRevision);
-
-            var snapshot = Scene.GetSnapshot();
-            var anchorIndex = snapshot.Nodes.Count;
-            var anchorPosition = new Vector3(
-                ((anchorIndex % 4) - 1.5f) * 0.9f,
-                ((anchorIndex / 4) * 0.8f) - 0.35f,
-                0.0f);
-            var anchorNode = new SceneNode(
-                NodeId.New(),
-                descriptor.DisplayLabel,
-                new Transform(
-                    anchorPosition,
-                    Vector3.Zero,
-                    new Vector3(0.62f, 0.62f, 0.62f)),
-                VisualScale: 0.62f,
-                Phase: (anchorIndex % 12) * 0.2f,
-                Appearance: new NodeAppearance("triangle", "#F2B366", "#FFF2DE", 1.0f),
-                ResourceId: descriptor.ResourceId);
-
-            Scene.Upsert(anchorNode);
-            PersistCurrentSceneSnapshot();
             PublishEvent(
                 EventNames.SceneChanged,
-                new { reason = "create_markdown_record_resource", resourceId = descriptor.ResourceId.ToString(), nodeId = anchorNode.Id.ToString(), label = anchorNode.Label });
+                new
+                {
+                    reason = "create_markdown_record_resource",
+                    resourceId = descriptor.ResourceId.ToString(),
+                    resourceTypeId = descriptor.TypeId,
+                    resourceDisplayLabel = descriptor.DisplayLabel,
+                    resourceTitle = descriptor.Title,
+                    viewRef = descriptor.DetailViewRef,
+                    surfaceRole = "detail",
+                    worldAssignmentState = "unassigned"
+                });
             return descriptor;
         }
 
@@ -131,6 +120,237 @@ namespace Constellate.Core.Messaging
             }
 
             return PersistenceScope.ResourceRegistryStore.TryGet(resourceId, out registration);
+        }
+
+        public static IReadOnlyList<ResourceInspectionEntry> ListResourceInspectionEntries(string? typeId = null)
+        {
+            EnsureInitialized();
+
+            if (PersistenceScope?.ResourceRegistryStore is null)
+            {
+                return Array.Empty<ResourceInspectionEntry>();
+            }
+
+            var snapshot = Scene.GetSnapshot();
+            var assignedNodeIdsByResource = new Dictionary<ResourceId, List<string>>();
+
+            foreach (var node in snapshot.Nodes)
+            {
+                if (node.ResourceId is not { } resourceId)
+                {
+                    continue;
+                }
+
+                if (!assignedNodeIdsByResource.TryGetValue(resourceId, out var assignedNodeIds))
+                {
+                    assignedNodeIds = new List<string>();
+                    assignedNodeIdsByResource[resourceId] = assignedNodeIds;
+                }
+
+                assignedNodeIds.Add(node.Id.ToString());
+            }
+
+            var normalizedTypeId = string.IsNullOrWhiteSpace(typeId)
+                ? null
+                : typeId.Trim();
+
+            return PersistenceScope.ResourceRegistryStore
+                .ListAll()
+                .Where(registration => normalizedTypeId is null ||
+                                       string.Equals(registration.TypeId, normalizedTypeId, StringComparison.Ordinal))
+                .Select(registration =>
+                {
+                    var assignedNodeIds = assignedNodeIdsByResource.TryGetValue(registration.ResourceId, out var nodeIds)
+                        ? (IReadOnlyList<string>)nodeIds
+                            .OrderBy(nodeId => nodeId, StringComparer.Ordinal)
+                            .ToArray()
+                        : Array.Empty<string>();
+
+                    return new ResourceInspectionEntry(
+                        registration,
+                        assignedNodeIds.Count > 0,
+                        assignedNodeIds);
+                })
+                .OrderBy(entry => entry.Registration.DisplayLabel, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(entry => entry.Registration.ResourceId.ToString(), StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        public static IReadOnlyList<ResourceInspectionEntry> ListUnassignedResourceInspectionEntries(string? typeId = null)
+        {
+            return ListResourceInspectionEntries(typeId)
+                .Where(entry => entry.IsUnassigned)
+                .ToArray();
+        }
+
+        public static IReadOnlyList<ResourceInspectionEntry> ListMarkdownRecordInspectionEntries()
+        {
+            return ListResourceInspectionEntries(MarkdownRecordResourceDescriptor.DefaultTypeId);
+        }
+
+        public static IReadOnlyList<ResourceInspectionEntry> ListUnassignedMarkdownRecordInspectionEntries()
+        {
+            return ListUnassignedResourceInspectionEntries(MarkdownRecordResourceDescriptor.DefaultTypeId);
+        }
+
+        public static SceneNode AssignResourceToNewNode(
+            ResourceId resourceId,
+            Vector3? position = null,
+            string? displayLabel = null,
+            NodeAppearance? appearance = null)
+        {
+            EnsureInitialized();
+
+            if (!TryGetRegisteredResource(resourceId, out var registration))
+            {
+                throw new InvalidOperationException($"Resource '{resourceId}' is not registered.");
+            }
+
+            var assignedNode = CreateAssignedResourceNode(
+                resourceId,
+                registration,
+                position,
+                displayLabel,
+                appearance);
+
+            Scene.Upsert(assignedNode);
+            PersistCurrentSceneSnapshot();
+
+            PublishEvent(
+                EventNames.SceneChanged,
+                new
+                {
+                    reason = "assign_resource_to_new_node",
+                    resourceId = resourceId.ToString(),
+                    resourceTypeId = registration.TypeId,
+                    resourceDisplayLabel = registration.DisplayLabel,
+                    nodeId = assignedNode.Id.ToString(),
+                    label = assignedNode.Label,
+                    worldAssignmentState = "assigned",
+                    bindingKind = "node"
+                });
+
+            return assignedNode;
+        }
+
+        public static bool TryAssignResourceToExistingNode(
+            ResourceId resourceId,
+            NodeId nodeId,
+            out SceneNode assignedNode,
+            bool allowReplaceExistingResource = false)
+        {
+            EnsureInitialized();
+            assignedNode = default!;
+
+            if (!TryGetRegisteredResource(resourceId, out var registration) ||
+                !Scene.TryGet(nodeId, out var existingNode))
+            {
+                return false;
+            }
+
+            if (existingNode.ResourceId is { } existingResourceId)
+            {
+                if (existingResourceId == resourceId)
+                {
+                    return false;
+                }
+
+                if (!allowReplaceExistingResource)
+                {
+                    return false;
+                }
+            }
+
+            assignedNode = existingNode with { ResourceId = resourceId };
+            Scene.Upsert(assignedNode);
+            PersistCurrentSceneSnapshot();
+
+            PublishEvent(
+                EventNames.SceneChanged,
+                new
+                {
+                    reason = "assign_resource_to_existing_node",
+                    resourceId = resourceId.ToString(),
+                    resourceTypeId = registration.TypeId,
+                    resourceDisplayLabel = registration.DisplayLabel,
+                    nodeId = assignedNode.Id.ToString(),
+                    label = assignedNode.Label,
+                    worldAssignmentState = "assigned",
+                    bindingKind = "node"
+                });
+
+            return true;
+        }
+
+        public static bool TryUnassignResourceFromNode(NodeId nodeId, out SceneNode updatedNode)
+        {
+            EnsureInitialized();
+            updatedNode = default!;
+
+            if (!Scene.TryGet(nodeId, out var existingNode) ||
+                existingNode.ResourceId is not { } resourceId)
+            {
+                return false;
+            }
+
+            string? resourceDisplayLabel = null;
+            string? resourceTypeId = null;
+
+            if (TryGetRegisteredResource(resourceId, out var registration))
+            {
+                resourceDisplayLabel = registration.DisplayLabel;
+                resourceTypeId = registration.TypeId;
+            }
+
+            updatedNode = existingNode with { ResourceId = null };
+            Scene.Upsert(updatedNode);
+            PersistCurrentSceneSnapshot();
+
+            PublishEvent(
+                EventNames.SceneChanged,
+                new
+                {
+                    reason = "unassign_resource_from_node",
+                    resourceId = resourceId.ToString(),
+                    resourceTypeId,
+                    resourceDisplayLabel,
+                    nodeId = updatedNode.Id.ToString(),
+                    label = updatedNode.Label,
+                    worldAssignmentState = "unassigned",
+                    bindingKind = "node"
+                });
+
+            return true;
+        }
+
+        private static SceneNode CreateAssignedResourceNode(
+            ResourceId resourceId,
+            ResourceRegistration registration,
+            Vector3? position,
+            string? displayLabel,
+            NodeAppearance? appearance)
+        {
+            var snapshot = Scene.GetSnapshot();
+            var anchorIndex = snapshot.Nodes.Count;
+            var anchorPosition = position ?? new Vector3(
+                ((anchorIndex % 4) - 1.5f) * 0.9f,
+                ((anchorIndex / 4) * 0.8f) - 0.35f,
+                0.0f);
+            var resolvedLabel = string.IsNullOrWhiteSpace(displayLabel)
+                ? registration.DisplayLabel
+                : displayLabel.Trim();
+
+            return new SceneNode(
+                NodeId.New(),
+                resolvedLabel,
+                new Transform(
+                    anchorPosition,
+                    Vector3.Zero,
+                    new Vector3(0.62f, 0.62f, 0.62f)),
+                VisualScale: 0.62f,
+                Phase: (anchorIndex % 12) * 0.2f,
+                Appearance: appearance ?? new NodeAppearance("triangle", "#F2B366", "#FFF2DE", 1.0f),
+                ResourceId: resourceId);
         }
 
         private static void InitializePersistence()

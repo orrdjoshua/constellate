@@ -91,7 +91,7 @@ namespace Constellate.Renderer.OpenTK.Controls
                     4);
 
                 var label = new FormattedText(
-                    panel.ViewRef,
+                    DescribePanelSurfaceLabel(panel.ViewRef),
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     new Typeface("Segoe UI"),
@@ -471,6 +471,27 @@ namespace Constellate.Renderer.OpenTK.Controls
             ctx.DrawText(roleText, new Point(rect.X + 8, rect.Y + 9));
             ctx.DrawText(titleText, new Point(rect.X + 8, rect.Y + 23));
             ctx.DrawText(detailText, new Point(rect.X + 8, rect.Y + 39));
+        }
+
+        private static string DescribePanelSurfaceLabel(string? viewRef)
+        {
+            if (string.IsNullOrWhiteSpace(viewRef))
+            {
+                return "Panel";
+            }
+
+            var normalized = viewRef.Trim();
+            if (normalized.StartsWith("resource.markdown.detail:", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Markdown Detail";
+            }
+
+            if (normalized.StartsWith("resource.", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Resource Detail";
+            }
+
+            return normalized;
         }
 
         private static void GetLabelPanelettePalette(

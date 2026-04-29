@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Constellate.Core.Resources;
 using Constellate.Core.Storage;
 
@@ -57,6 +58,15 @@ namespace Constellate.Persistence.Registry
 
             registration = null!;
             return false;
+        }
+
+        public IReadOnlyList<ResourceRegistration> ListAll()
+        {
+            return Entries
+                .Select(ToRegistration)
+                .OrderBy(registration => registration.DisplayLabel, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(registration => registration.ResourceId.ToString(), StringComparer.Ordinal)
+                .ToArray();
         }
 
         private static ResourceRegistryRecord ToRecord(ResourceRegistration registration)

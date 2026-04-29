@@ -17,4 +17,9 @@ public sealed record ChildPaneDescriptor(
     // Authoritative fixed-dimension size (pixels) for docked layout; when 0, view will migrate from prior ratio.
     double FixedSizePixels = 0.0,
     double FloatingWidthFull = 0.0,
-    double FloatingHeightFull = 0.0);
+    double FloatingHeightFull = 0.0,
+    string? SurfaceRole = null,
+    string? BoundViewRef = null,
+    string? BoundResourceTitle = null,
+    string? BoundResourceDisplayLabel = null,
+    ChildPaneResourceContext? ResourceContext = null);

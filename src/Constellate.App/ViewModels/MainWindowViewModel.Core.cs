@@ -131,6 +131,10 @@ public sealed partial class MainWindowViewModel
     // Activity + history
     private string _lastActivitySummary = "Last Activity: app started";
     private readonly Queue<string> _commandHistory = new();
+    private string _activeResourceDetailSurfaceRole = string.Empty;
+    private string _activeResourceDetailViewRef = string.Empty;
+    private string _activeResourceDetailTitle = string.Empty;
+    private string _activeResourceDetailSubtitle = string.Empty;
 
     // Optional saved layout (session-local)
     private ShellLayoutDescriptor? _savedLayout;
@@ -426,6 +430,152 @@ public sealed partial class MainWindowViewModel
     /// Current number of parent panes in this VM instance.
     /// </summary>
     public int ParentPaneCount => ParentPaneModels.Count;
+
+    public bool HasActiveResourceDetailSurface =>
+        !string.IsNullOrWhiteSpace(_activeResourceDetailViewRef);
+
+    public string ActiveResourceDetailSurfaceRole =>
+        _activeResourceDetailSurfaceRole;
+
+    public string ActiveResourceDetailSurfaceViewRef =>
+        _activeResourceDetailViewRef;
+
+    public string ActiveResourceDetailPrimaryPaneId =>
+        GetActiveResourceDetailPrimaryPaneId();
+
+    public string ActiveResourceDetailSurfaceTitle =>
+        string.IsNullOrWhiteSpace(_activeResourceDetailTitle)
+            ? "Resource Detail"
+            : _activeResourceDetailTitle;
+
+    public string ActiveResourceDetailSurfaceSubtitle =>
+        string.IsNullOrWhiteSpace(_activeResourceDetailSubtitle)
+            ? "Waiting for an active resource detail binding."
+            : _activeResourceDetailSubtitle;
+
+    public bool HasCanonicalRecordDetailSurface =>
+        HasActiveResourceDetailSurface &&
+        string.Equals(_activeResourceDetailSurfaceRole, CanonicalRecordDetailSurfaceRole, StringComparison.Ordinal);
+
+    public string CanonicalRecordDetailSurfaceViewRef =>
+        HasCanonicalRecordDetailSurface
+            ? ActiveResourceDetailSurfaceViewRef
+            : string.Empty;
+
+    public string CanonicalRecordDetailPrimaryPaneId =>
+        HasCanonicalRecordDetailSurface
+            ? ActiveResourceDetailPrimaryPaneId
+            : "shell.current";
+
+    public string CanonicalRecordDetailSurfaceTitle =>
+        !HasCanonicalRecordDetailSurface
+            ? "Markdown Detail"
+            : ActiveResourceDetailSurfaceTitle;
+
+    public string CanonicalRecordDetailSurfaceSubtitle =>
+        !HasCanonicalRecordDetailSurface
+            ? "Waiting for a canonical markdown detail binding."
+            : ActiveResourceDetailSurfaceSubtitle;
+
+    private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
+    {
+        if (pane.ResourceContext is not null)
+        {
+            return pane.ResourceContext;
+        }
+
+        if (string.IsNullOrWhiteSpace(pane.SurfaceRole) &&
+            string.IsNullOrWhiteSpace(pane.BoundViewRef) &&
+            string.IsNullOrWhiteSpace(pane.BoundResourceTitle) &&
+            string.IsNullOrWhiteSpace(pane.BoundResourceDisplayLabel))
+        {
+            return null;
+        }
+
+        return new ChildPaneResourceContext(
+            DisplayLabel: pane.BoundResourceDisplayLabel,
+            Title: pane.BoundResourceTitle,
+            ViewRef: pane.BoundViewRef,
+            SurfaceRole: pane.SurfaceRole);
+    }
+
+    private static string? GetPaneSurfaceRole(ChildPaneDescriptor pane)
+    {
+        return GetPaneEffectiveResourceContext(pane)?.SurfaceRole;
+    }
+
+    private static string? GetPaneViewRef(ChildPaneDescriptor pane)
+    {
+        return GetPaneEffectiveResourceContext(pane)?.ViewRef;
+    }
+
+    private string GetActiveResourceDetailPrimaryPaneId()
+    {
+        if (!HasActiveResourceDetailSurface)
+        {
+            return "shell.current";
+        }
+
+        var dedicatedPane = ChildPanes.FirstOrDefault(pane =>
+            string.Equals(GetPaneSurfaceRole(pane), _activeResourceDetailSurfaceRole, StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(GetPaneViewRef(pane)) &&
+            string.Equals(GetPaneViewRef(pane), _activeResourceDetailViewRef, StringComparison.Ordinal));
+
+        return dedicatedPane?.Id ?? "shell.current";
+    }
+
+    private void SetActiveResourceDetailSurface(string? surfaceRole, string? viewRef, string? resourceDisplayLabel, string? resourceTitle)
+    {
+        var normalizedSurfaceRole = string.IsNullOrWhiteSpace(surfaceRole)
+            ? string.Empty
+            : surfaceRole.Trim();
+        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
+            ? string.Empty
+            : viewRef.Trim();
+        var normalizedTitle = !string.IsNullOrWhiteSpace(resourceTitle)
+            ? resourceTitle.Trim()
+            : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
+                ? resourceDisplayLabel.Trim()
+                : "Resource Detail";
+        var normalizedSubtitle = string.IsNullOrWhiteSpace(normalizedViewRef)
+            ? "Waiting for an active resource detail binding."
+            : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
+                ? $"{resourceDisplayLabel.Trim()} · {normalizedViewRef}"
+                : normalizedViewRef;
+
+        if (_activeResourceDetailSurfaceRole == normalizedSurfaceRole &&
+            _activeResourceDetailViewRef == normalizedViewRef &&
+            _activeResourceDetailTitle == normalizedTitle &&
+            _activeResourceDetailSubtitle == normalizedSubtitle)
+        {
+            return;
+        }
+
+        _activeResourceDetailSurfaceRole = normalizedSurfaceRole;
+        _activeResourceDetailViewRef = normalizedViewRef;
+        _activeResourceDetailTitle = normalizedTitle;
+        _activeResourceDetailSubtitle = normalizedSubtitle;
+        OnPropertyChanged(nameof(HasActiveResourceDetailSurface));
+        OnPropertyChanged(nameof(ActiveResourceDetailSurfaceRole));
+        OnPropertyChanged(nameof(ActiveResourceDetailPrimaryPaneId));
+        OnPropertyChanged(nameof(ActiveResourceDetailSurfaceViewRef));
+        OnPropertyChanged(nameof(ActiveResourceDetailSurfaceTitle));
+        OnPropertyChanged(nameof(ActiveResourceDetailSurfaceSubtitle));
+        OnPropertyChanged(nameof(HasCanonicalRecordDetailSurface));
+        OnPropertyChanged(nameof(CanonicalRecordDetailPrimaryPaneId));
+        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceViewRef));
+        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceTitle));
+        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceSubtitle));
+    }
+
+    private void SetCanonicalRecordDetailSurface(string? viewRef, string? resourceDisplayLabel, string? resourceTitle)
+    {
+        SetActiveResourceDetailSurface(
+            CanonicalRecordDetailSurfaceRole,
+            viewRef,
+            resourceDisplayLabel,
+            resourceTitle);
+    }
 
     // Overlay-dock migration toggle: when true, docked parents are also realized
     // via the overlay coordinate space (OverlayDockLayer). Default false to avoid

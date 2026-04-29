@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using Constellate.App.Controls.Panes;
 using Avalonia.VisualTree;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Threading;
 using Avalonia.Layout;
@@ -17,6 +18,11 @@ namespace Constellate.App.Controls
         private PaneChrome? _root;
         private ScrollViewer? _headerScroll;
         private ChildPaneDescriptor? _model;
+        private MainWindowViewModel? _windowViewModel;
+        private TextBlock? _emptyChildPaneBodyText;
+        private Border? _boundResourceContextReadout;
+        private TextBlock? _boundResourceContextTitleText;
+        private TextBlock? _boundResourceContextSubtitleText;
 
         public ChildPaneView()
         {
@@ -28,6 +34,10 @@ namespace Constellate.App.Controls
             AvaloniaXamlLoader.Load(this);
             _root = this.FindControl<PaneChrome>("ChildChrome");
             _headerScroll = _root?.FindControl<ScrollViewer>("PART_HeaderScroll");
+            _emptyChildPaneBodyText = this.FindControl<TextBlock>("EmptyChildPaneBodyText");
+            _boundResourceContextReadout = this.FindControl<Border>("BoundResourceContextReadout");
+            _boundResourceContextTitleText = this.FindControl<TextBlock>("BoundResourceContextTitleText");
+            _boundResourceContextSubtitleText = this.FindControl<TextBlock>("BoundResourceContextSubtitleText");
             Debug.WriteLine($"[HeaderScroll][Child][Wire] init: chrome={_root is not null} headerScroll={_headerScroll is not null}");
 
             // React to item replacement in the ItemsControl:
@@ -39,16 +49,24 @@ namespace Constellate.App.Controls
                 hdr.PropertyChanged += OnHeaderMetricChanged;
 
             // Also run on initial attach (in case DataContext was available before this view attached).
-            AttachedToVisualTree += (_, __) => Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
+            AttachedToVisualTree += (_, __) => Dispatcher.UIThread.Post(() =>
+            {
+                RewireWindowViewModel();
+                ApplyFloatingMinimizedWidthIfNeeded();
+                SyncBoundResourceContextReadout();
+            }, DispatcherPriority.Background);
+            DetachedFromVisualTree += (_, __) => UnwireWindowViewModel();
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
         {
             _model = DataContext as ChildPaneDescriptor;
+            RewireWindowViewModel();
             // Defer to ensure region measurements are valid before computing desired width.
             Dispatcher.UIThread.Post(ApplyFloatingMinimizedWidthIfNeeded, DispatcherPriority.Background);
             // Apply min-height rule initially after data context update
             Dispatcher.UIThread.Post(ApplyMinHeightFromHeader, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncBoundResourceContextReadout, DispatcherPriority.Background);
         }
 
         private void OnHeaderMetricChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -88,6 +106,189 @@ namespace Constellate.App.Controls
             catch (Exception ex)
             {
                 Debug.WriteLine($"[ChildPaneView] minimized width compute error: {ex.Message}");
+            }
+        }
+
+        private void RewireWindowViewModel()
+        {
+            var nextWindowViewModel = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
+            if (ReferenceEquals(_windowViewModel, nextWindowViewModel))
+            {
+                SyncBoundResourceContextReadout();
+                return;
+            }
+
+            UnwireWindowViewModel();
+
+            _windowViewModel = nextWindowViewModel;
+            if (_windowViewModel is not null)
+            {
+                _windowViewModel.PropertyChanged += OnWindowViewModelPropertyChanged;
+            }
+
+            SyncBoundResourceContextReadout();
+        }
+
+        private void UnwireWindowViewModel()
+        {
+            if (_windowViewModel is not null)
+            {
+                _windowViewModel.PropertyChanged -= OnWindowViewModelPropertyChanged;
+                _windowViewModel = null;
+            }
+        }
+
+        private void OnWindowViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(e.PropertyName) &&
+                e.PropertyName != nameof(MainWindowViewModel.HasCanonicalRecordDetailSurface) &&
+                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailPrimaryPaneId) &&
+                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailSurfaceTitle) &&
+                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailSurfaceSubtitle))
+            {
+                return;
+            }
+
+            Dispatcher.UIThread.Post(SyncBoundResourceContextReadout, DispatcherPriority.Background);
+        }
+
+        private ChildPaneResourceContext? GetEffectiveResourceContext()
+        {
+            if (_model?.ResourceContext is { } resourceContext)
+            {
+                return resourceContext;
+            }
+
+            var surfaceRole = _model?.SurfaceRole;
+            var viewRef = _model?.BoundViewRef;
+            var title = _model?.BoundResourceTitle;
+            var displayLabel = _model?.BoundResourceDisplayLabel;
+
+            if (string.IsNullOrWhiteSpace(surfaceRole) &&
+                string.IsNullOrWhiteSpace(viewRef) &&
+                string.IsNullOrWhiteSpace(title) &&
+                string.IsNullOrWhiteSpace(displayLabel))
+            {
+                return null;
+            }
+
+            return new ChildPaneResourceContext(
+                DisplayLabel: displayLabel,
+                Title: title,
+                ViewRef: viewRef,
+                SurfaceRole: surfaceRole);
+        }
+
+        private void SyncBoundResourceContextReadout()
+        {
+            if (_emptyChildPaneBodyText is null ||
+                _boundResourceContextReadout is null ||
+                _boundResourceContextTitleText is null ||
+                _boundResourceContextSubtitleText is null)
+            {
+                return;
+            }
+
+            var resourceContext = GetEffectiveResourceContext();
+
+            if (resourceContext is not null)
+            {
+                var surfaceRole = resourceContext.SurfaceRole;
+                var boundViewRef = resourceContext.ViewRef;
+                var resourceTitle = resourceContext.Title;
+                var resourceDisplayLabel = resourceContext.DisplayLabel;
+                var resolvedTitle = !string.IsNullOrWhiteSpace(resourceTitle)
+                    ? resourceTitle
+                    : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
+                        ? resourceDisplayLabel
+                        : "Bound Resource";
+                var subtitle = string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(resourceDisplayLabel) &&
+                    !string.Equals(resourceDisplayLabel, resolvedTitle, StringComparison.Ordinal))
+                {
+                    subtitle = resourceDisplayLabel;
+                }
+
+                if (!string.IsNullOrWhiteSpace(surfaceRole))
+                {
+                    subtitle = string.IsNullOrWhiteSpace(subtitle)
+                        ? surfaceRole!
+                        : $"{subtitle} · {surfaceRole}";
+                }
+
+                if (!string.IsNullOrWhiteSpace(boundViewRef))
+                {
+                    subtitle = string.IsNullOrWhiteSpace(subtitle)
+                        ? boundViewRef!
+                        : $"{subtitle} · {boundViewRef}";
+                }
+
+                _boundResourceContextReadout.IsVisible = true;
+                _boundResourceContextTitleText.Text = resolvedTitle;
+                _boundResourceContextSubtitleText.Text = string.IsNullOrWhiteSpace(subtitle)
+                    ? "Pane is bound to a resource context."
+                    : subtitle;
+                _emptyChildPaneBodyText.Text = "This pane is currently bound to a resource context.";
+                return;
+            }
+
+            var modelSurfaceRole = _model?.ResourceContext?.SurfaceRole ?? _model?.SurfaceRole;
+            var modelBoundViewRef = _model?.ResourceContext?.ViewRef ?? _model?.BoundViewRef;
+            var isCurrentShellPane = string.Equals(_model?.Id, "shell.current", StringComparison.Ordinal);
+            var isDedicatedRecordDetailPane = string.Equals(modelSurfaceRole, "resource.markdown.detail", StringComparison.Ordinal);
+            var hasCanonicalRecordDetail = _windowViewModel?.HasCanonicalRecordDetailSurface == true;
+            var canonicalViewRef = _windowViewModel?.CanonicalRecordDetailSurfaceViewRef ?? string.Empty;
+            var primaryPaneId = _windowViewModel?.CanonicalRecordDetailPrimaryPaneId ?? string.Empty;
+            var isPrimaryConsumerPane = !string.IsNullOrWhiteSpace(_model?.Id) &&
+                                        string.Equals(_model!.Id, primaryPaneId, StringComparison.Ordinal);
+            var matchesDedicatedRecordBinding = isDedicatedRecordDetailPane &&
+                                               !string.IsNullOrWhiteSpace(modelBoundViewRef) &&
+                                               string.Equals(modelBoundViewRef, canonicalViewRef, StringComparison.Ordinal);
+
+            _boundResourceContextReadout.IsVisible = hasCanonicalRecordDetail &&
+                                                    isPrimaryConsumerPane &&
+                                                    (isCurrentShellPane || matchesDedicatedRecordBinding);
+            _boundResourceContextTitleText.Text = matchesDedicatedRecordBinding
+                ? _model?.BoundResourceTitle ?? _windowViewModel?.CanonicalRecordDetailSurfaceTitle ?? "Markdown Detail"
+                : hasCanonicalRecordDetail
+                    ? _windowViewModel?.CanonicalRecordDetailSurfaceTitle ?? "Markdown Detail"
+                    : string.Empty;
+            _boundResourceContextSubtitleText.Text = matchesDedicatedRecordBinding
+                ? !string.IsNullOrWhiteSpace(_model?.BoundResourceDisplayLabel)
+                    ? $"{_model!.BoundResourceDisplayLabel} · {_model.BoundViewRef}"
+                    : _model?.BoundViewRef ?? string.Empty
+                : hasCanonicalRecordDetail
+                    ? _windowViewModel?.CanonicalRecordDetailSurfaceSubtitle ?? string.Empty
+                    : string.Empty;
+
+            if (matchesDedicatedRecordBinding && isPrimaryConsumerPane)
+            {
+                _emptyChildPaneBodyText.Text = "Dedicated record detail pane is consuming the canonical record detail binding.";
+            }
+            else if (isCurrentShellPane && hasCanonicalRecordDetail && isPrimaryConsumerPane)
+            {
+                _emptyChildPaneBodyText.Text = "Current shell pane is consuming the canonical record detail binding.";
+            }
+            else if (isCurrentShellPane && hasCanonicalRecordDetail)
+            {
+                _emptyChildPaneBodyText.Text = "Canonical record detail binding is currently consumed by the dedicated record detail pane.";
+            }
+            else if (isCurrentShellPane)
+            {
+                _emptyChildPaneBodyText.Text = "Waiting for canonical record detail binding.";
+            }
+            else if (isDedicatedRecordDetailPane && hasCanonicalRecordDetail)
+            {
+                _emptyChildPaneBodyText.Text = "Waiting for this pane to bind to the active canonical record detail surface.";
+            }
+            else if (isDedicatedRecordDetailPane)
+            {
+                _emptyChildPaneBodyText.Text = "Waiting for a bound canonical record detail surface.";
+            }
+            else
+            {
+                _emptyChildPaneBodyText.Text = "(empty child pane)";
             }
         }
 

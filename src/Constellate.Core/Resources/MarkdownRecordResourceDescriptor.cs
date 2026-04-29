@@ -13,6 +13,7 @@ namespace Constellate.Core.Resources
         public const string DefaultContentType = "text/markdown";
         public const string DefaultAuthorityMode = "EngineNative";
         public const string DefaultLocality = "Local";
+        public const string DefaultDetailViewRefPrefix = "resource.markdown.detail";
         public const string DefaultLifecycleState = "Created";
 
         public static ResourceTypeDescriptor ResourceType { get; } = ResourceTypeDescriptor.Create(
@@ -26,6 +27,7 @@ namespace Constellate.Core.Resources
         public ResourceOrigin Origin => ResourceType.Origin;
         public ResourcePosture Posture => ResourceType.DefaultPosture;
         public string TypeId => ResourceType.TypeId;
+        public string DetailViewRef => BuildDetailViewRef(ResourceId);
 
         public ResourceRegistration CreateRegistration(DateTimeOffset? timestamp = null)
         {
@@ -43,7 +45,8 @@ namespace Constellate.Core.Resources
                 DefaultLifecycleState,
                 DisplayLabel,
                 resolvedTimestamp,
-                resolvedTimestamp);
+                resolvedTimestamp,
+                DetailViewRef);
         }
 
         public MarkdownRecordState CreateInitialState(
@@ -76,6 +79,11 @@ namespace Constellate.Core.Resources
                 markdownBody ?? string.Empty,
                 resolvedTimestamp,
                 string.IsNullOrWhiteSpace(changeSummary) ? "Initial revision" : changeSummary.Trim());
+        }
+
+        public static string BuildDetailViewRef(ResourceId resourceId)
+        {
+            return $"{DefaultDetailViewRefPrefix}:{resourceId}";
         }
 
         public static MarkdownRecordResourceDescriptor Create(string title, string? displayLabel = null)

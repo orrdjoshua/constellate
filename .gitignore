@@ -1,7 +1,10 @@
 # Build artifacts
 **/bin/
 **/obj/
-
+/bin
+/obj
+bin/*
+obj/*
 # VS/VSCode
 .vs/
 .vscode/.ionide.json

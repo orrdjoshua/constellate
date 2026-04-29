@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using Avalonia.Threading;
 using Constellate.Core.Messaging;
+using Constellate.Core.Resources;
 using Constellate.SDK;
 using Constellate.Core.Scene;
 
@@ -102,11 +103,49 @@ namespace Constellate.App
         private void UpdateLastActivity(string eventName, string activityLabel, Envelope envelope)
         {
             AddHistoryEntry(eventName, envelope);
+            TryTrackCanonicalRecordDetailSurface(eventName, envelope);
             var detail = TryDescribeActivity(envelope);
             _lastActivitySummary = string.IsNullOrWhiteSpace(detail)
                 ? $"Last Activity: {activityLabel} ({eventName}) @ {envelope.Ts:HH:mm:ss}"
                 : $"Last Activity: {activityLabel} ({eventName}: {detail}) @ {envelope.Ts:HH:mm:ss}";
             OnPropertyChanged(nameof(LastActivitySummary));
+        }
+
+        private void TryTrackCanonicalRecordDetailSurface(string eventName, Envelope envelope)
+        {
+            if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            if (!TryGetString(payload, "viewRef", out var viewRef) ||
+                !viewRef.StartsWith($"{MarkdownRecordResourceDescriptor.DefaultDetailViewRefPrefix}:", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (string.Equals(eventName, EventNames.PanelAttachmentsChanged, StringComparison.Ordinal) &&
+                (!TryGetString(payload, "surfaceRole", out var surfaceRole) ||
+                 !string.Equals(surfaceRole, "detail", StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            var hasResourceDisplayLabel = TryGetString(payload, "resourceDisplayLabel", out var resourceDisplayLabel);
+            var hasResourceTitle = TryGetString(payload, "resourceTitle", out var resourceTitle);
+
+            var resolvedResourceDisplayLabel = hasResourceDisplayLabel ? resourceDisplayLabel : null;
+            var resolvedResourceTitle = hasResourceTitle ? resourceTitle : null;
+
+            SetActiveResourceDetailSurface(
+                CanonicalRecordDetailSurfaceRole,
+                viewRef,
+                resolvedResourceDisplayLabel,
+                resolvedResourceTitle);
+            UpsertCanonicalRecordDetailChildPane(
+                viewRef,
+                resolvedResourceDisplayLabel,
+                resolvedResourceTitle);
         }
 
         private void AddHistoryEntry(string eventName, Envelope envelope)

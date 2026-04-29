@@ -101,6 +101,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(IsShellSettingsChildVisible));
         OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
         OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+        OnPropertyChanged(nameof(CanonicalRecordDetailPrimaryPaneId));
         OnPropertyChanged(nameof(PaneStructureSummary));
 
         RefreshParentBodyLayoutProjections();

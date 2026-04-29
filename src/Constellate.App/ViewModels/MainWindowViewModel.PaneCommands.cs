@@ -10,6 +10,9 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    private const string CanonicalRecordDetailPaneId = "record.detail.primary";
+    private const string CanonicalRecordDetailSurfaceRole = "resource.markdown.detail";
+
     /// <summary>
     /// Legacy MVP rule retained only as a creation-time fallback.
     /// Real persisted docked child sizing now lives in ChildPaneDescriptor.FixedSizePixels.
@@ -125,6 +128,120 @@ public sealed partial class MainWindowViewModel
 
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+    }
+
+    private void UpsertCanonicalRecordDetailChildPane(
+        string? viewRef,
+        string? resourceDisplayLabel,
+        string? resourceTitle)
+    {
+        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
+            ? string.Empty
+            : viewRef.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedViewRef))
+        {
+            return;
+        }
+
+        var normalizedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
+            ? "Record Detail"
+            : resourceTitle.Trim();
+        var normalizedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
+            ? normalizedResourceTitle
+            : resourceDisplayLabel.Trim();
+        var resourceContext = new ChildPaneResourceContext(
+            DisplayLabel: normalizedResourceDisplayLabel,
+            Title: normalizedResourceTitle,
+            ViewRef: normalizedViewRef,
+            SurfaceRole: CanonicalRecordDetailSurfaceRole);
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, CanonicalRecordDetailPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            ChildPanes[i] = existing with
+            {
+                Title = "Record Detail",
+                IsMinimized = false,
+                SurfaceRole = CanonicalRecordDetailSurfaceRole,
+                BoundViewRef = normalizedViewRef,
+                BoundResourceTitle = normalizedResourceTitle,
+                BoundResourceDisplayLabel = normalizedResourceDisplayLabel,
+                ResourceContext = resourceContext
+            };
+
+            RaiseChildPaneCollectionsChanged();
+            return;
+        }
+
+        var anchorChild = ChildPanes.FirstOrDefault(p =>
+            string.Equals(p.Id, "shell.current", StringComparison.Ordinal));
+        var parent = anchorChild?.ParentId is not null
+            ? ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, anchorChild.ParentId, StringComparison.Ordinal))
+            : ParentPaneModels.FirstOrDefault();
+        if (parent is null)
+        {
+            return;
+        }
+
+        var containerIndex = anchorChild?.ContainerIndex ?? 0;
+        var slideIndex = anchorChild?.SlideIndex ?? parent.SlideIndex;
+        var preferredSizeRatio = ResolveChildPanePreferredSizeRatio(parent, 0.25);
+        var activeLane = parent.LanesVisible.FirstOrDefault(lane => lane.LaneIndex == containerIndex);
+        var fixedViewport = (activeLane?.FixedViewportSize ?? 0) > 0
+            ? activeLane!.FixedViewportSize
+            : parent.BodyViewportFixedSize;
+
+        if (fixedViewport <= 0)
+        {
+            fixedViewport = parent.IsVerticalBodyOrientation
+                ? Math.Max(1.0, parent.BodyViewportHeight)
+                : Math.Max(1.0, parent.BodyViewportWidth);
+        }
+
+        var fixedPixels = Math.Max(1.0, fixedViewport * 0.25);
+        var insertOrder = anchorChild is not null
+            ? anchorChild.Order + 1
+            : ChildPanes.Count == 0
+                ? 0
+                : ChildPanes.Max(pane => pane.Order) + 1;
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (existing.Order < insertOrder)
+            {
+                continue;
+            }
+
+            ChildPanes[i] = existing with { Order = existing.Order + 1 };
+        }
+
+        ChildPanes.Add(new ChildPaneDescriptor(
+            CanonicalRecordDetailPaneId,
+            "Record Detail",
+            insertOrder,
+            ContainerIndex: containerIndex,
+            IsMinimized: false,
+            SlideIndex: slideIndex,
+            PreferredSizeRatio: preferredSizeRatio,
+            ParentId: parent.Id,
+            FixedSizePixels: fixedPixels,
+            SurfaceRole: CanonicalRecordDetailSurfaceRole,
+            BoundViewRef: normalizedViewRef,
+            BoundResourceTitle: normalizedResourceTitle,
+            BoundResourceDisplayLabel: normalizedResourceDisplayLabel,
+            ResourceContext: resourceContext));
+
+        RaiseChildPaneCollectionsChanged();
+        _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+        _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+        _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
     }
 
     /// <summary>

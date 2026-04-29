@@ -167,9 +167,33 @@
               Cursor="Hand"
               PointerEntered="Body_OnPointerEntered"
               PointerExited="Body_OnPointerExited">
-        <TextBlock Text="(empty child pane)"
-                   Foreground="#9BA8B7"
-                   FontSize="11"/>
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="EmptyChildPaneBodyText"
+                     Text="(empty child pane)"
+                     Foreground="#9BA8B7"
+                     FontSize="11"/>
+          <Border x:Name="BoundResourceContextReadout"
+                  IsVisible="False"
+                  Background="#162535"
+                  BorderBrush="#3A6E8E"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="8">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Bound Resource Context"
+                         Foreground="#A9DDF9"
+                         FontSize="10"/>
+              <TextBlock x:Name="BoundResourceContextTitleText"
+                         Foreground="White"
+                         FontSize="12"
+                         FontWeight="SemiBold"/>
+              <TextBlock x:Name="BoundResourceContextSubtitleText"
+                         Foreground="#D4E5F3"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
       </Border>
     </panes:PaneChrome.BodyContent>
   </panes:PaneChrome>
