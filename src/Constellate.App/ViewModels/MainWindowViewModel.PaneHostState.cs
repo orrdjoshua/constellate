@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using Avalonia;
 
 namespace Constellate.App;
 
@@ -20,94 +19,70 @@ public sealed partial class MainWindowViewModel
 
         var normalizedHost = NormalizeHostId(hostId);
 
+        // Compatibility entrypoint only:
+        // translate host-directed command/menu actions into the pane-centric child APIs.
         if (string.Equals(normalizedHost, "floating", StringComparison.Ordinal))
         {
-            var idx = -1;
-            ChildPaneDescriptor? paneCurrent = null;
-            for (var i = 0; i < ChildPanes.Count; i++)
-            {
-                var pane = ChildPanes[i];
-                if (!string.Equals(pane.Id, id, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                idx = i;
-                paneCurrent = pane;
-                break;
-            }
-
-            if (idx < 0 || paneCurrent is null)
-            {
-                return;
-            }
-
-            // Use the current drag-shadow rect (window coordinates) and the
-            // canonical floating surface rect to compute pane-local floating
-            // coordinates. This mirrors the parent-floating path, which already
-            // uses relative coordinates inside CurrentShellLayout.FloatingSurfaceRect.
-            var surface = CurrentShellLayout.FloatingSurfaceRect;
-
-            var fw = ChildPaneDragShadowWidth > 0
-                ? ChildPaneDragShadowWidth
-                : paneCurrent.FloatingWidth;
-            var fh = ChildPaneDragShadowHeight > 0
-                ? ChildPaneDragShadowHeight
-                : paneCurrent.FloatingHeight;
-
-            var globalLeft = ChildPaneDragShadowLeft;
-            var globalTop = ChildPaneDragShadowTop;
-
-            // Convert to coordinates relative to the floating surface origin.
-            var relLeft = globalLeft - surface.X;
-            var relTop = globalTop - surface.Y;
-
-            // Clamp so the child remains fully inside the floating surface.
-            relLeft = Math.Clamp(
-                relLeft,
-                0.0,
-                Math.Max(0.0, surface.Width - fw));
-            relTop = Math.Clamp(
-                relTop,
-                0.0,
-                Math.Max(0.0, surface.Height - fh));
-
-            var assignedZ = paneCurrent.ParentId is null && paneCurrent.FloatingZIndex > 0
-                ? paneCurrent.FloatingZIndex
-                : GetNextFloatingPaneZIndex();
-
-            ChildPanes[idx] = paneCurrent with
-            {
-                ParentId = null,
-                ContainerIndex = 0,
-                SlideIndex = 0,
-                FloatingX = relLeft,
-                FloatingY = relTop,
-                FloatingWidth = fw,
-                FloatingHeight = fh,
-                FloatingZIndex = assignedZ
-            };
-
-            RaiseChildPaneCollectionsChanged();
+            MoveChildPaneToFloating(id);
             return;
         }
 
-        ParentPaneModel? parent = ParentPaneModels
+        ParentPaneModel? targetParent = ParentPaneModels
             .FirstOrDefault(p =>
                 !p.IsMinimized &&
                 string.Equals(p.HostId, normalizedHost, StringComparison.OrdinalIgnoreCase));
-        parent ??= ParentPaneModels.FirstOrDefault();
-        if (parent is null)
+        targetParent ??= ParentPaneModels.FirstOrDefault();
+
+        if (targetParent is null)
         {
             return;
         }
 
-        var parentId = parent.Id;
-        var slideIndex = parent.SlideIndex;
+        const int defaultLaneIndex = 0;
+        var defaultInsertIndex = GetChildrenCountInLaneForCurrentSlide(targetParent.Id, defaultLaneIndex);
 
-        var index = -1;
-        ChildPaneDescriptor? current = null;
+        DockChildPaneToParent(id, targetParent.Id, defaultLaneIndex, defaultInsertIndex);
+    }
 
+    /// <summary>
+    /// Pane-centric docking API for children.
+    /// A docked ChildPane's authoritative relationship is simply:
+    /// ChildPane -> ParentPane.Id + lane/split/order inside that parent.
+    /// </summary>
+    public void DockChildPaneToParent(string id, string parentId, int laneIndex, int insertIndex)
+    {
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(parentId))
+        {
+            return;
+        }
+
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null || parent.IsMinimized)
+        {
+            return;
+        }
+
+        var clampedLaneIndex = Math.Clamp(laneIndex, 0, Math.Max(0, parent.SplitCount - 1));
+        var clampedInsertIndex = Math.Max(0, insertIndex);
+
+        PlaceChildInParentLane(id, parent.Id, clampedLaneIndex, clampedInsertIndex);
+    }
+
+    /// <summary>
+    /// Pane-centric floating API for children.
+    /// Once a child is floated, it has no ParentPane relationship any longer.
+    /// Floating geometry is derived from the active drag shadow when present, and
+    /// stored relative to the canonical floating surface rect.
+    /// </summary>
+    public void MoveChildPaneToFloating(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        var idx = -1;
+        ChildPaneDescriptor? paneCurrent = null;
         for (var i = 0; i < ChildPanes.Count; i++)
         {
             var pane = ChildPanes[i];
@@ -116,33 +91,54 @@ public sealed partial class MainWindowViewModel
                 continue;
             }
 
-            index = i;
-            current = pane;
+            idx = i;
+            paneCurrent = pane;
             break;
         }
 
-        if (index < 0)
+        if (idx < 0 || paneCurrent is null)
         {
             return;
         }
 
-        if (current is not null && string.Equals(current.ParentId, parentId, StringComparison.Ordinal))
-        {
-            return;
-        }
+        var surface = CurrentShellLayout.FloatingSurfaceRect;
 
-        var nextOrder = ChildPanes
-            .Where(pane => string.Equals(pane.ParentId, parentId, StringComparison.Ordinal))
-            .Select(pane => pane.Order)
-            .DefaultIfEmpty(-1)
-            .Max() + 1;
+        var fw = ChildPaneDragShadowWidth > 0
+            ? ChildPaneDragShadowWidth
+            : paneCurrent.FloatingWidth;
+        var fh = ChildPaneDragShadowHeight > 0
+            ? ChildPaneDragShadowHeight
+            : paneCurrent.FloatingHeight;
 
-        ChildPanes[index] = current! with
+        var globalLeft = ChildPaneDragShadowLeft;
+        var globalTop = ChildPaneDragShadowTop;
+
+        var relLeft = globalLeft - surface.X;
+        var relTop = globalTop - surface.Y;
+
+        relLeft = Math.Clamp(
+            relLeft,
+            0.0,
+            Math.Max(0.0, surface.Width - fw));
+        relTop = Math.Clamp(
+            relTop,
+            0.0,
+            Math.Max(0.0, surface.Height - fh));
+
+        var assignedZ = paneCurrent.ParentId is null && paneCurrent.FloatingZIndex > 0
+            ? paneCurrent.FloatingZIndex
+            : GetNextFloatingPaneZIndex();
+
+        ChildPanes[idx] = paneCurrent with
         {
-            Order = nextOrder,
+            ParentId = null,
             ContainerIndex = 0,
-            SlideIndex = slideIndex,
-            ParentId = parentId
+            SlideIndex = 0,
+            FloatingX = relLeft,
+            FloatingY = relTop,
+            FloatingWidth = fw,
+            FloatingHeight = fh,
+            FloatingZIndex = assignedZ
         };
 
         RaiseChildPaneCollectionsChanged();
@@ -415,7 +411,36 @@ public sealed partial class MainWindowViewModel
                 return;
             }
 
-            ChildPanes[i] = current with { IsMinimized = minimized };
+            var updated = current;
+
+            if (current.ParentId is null)
+            {
+                const double headerOnlyHeight = 56.0;
+
+                if (minimized)
+                {
+                    updated = updated with
+                    {
+                        FloatingWidthFull = current.FloatingWidth,
+                        FloatingHeightFull = current.FloatingHeight,
+                        FloatingHeight = headerOnlyHeight
+                    };
+                }
+                else
+                {
+                    updated = updated with
+                    {
+                        FloatingWidth = current.FloatingWidthFull > 0.0 ? current.FloatingWidthFull : current.FloatingWidth,
+                        FloatingHeight = current.FloatingHeightFull > 0.0 ? current.FloatingHeightFull : current.FloatingHeight
+                    };
+                }
+            }
+
+            ChildPanes[i] = updated with
+            {
+                IsMinimized = minimized
+            };
+
             RaiseChildPaneCollectionsChanged();
             _moveChildPaneUpCommand.RaiseCanExecuteChanged();
             _moveChildPaneDownCommand.RaiseCanExecuteChanged();

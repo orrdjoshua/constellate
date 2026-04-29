@@ -228,10 +228,17 @@
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.BodyContent>
-      <Grid IsVisible="{Binding HasExpandedContent}"
+      <Grid x:Name="ParentBodyRoot"
+            IsVisible="{Binding HasExpandedContent}"
             RowDefinitions="Auto,*"
             ToolTip.Tip="Drag empty parent-body space to move this parent pane."
             ZIndex="0">
+        <Grid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Create child here"
+                      Click="CreateChildHere_OnClick" />
+          </ContextMenu>
+        </Grid.ContextMenu>
         <ctrl:MinimizedChildTaskbarView Grid.Row="0"
                                         ZIndex="100"/>
         <ctrl:ParentBodyPresenter Grid.Row="1"

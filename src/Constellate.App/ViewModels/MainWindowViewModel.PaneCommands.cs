@@ -127,6 +127,52 @@ public sealed partial class MainWindowViewModel
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
     }
 
+    /// <summary>
+    /// Create a new child pane against a specific parent/lane and insert it at the given insert index
+    /// for the parent’s current slide. Seeds 25% of the lane’s fixed viewport (absolute pixels), then
+    /// reuses PlaceChildInParentLane to position it correctly and reindex neighbors.
+    /// </summary>
+    public void CreateChildPaneAt(string parentId, int laneIndex, int insertIndex)
+    {
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null)
+        {
+            return;
+        }
+
+        var slideIndex = parent.SlideIndex;
+        var nextOrder = ChildPanes.Count == 0 ? 0 : ChildPanes.Max(p => p.Order) + 1;
+        var nextOrdinal = GenerateNextChildOrdinal();
+        var id = $"child.{nextOrdinal}";
+        var title = $"Pane #{nextOrdinal}";
+
+        // Resolve fixed viewport for the target lane from current LanesVisible; fallback to parent body fixed size.
+        var laneView = parent.LanesVisible.FirstOrDefault(l => l.LaneIndex == laneIndex);
+        var fixedViewport = (laneView?.FixedViewportSize ?? 0) > 0
+            ? laneView!.FixedViewportSize
+            : parent.BodyViewportFixedSize > 0 ? parent.BodyViewportFixedSize
+            : parent.IsVerticalBodyOrientation ? Math.Max(1.0, parent.BodyViewportHeight) : Math.Max(1.0, parent.BodyViewportWidth);
+
+        var fixedPixels = Math.Max(1.0, fixedViewport * 0.25);
+
+        ChildPanes.Add(new ChildPaneDescriptor(
+            id,
+            title,
+            nextOrder,
+            ContainerIndex: laneIndex,
+            IsMinimized: false,
+            SlideIndex: slideIndex,
+            PreferredSizeRatio: 0.25,
+            ParentId: parentId,
+            FixedSizePixels: fixedPixels));
+
+        // Place the brand-new child at the requested insert slot; will also reindex lane.
+        PlaceChildInParentLane(id, parentId, Math.Max(0, laneIndex), Math.Max(0, insertIndex));
+
+        _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+        _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+    }
+
     public void DestroyChildPane(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

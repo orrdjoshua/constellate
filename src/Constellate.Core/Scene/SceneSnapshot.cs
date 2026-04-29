@@ -13,5 +13,8 @@ namespace Constellate.Core.Scene
         IReadOnlyList<SceneGroup>? Groups = null,
         IReadOnlyList<SceneBookmark>? Bookmarks = null,
         string? ActiveGroupId = null,
-        string InteractionMode = "navigate");
+        string InteractionMode = "navigate",
+        NodeId? EnteredNodeId = null,
+        IReadOnlyList<NodeId>? ExpandedNodeIds = null,
+        ViewParams? LastView = null);
 }

@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Constellate.Core\Constellate.Core.csproj" />
+    <ProjectReference Include="..\Constellate.Persistence\Constellate.Persistence.csproj" />
     <ProjectReference Include="..\Constellate.Renderer.OpenTK\Constellate.Renderer.OpenTK.csproj" />
     <ProjectReference Include="..\Constellate.SDK\Constellate.SDK.csproj" />
   </ItemGroup>

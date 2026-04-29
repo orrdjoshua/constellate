@@ -79,9 +79,10 @@ namespace Constellate.App.Controls
             try
             {
                 var desired = ComputeMinimizedHeaderDesiredWidth(_root);
+                const double headerOnlyHeight = 56.0;
                 desired = Math.Max(120.0, desired);
                 var vm = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
-                vm?.SetFloatingChildGeometry(_model.Id, _model.FloatingX, _model.FloatingY, desired, _model.FloatingHeight);
+                vm?.SetFloatingChildGeometry(_model.Id, _model.FloatingX, _model.FloatingY, desired, headerOnlyHeight);
                 Debug.WriteLine($"[ChildPaneView] minimized floating child width set -> {desired:0.0} (id={_model.Id})");
             }
             catch (Exception ex)

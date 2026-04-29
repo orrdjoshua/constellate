@@ -144,6 +144,16 @@
               VerticalAlignment="Stretch"
               ClipToBounds="True"
               ZIndex="20">
+        <!-- Cross-parent dock target highlight (beneath drag shadow) -->
+        <Border IsVisible="{Binding IsChildDockTargetHighlightVisible}"
+                Canvas.Left="{Binding ChildDockTargetLeft}"
+                Canvas.Top="{Binding ChildDockTargetTop}"
+                Width="{Binding ChildDockTargetWidth}"
+                Height="{Binding ChildDockTargetHeight}"
+                Background="#10FFC48A"
+                BorderBrush="#FFC48A2F"
+                BorderThickness="2"
+                CornerRadius="4" />
         <Border IsVisible="{Binding IsParentPaneDragShadowVisible}"
                 Canvas.Left="{Binding ParentPaneDragShadowLeft}"
                 Canvas.Top="{Binding ParentPaneDragShadowTop}"

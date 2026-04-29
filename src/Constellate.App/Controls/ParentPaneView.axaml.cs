@@ -8,6 +8,8 @@ using Avalonia.VisualTree;
 using Constellate.App.Controls.Panes;
 using System.Diagnostics;
 using Avalonia.Threading;
+using System.Linq;
+using Avalonia.Interactivity;
 
 namespace Constellate.App.Controls
 {
@@ -20,6 +22,8 @@ namespace Constellate.App.Controls
         private ScrollViewer? _headerScroll;
         private PaneChrome? _root;
         private ParentPaneModel? _model;
+        private Point _lastBodyContextPoint;
+        private bool _hasBodyContextPoint;
 
         public ParentPaneView()
         {
@@ -305,6 +309,20 @@ namespace Constellate.App.Controls
                 return;
             }
 
+            // Capture right-click for 'Create child here' context menu targeting.
+            var props = e.GetCurrentPoint(this).Properties;
+            if (props.IsRightButtonPressed)
+            {
+                // Store point relative to the body region so calculations align to visible body.
+                var body = _root.BodyRegionControl as Control;
+                if (body is not null)
+                {
+                    _lastBodyContextPoint = e.GetPosition(body);
+                    _hasBodyContextPoint = true;
+                }
+                return;
+            }
+
             if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e)) e.Handled = true;
         }
 
@@ -335,6 +353,124 @@ namespace Constellate.App.Controls
                 if (cur is ChildPaneView || cur is GridSplitter) return true;
             }
             return false;
+        }
+
+        private void CreateChildHere_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (_root is null || _model is null || !_hasBodyContextPoint)
+            {
+                return;
+            }
+
+            var vm = PaneChromeInputHelper.ResolveMainWindowViewModel(this);
+            if (vm is null)
+            {
+                return;
+            }
+
+            var body = _root.BodyRegionControl as Control;
+            if (body is null)
+            {
+                return;
+            }
+
+            // Visible body viewport in control space
+            var bodyBounds = body.Bounds;
+            if (bodyBounds.Width <= 0 || bodyBounds.Height <= 0)
+            {
+                return;
+            }
+
+            // Determine target lane index by orientation and SplitCount
+            var splits = Math.Max(1, Math.Min(3, _model.SplitCount));
+            var laneIndex = 0;
+            if (_model.IsVerticalBodyOrientation)
+            {
+                var relX = Math.Clamp(_lastBodyContextPoint.X / Math.Max(1.0, bodyBounds.Width), 0.0, 1.0);
+                laneIndex = Math.Clamp((int)Math.Floor(relX * splits), 0, splits - 1);
+            }
+            else
+            {
+                var relY = Math.Clamp(_lastBodyContextPoint.Y / Math.Max(1.0, bodyBounds.Height), 0.0, 1.0);
+                laneIndex = Math.Clamp((int)Math.Floor(relY * splits), 0, splits - 1);
+            }
+
+            // Compute insert index using realized FixedSizePixels for children in the target lane
+            var insertIndex = ResolveInsertIndexWithRealizedSizes(
+                _model,
+                bodyBounds,
+                _lastBodyContextPoint,
+                vm.GetChildrenInLaneForCurrentSlide(_model.Id, laneIndex));
+
+            if (insertIndex < 0)
+            {
+                // Fallback to equal-slot
+                var count = vm.GetChildrenCountInLaneForCurrentSlide(_model.Id, laneIndex);
+                insertIndex = ResolveInsertIndexEqualSlots(
+                    _model.IsVerticalBodyOrientation,
+                    bodyBounds,
+                    _lastBodyContextPoint,
+                    count);
+            }
+
+            vm.CreateChildPaneAt(_model.Id, laneIndex, insertIndex);
+            _hasBodyContextPoint = false;
+        }
+
+        private static int ResolveInsertIndexEqualSlots(bool isVerticalBodyOrientation, Rect bodyBounds, Point point, int itemCount)
+        {
+            var slotCount = Math.Max(1, itemCount + 1);
+            if (isVerticalBodyOrientation)
+            {
+                var relY = Math.Clamp(point.Y / Math.Max(1.0, bodyBounds.Height), 0.0, 1.0);
+                return Math.Clamp((int)Math.Floor(relY * slotCount), 0, itemCount);
+            }
+            else
+            {
+                var relX = Math.Clamp(point.X / Math.Max(1.0, bodyBounds.Width), 0.0, 1.0);
+                return Math.Clamp((int)Math.Floor(relX * slotCount), 0, itemCount);
+            }
+        }
+
+        private static int ResolveInsertIndexWithRealizedSizes(ParentPaneModel parent, Rect bodyBounds, Point point, IReadOnlyList<ChildPaneDescriptor> laneChildren)
+        {
+            if (laneChildren is null || laneChildren.Count == 0)
+            {
+                return 0;
+            }
+
+            // axis position normalized [0..1] along fixed dimension
+            double axisRel = parent.IsVerticalBodyOrientation
+                ? Math.Clamp(point.Y / Math.Max(1.0, bodyBounds.Height), 0.0, 1.0)
+                : Math.Clamp(point.X / Math.Max(1.0, bodyBounds.Width), 0.0, 1.0);
+
+            var sizes = laneChildren.Select(c => Math.Max(1.0, c.FixedSizePixels)).ToArray();
+            var total = sizes.Sum();
+            if (total <= 0.0)
+            {
+                return -1;
+            }
+
+            var cumul = new System.Collections.Generic.List<double>(sizes.Length + 1) { 0.0 };
+            double running = 0.0;
+            foreach (var s in sizes)
+            {
+                running += s;
+                cumul.Add(running / total);
+            }
+
+            for (var i = 0; i < cumul.Count - 1; i++)
+            {
+                var start = cumul[i];
+                var end = cumul[i + 1];
+                if (axisRel <= start) return i;
+                if (axisRel > start && axisRel <= end)
+                {
+                    var mid = (start + end) / 2.0;
+                    return axisRel <= mid ? i : i + 1;
+                }
+            }
+            return cumul.Count - 1;
         }
     }
 }

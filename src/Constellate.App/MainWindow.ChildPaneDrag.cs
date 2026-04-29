@@ -23,7 +23,6 @@ namespace Constellate.App
                 return false;
             }
 
-            // If the child is already floating, bring it to front before starting drag.
             if (DataContext is MainWindowViewModel vm && descriptor.ParentId is null)
             {
                 vm.BringFloatingChildToFront(descriptor.Id);
@@ -77,22 +76,15 @@ namespace Constellate.App
             }
 
             var currentPoint = e.GetPosition(this);
-            var windowSize = new Size(Bounds.Width, Bounds.Height);
-            if (windowSize.Width <= 0 || windowSize.Height <= 0)
-            {
-                vm.SetChildPaneDragShadow(false, 0, 0, 0, 0);
-                StopChildAutoSlide();
-                return;
-            }
+            var floatingSurfaceRect = GetShellFloatingSurfaceRect();
 
             var preview = ChildPaneDragGesturePlanner.ComputePreview(
                 currentPoint,
-                windowSize,
-                GetShellFloatingSurfaceRect(),
+                floatingSurfaceRect,
                 session.OriginPreviewSize,
-                GetShellHostRect,
-                vm.GetFirstExpandedParentOnHost,
-                vm.GetChildrenCountInLaneForCurrentSlide);
+                BuildChildDockParentCandidates(),
+                vm.GetChildrenCountInLaneForCurrentSlide,
+                vm.GetChildrenInLaneForCurrentSlide);
 
             vm.SetChildPaneDragShadow(
                 true,
@@ -103,28 +95,25 @@ namespace Constellate.App
 
             if (preview.IsFloatingPreview)
             {
-                // Align the floating child preview to preserve the pointer's offset from the child's
-                // original top-left instead of re-centering the preview under the cursor.
-                var surface = GetShellFloatingSurfaceRect();
-                Rect alignedRect = preview.PreviewBounds;
+                // No dock highlight in floating preview
+                vm.SetChildDockTargetHighlight(false, 0, 0, 0, 0);
+                var alignedRect = preview.PreviewBounds;
 
-                // We can compute the child's origin absolute rect from VM (paneId captured in session)
-                // using current floating geometry.
                 var child = vm.ChildPanes.FirstOrDefault(c => string.Equals(c.Id, session.PaneId, StringComparison.Ordinal));
-                if (child is not null)
+                if (child is not null && child.ParentId is null)
                 {
-                    var originTopLeft = new Point(surface.X + child.FloatingX, surface.Y + child.FloatingY);
+                    var originTopLeft = new Point(floatingSurfaceRect.X + child.FloatingX, floatingSurfaceRect.Y + child.FloatingY);
                     var offset = new Vector(session.StartPoint.X - originTopLeft.X, session.StartPoint.Y - originTopLeft.Y);
-                    var w = Math.Max(1.0, child.FloatingWidth);
-                    var h = Math.Max(1.0, child.FloatingHeight);
+                    var width = Math.Max(1.0, child.FloatingWidth);
+                    var height = Math.Max(1.0, child.FloatingHeight);
 
                     var left = currentPoint.X - offset.X;
                     var top = currentPoint.Y - offset.Y;
 
-                    left = Math.Clamp(left, surface.X, Math.Max(surface.X, surface.Right - w));
-                    top = Math.Clamp(top, surface.Y, Math.Max(surface.Y, surface.Bottom - h));
+                    left = Math.Clamp(left, floatingSurfaceRect.X, Math.Max(floatingSurfaceRect.X, floatingSurfaceRect.Right - width));
+                    top = Math.Clamp(top, floatingSurfaceRect.Y, Math.Max(floatingSurfaceRect.Y, floatingSurfaceRect.Bottom - height));
 
-                    alignedRect = new Rect(left, top, w, h);
+                    alignedRect = new Rect(left, top, width, height);
                 }
 
                 vm.SetChildPaneDragShadow(true, alignedRect.X, alignedRect.Y, alignedRect.Width, alignedRect.Height);
@@ -142,23 +131,42 @@ namespace Constellate.App
 
             if (string.IsNullOrWhiteSpace(preview.TargetParentId))
             {
+                vm.SetChildDockTargetHighlight(false, 0, 0, 0, 0);
                 StopChildAutoSlide();
                 return;
             }
 
+            var targetParent = vm.ParentPaneModels.FirstOrDefault(parent =>
+                string.Equals(parent.Id, preview.TargetParentId, StringComparison.Ordinal));
+
+            if (targetParent is null)
+            {
+                vm.SetChildDockTargetHighlight(false, 0, 0, 0, 0);
+                StopChildAutoSlide();
+                return;
+            }
+
+            // Show overlay highlight for the entire target parent body area during re-dock targeting
+            var targetBounds = GetParentPaneBounds(targetParent);
+            vm.SetChildDockTargetHighlight(
+                true,
+                targetBounds.X,
+                targetBounds.Y,
+                targetBounds.Width,
+                targetBounds.Height);
+
             var autoSlideDirection = ChildPaneDragGesturePlanner.ResolveAutoSlideDirection(
-                preview.TargetHostId,
-                GetShellHostRect(preview.TargetHostId),
-                currentPoint,
-                preview.TargetSlideIndex);
+                targetParent,
+                GetParentPaneBounds(targetParent),
+                currentPoint);
 
             if (autoSlideDirection < 0)
             {
-                RequestChildAutoSlide(preview.TargetParentId, -1);
+                RequestChildAutoSlide(targetParent.Id, -1);
             }
             else if (autoSlideDirection > 0)
             {
-                RequestChildAutoSlide(preview.TargetParentId, 1);
+                RequestChildAutoSlide(targetParent.Id, 1);
             }
             else
             {
@@ -187,42 +195,23 @@ namespace Constellate.App
                 return;
             }
 
-            var windowSize = new Size(Bounds.Width, Bounds.Height);
-            if (windowSize.Width <= 0 || windowSize.Height <= 0)
-            {
-                CleanupActiveChildPaneDrag(vm, commit: false);
-                return;
-            }
-
             var commitResult = ChildPaneDragGesturePlanner.ComputeCommit(
                 e.GetPosition(this),
-                windowSize,
-                GetShellHostRect,
-                vm.GetFirstExpandedParentOnHost,
-                vm.GetChildrenCountInLaneForCurrentSlide);
-
-            if (commitResult is null)
-            {
-                CleanupActiveChildPaneDrag(vm, commit: false);
-                return;
-            }
+                BuildChildDockParentCandidates(),
+                vm.GetChildrenCountInLaneForCurrentSlide,
+                vm.GetChildrenInLaneForCurrentSlide);
 
             if (commitResult.IsFloating)
             {
-                vm.MoveChildPaneToHost(session.PaneId, "floating");
+                vm.SetChildDockTargetHighlight(false, 0, 0, 0, 0);
+                vm.MoveChildPaneToFloating(session.PaneId);
                 CleanupActiveChildPaneDrag(vm, commit: true);
                 return;
             }
 
-            var normalizedOrigin = MainWindowViewModel.NormalizeHostId(session.OriginHostId);
-            if (!string.Equals(normalizedOrigin, commitResult.TargetHostId, StringComparison.Ordinal))
-            {
-                vm.MoveChildPaneToHost(session.PaneId, commitResult.TargetHostId);
-            }
-
             if (!string.IsNullOrWhiteSpace(commitResult.TargetParentId))
             {
-                vm.PlaceChildInParentLane(
+                vm.DockChildPaneToParent(
                     session.PaneId,
                     commitResult.TargetParentId,
                     commitResult.TargetLaneIndex,
@@ -235,6 +224,7 @@ namespace Constellate.App
         private void CleanupActiveChildPaneDrag(MainWindowViewModel? vm, bool commit)
         {
             vm?.SetChildPaneDragShadow(false, 0, 0, 0, 0);
+            vm?.SetChildDockTargetHighlight(false, 0, 0, 0, 0);
             StopChildAutoSlide();
             PaneGestureSessionCoordinator.Finish(ref _activeChildDragSession, commit);
         }
@@ -277,6 +267,30 @@ namespace Constellate.App
             {
                 vm.SetParentSlideIndex(parent.Id, nextIndex);
             }
+        }
+
+        private ChildPaneDockParentCandidate[] BuildChildDockParentCandidates()
+        {
+            if (DataContext is not MainWindowViewModel vm)
+            {
+                return Array.Empty<ChildPaneDockParentCandidate>();
+            }
+
+            return vm.ParentPaneModels
+                .Where(parent => !parent.IsMinimized)
+                .Select(parent => new ChildPaneDockParentCandidate(
+                    parent,
+                    GetParentPaneBounds(parent)))
+                .Where(candidate => candidate.Bounds.Width > 0 && candidate.Bounds.Height > 0)
+                .ToArray();
+        }
+
+        private Rect GetParentPaneBounds(ParentPaneModel parent)
+        {
+            return ParentPaneDragStateResolver.GetParentPaneCurrentBounds(
+                parent,
+                GetShellHostRect,
+                GetShellFloatingSurfaceRect);
         }
     }
 }

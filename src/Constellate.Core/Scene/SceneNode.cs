@@ -1,3 +1,5 @@
+using Constellate.Core.Resources;
+
 namespace Constellate.Core.Scene
 {
     public sealed record SceneNode(
@@ -6,5 +8,6 @@ namespace Constellate.Core.Scene
         Transform Transform,
         float VisualScale = 1.0f,
         float Phase = 0.0f,
-        NodeAppearance? Appearance = null);
+        NodeAppearance? Appearance = null,
+        ResourceId? ResourceId = null);
 }

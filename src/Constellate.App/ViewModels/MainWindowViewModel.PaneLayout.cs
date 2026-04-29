@@ -43,6 +43,52 @@ public sealed partial class MainWindowViewModel
         ChildPaneDragShadowHeight = height;
     }
 
+    // Overlay highlight for cross-parent child re-dock targeting
+    private bool _isChildDockTargetHighlightVisible;
+    private double _childDockTargetLeft;
+    private double _childDockTargetTop;
+    private double _childDockTargetWidth;
+    private double _childDockTargetHeight;
+
+    public bool IsChildDockTargetHighlightVisible
+    {
+        get => _isChildDockTargetHighlightVisible;
+        private set { if (_isChildDockTargetHighlightVisible != value) { _isChildDockTargetHighlightVisible = value; OnPropertyChanged(); } }
+    }
+    public double ChildDockTargetLeft
+    {
+        get => _childDockTargetLeft;
+        private set { if (System.Math.Abs(_childDockTargetLeft - value) > double.Epsilon) { _childDockTargetLeft = value; OnPropertyChanged(); } }
+    }
+    public double ChildDockTargetTop
+    {
+        get => _childDockTargetTop;
+        private set { if (System.Math.Abs(_childDockTargetTop - value) > double.Epsilon) { _childDockTargetTop = value; OnPropertyChanged(); } }
+    }
+    public double ChildDockTargetWidth
+    {
+        get => _childDockTargetWidth;
+        private set { if (System.Math.Abs(_childDockTargetWidth - value) > double.Epsilon) { _childDockTargetWidth = value; OnPropertyChanged(); } }
+    }
+    public double ChildDockTargetHeight
+    {
+        get => _childDockTargetHeight;
+        private set { if (System.Math.Abs(_childDockTargetHeight - value) > double.Epsilon) { _childDockTargetHeight = value; OnPropertyChanged(); } }
+    }
+
+    public void SetChildDockTargetHighlight(bool visible, double left, double top, double width, double height)
+    {
+        IsChildDockTargetHighlightVisible = visible;
+        if (!visible)
+        {
+            return;
+        }
+        ChildDockTargetLeft = left;
+        ChildDockTargetTop = top;
+        ChildDockTargetWidth = width;
+        ChildDockTargetHeight = height;
+    }
+
     private void RaiseChildPaneCollectionsChanged()
     {
         OnPropertyChanged(nameof(ChildPanesOrdered));

@@ -104,29 +104,57 @@
     </panes:PaneChrome.EmptyHeaderContent>
 
     <panes:PaneChrome.CommandBarContent>
-      <StackPanel Orientation="Horizontal"
-                  Spacing="4"
-                  HorizontalAlignment="Left"
-                  Margin="0,0,2,0">
-        <Button Width="20"
-                Height="20"
-                Padding="0"
-                Content="–"
-                Foreground="#E5EDF7"
-                Background="#233142"
-                ToolTip.Tip="Minimize child pane"
-                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
-                CommandParameter="{Binding Id}" />
-        <Button Width="20"
-                Height="20"
-                Padding="0"
-                Content="×"
-                Foreground="#E5EDF7"
-                Background="#233142"
-                ToolTip.Tip="Destroy pane"
-                Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
-                CommandParameter="{Binding Id}" />
-      </StackPanel>
+      <Grid>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,2,0"
+                    IsVisible="{Binding IsMinimized, Converter={StaticResource BooleanNotConverter}}">
+          <Button Width="20"
+                  Height="20"
+                  Padding="0"
+                  Content="–"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Minimize child pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
+                  CommandParameter="{Binding Id}" />
+          <Button Width="20"
+                  Height="20"
+                  Padding="0"
+                  Content="×"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Destroy pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
+                  CommandParameter="{Binding Id}" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,2,0"
+                    IsVisible="{Binding IsMinimized}">
+          <Button Width="20"
+                  Height="20"
+                  Padding="0"
+                  Content="□"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Restore child pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RestoreChildPaneFromTaskbarCommand}"
+                  CommandParameter="{Binding Id}" />
+          <Button Width="20"
+                  Height="20"
+                  Padding="0"
+                  Content="×"
+                  Foreground="#E5EDF7"
+                  Background="#233142"
+                  ToolTip.Tip="Destroy pane"
+                  Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
+                  CommandParameter="{Binding Id}" />
+        </StackPanel>
+      </Grid>
     </panes:PaneChrome.CommandBarContent>
 
     <panes:PaneChrome.BodyContent>

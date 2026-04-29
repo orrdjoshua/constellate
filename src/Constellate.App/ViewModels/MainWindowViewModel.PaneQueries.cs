@@ -78,6 +78,29 @@ public sealed partial class MainWindowViewModel
     }
 
     /// <summary>
+    /// Returns the ordered, non-minimized ChildPanes in the specified lane for the parent’s current SlideIndex.
+    /// Useful for precise insert-index computation against realized FixedSizePixels during drag preview.
+    /// </summary>
+    public IReadOnlyList<ChildPaneDescriptor> GetChildrenInLaneForCurrentSlide(string parentId, int laneIndex)
+    {
+        var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
+        if (parent is null)
+        {
+            return Array.Empty<ChildPaneDescriptor>();
+        }
+
+        var slideIndex = parent.SlideIndex;
+        return ChildPanes
+            .Where(c =>
+                !c.IsMinimized &&
+                string.Equals(c.ParentId, parentId, StringComparison.Ordinal) &&
+                c.SlideIndex == slideIndex &&
+                c.ContainerIndex == laneIndex)
+            .OrderBy(c => c.Order)
+            .ToArray();
+    }
+
+    /// <summary>
     /// Returns true if a dock host (left/top/right/bottom) is currently occupied by any parent pane,
     /// including minimized panes. Floating host is not considered a dock and should not be passed here.
     /// </summary>

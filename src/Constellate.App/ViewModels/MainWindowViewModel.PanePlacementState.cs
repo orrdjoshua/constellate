@@ -93,19 +93,39 @@ public sealed partial class MainWindowViewModel
             }
         }
 
+        // Build a definitive (childId -> (laneIndex, order)) map from the newly constructed lane lists.
+        var orderMap = new System.Collections.Generic.Dictionary<string, (int lane, int order)>(System.StringComparer.Ordinal);
         var nextOrder = 0;
+        for (var li = 0; li < lanes.Count; li++)
+        {
+            foreach (var c in lanes[li])
+            {
+                orderMap[c.Id] = (li, nextOrder++);
+            }
+        }
+
+        // Apply across the entire ChildPanes collection so the moving child is updated even if it
+        // originated floating or in a different parent/slide. For entries already in the target
+        // parent/slide, just rewrite lane/order; for others, assign target ParentId/SlideIndex.
         for (var i = 0; i < ChildPanes.Count; i++)
         {
             var c = ChildPanes[i];
-            if (!string.Equals(c.ParentId, parentId, StringComparison.Ordinal) || c.SlideIndex != slideIndex || c.IsMinimized)
+            if (orderMap.TryGetValue(c.Id, out var info))
             {
-                continue;
-            }
-
-            var updated = reindexed.FirstOrDefault(x => string.Equals(x.Id, c.Id, StringComparison.Ordinal));
-            if (updated is not null)
-            {
-                ChildPanes[i] = updated with { Order = nextOrder++ };
+                if (string.Equals(c.ParentId, parentId, StringComparison.Ordinal) && c.SlideIndex == slideIndex)
+                {
+                    ChildPanes[i] = c with { ContainerIndex = info.lane, Order = info.order };
+                }
+                else
+                {
+                    ChildPanes[i] = c with
+                    {
+                        ParentId = parentId,
+                        SlideIndex = slideIndex,
+                        ContainerIndex = info.lane,
+                        Order = info.order
+                    };
+                }
             }
         }
 

@@ -791,6 +791,16 @@ namespace Constellate.Core.Scene
             }
         }
 
+        public void LoadSnapshot(SceneSnapshot snapshot)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+
+            lock (_gate)
+            {
+                RestoreSnapshotUnderLock(snapshot);
+            }
+        }
+
         public bool IsEmpty
         {
             get
@@ -815,7 +825,10 @@ namespace Constellate.Core.Scene
                 _groups.Values.OrderBy(group => group.Label, StringComparer.Ordinal).ToArray(),
                 _bookmarks.Values.OrderBy(bookmark => bookmark.Name, StringComparer.Ordinal).ToArray(),
                 ActiveGroupId,
-                InteractionMode);
+                InteractionMode,
+                _enteredNodeId,
+                _expandedNodeIds.OrderBy(id => id.ToString(), StringComparer.Ordinal).ToArray(),
+                _lastView);
         }
 
         private void RestoreSnapshotUnderLock(SceneSnapshot snapshot)
@@ -894,6 +907,21 @@ namespace Constellate.Core.Scene
                     }
                 }
             }
+
+            _enteredNodeId = snapshot.EnteredNodeId is { } enteredNodeId && _nodes.ContainsKey(enteredNodeId)
+                ? enteredNodeId
+                : null;
+
+            _expandedNodeIds.Clear();
+            if (snapshot.ExpandedNodeIds is not null)
+            {
+                foreach (var nodeId in snapshot.ExpandedNodeIds.Where(_nodes.ContainsKey))
+                {
+                    _expandedNodeIds.Add(nodeId);
+                }
+            }
+
+            _lastView = snapshot.LastView;
 
             InteractionMode = NormalizeInteractionMode(snapshot.InteractionMode);
         }

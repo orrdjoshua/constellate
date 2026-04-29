@@ -4,7 +4,9 @@ using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using Constellate.Core.Capabilities;
+using Constellate.Core.Resources;
 using Constellate.Core.Scene;
+using Constellate.Core.Storage;
 using Constellate.SDK;
 
 namespace Constellate.Core.Messaging
@@ -22,8 +24,22 @@ namespace Constellate.Core.Messaging
         public static ShellSceneState ShellScene { get; private set; } = null!;
         public static ICapabilityRegistry Capabilities { get; private set; } = null!;
         public static EngineSettings Settings { get; private set; } = null!;
+        public static IEnginePersistenceScope? PersistenceScope { get; private set; }
+        public static PersistenceBootstrapResult? PersistenceBootstrapResult => PersistenceScope?.BootstrapResult;
 
         private static bool _initialized;
+
+        public static void ConfigurePersistence(IEnginePersistenceScope persistenceScope)
+        {
+            ArgumentNullException.ThrowIfNull(persistenceScope);
+
+            if (_initialized)
+            {
+                return;
+            }
+
+            PersistenceScope = persistenceScope;
+        }
 
         public static void EnsureInitialized()
         {
@@ -37,12 +53,107 @@ namespace Constellate.Core.Messaging
             Capabilities = new CapabilityRegistry();
             Settings = new EngineSettings();
 
-            SeedDefaultScene(Scene);
+            InitializePersistence();
+
+            if (!TryRestorePersistedScene(Scene))
+            {
+                SeedDefaultScene(Scene);
+                PersistCurrentSceneSnapshot();
+            }
+
             RegisterCommandHandlers(CommandBus, Scene);
             RegisterEventHandlers(EventBus, Scene);
             SeedCapabilities(Capabilities);
 
             _initialized = true;
+        }
+
+        public static void PersistCurrentSceneSnapshot()
+        {
+            if (PersistenceScope?.EngineStateStore is null || Scene is null)
+            {
+                return;
+            }
+
+            PersistenceScope.EngineStateStore.SaveSnapshot(Scene.GetSnapshot());
+        }
+
+        public static MarkdownRecordResourceDescriptor CreateMarkdownRecordResource(string title, string? displayLabel = null)
+        {
+            EnsureInitialized();
+
+            var resourceRegistryStore = PersistenceScope?.ResourceRegistryStore
+                ?? throw new InvalidOperationException("Resource registry store is not available.");
+            var nativeRecordStore = PersistenceScope?.NativeRecordStore
+                ?? throw new InvalidOperationException("Native record store is not available.");
+
+            var descriptor = MarkdownRecordResourceDescriptor.Create(title, displayLabel);
+            var timestamp = DateTimeOffset.UtcNow;
+            var registration = descriptor.CreateRegistration(timestamp);
+            var initialState = descriptor.CreateInitialState(timestamp: timestamp);
+            var initialRevision = descriptor.CreateInitialRevision(timestamp: timestamp);
+
+            resourceRegistryStore.Register(registration);
+            nativeRecordStore.Create(initialState, initialRevision);
+
+            var snapshot = Scene.GetSnapshot();
+            var anchorIndex = snapshot.Nodes.Count;
+            var anchorPosition = new Vector3(
+                ((anchorIndex % 4) - 1.5f) * 0.9f,
+                ((anchorIndex / 4) * 0.8f) - 0.35f,
+                0.0f);
+            var anchorNode = new SceneNode(
+                NodeId.New(),
+                descriptor.DisplayLabel,
+                new Transform(
+                    anchorPosition,
+                    Vector3.Zero,
+                    new Vector3(0.62f, 0.62f, 0.62f)),
+                VisualScale: 0.62f,
+                Phase: (anchorIndex % 12) * 0.2f,
+                Appearance: new NodeAppearance("triangle", "#F2B366", "#FFF2DE", 1.0f),
+                ResourceId: descriptor.ResourceId);
+
+            Scene.Upsert(anchorNode);
+            PersistCurrentSceneSnapshot();
+            PublishEvent(
+                EventNames.SceneChanged,
+                new { reason = "create_markdown_record_resource", resourceId = descriptor.ResourceId.ToString(), nodeId = anchorNode.Id.ToString(), label = anchorNode.Label });
+            return descriptor;
+        }
+
+        public static bool TryGetRegisteredResource(ResourceId resourceId, out ResourceRegistration registration)
+        {
+            if (PersistenceScope?.ResourceRegistryStore is null)
+            {
+                registration = null!;
+                return false;
+            }
+
+            return PersistenceScope.ResourceRegistryStore.TryGet(resourceId, out registration);
+        }
+
+        private static void InitializePersistence()
+        {
+            PersistenceScope?.EnsureInitialized();
+        }
+
+        private static bool TryRestorePersistedScene(EngineScene scene)
+        {
+            if (PersistenceScope?.EngineStateStore is null ||
+                !PersistenceScope.EngineStateStore.HasPersistedSnapshot())
+            {
+                return false;
+            }
+
+            var snapshot = PersistenceScope.EngineStateStore.LoadSnapshot();
+            if (snapshot is null)
+            {
+                return false;
+            }
+
+            scene.LoadSnapshot(snapshot);
+            return true;
         }
 
         private static void RegisterEventHandlers(IEventBus eventBus, EngineScene scene)
@@ -1270,6 +1381,17 @@ namespace Constellate.Core.Messaging
                 CommandNames.BookmarkRestore;
         }
 
+        private static bool ShouldPersistSceneAfterCommand(string commandName)
+        {
+            return IsUndoableCommandName(commandName) ||
+                   commandName is CommandNames.Undo or
+                   CommandNames.SetInteractionMode or
+                   CommandNames.EnterNode or
+                   CommandNames.ExitNode or
+                   CommandNames.ExpandNode or
+                   CommandNames.CollapseNode;
+        }
+
         private sealed class SimpleInProcBus : ICommandBus, IEventBus, IDisposable
         {
             private readonly object _gate = new();
@@ -1321,9 +1443,17 @@ namespace Constellate.Core.Messaging
 
                 if (anySucceeded)
                 {
+                    var shouldPersistScene = scene is not null &&
+                                             ShouldPersistSceneAfterCommand(command.Name);
+
                     if (undoSnapshot is not null && scene is not null)
                     {
                         scene.PushUndoSnapshot(undoSnapshot);
+                    }
+
+                    if (shouldPersistScene)
+                    {
+                        PersistCurrentSceneSnapshot();
                     }
 
                     Publish(new Envelope
