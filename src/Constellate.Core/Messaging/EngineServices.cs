@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using Constellate.Core.Capabilities;
+using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Resources;
 using Constellate.Core.Scene;
 using Constellate.Core.Storage;
@@ -11,21 +12,119 @@ using Constellate.SDK;
 
 namespace Constellate.Core.Messaging
 {
-    public static class EngineServices
+    public static partial class EngineServices
     {
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             IncludeFields = true
         };
 
+        private const string DefaultResourceSummarySurfaceRole = "resource.summary";
+        private const string DefaultResourceSummaryViewRefPrefix = "resource.summary";
+
         public static ICommandBus CommandBus { get; private set; } = null!;
         public static IEventBus EventBus { get; private set; } = null!;
         public static EngineScene Scene { get; private set; } = null!;
         public static ShellSceneState ShellScene { get; private set; } = null!;
         public static ICapabilityRegistry Capabilities { get; private set; } = null!;
+        public static IPaneCatalog PaneCatalog { get; private set; } = null!;
         public static EngineSettings Settings { get; private set; } = null!;
         public static IEnginePersistenceScope? PersistenceScope { get; private set; }
         public static PersistenceBootstrapResult? PersistenceBootstrapResult => PersistenceScope?.BootstrapResult;
+
+        public static IReadOnlyList<PaneCapabilityDescriptor> ListPaneCapabilities()
+        {
+            EnsureInitialized();
+            return PaneCatalog.GetCapabilityDescriptors();
+        }
+
+        public static IReadOnlyList<PaneDefinitionDescriptor> ListPaneDefinitions()
+        {
+            EnsureInitialized();
+            return BuildPaneDefinitionSnapshot();
+        }
+
+        public static IReadOnlyList<PaneWorkspaceDescriptor> ListPaneWorkspaceDefinitions()
+        {
+            EnsureInitialized();
+            return BuildPaneWorkspaceSnapshot();
+        }
+
+        public static bool TryGetPaneDefinition(string paneDefinitionId, out PaneDefinitionDescriptor paneDefinition)
+        {
+            EnsureInitialized();
+            paneDefinition = BuildPaneDefinitionSnapshot()
+                .FirstOrDefault(definition =>
+                    string.Equals(definition.PaneDefinitionId, paneDefinitionId, StringComparison.Ordinal))!;
+            return paneDefinition is not null;
+        }
+
+        public static bool TryGetPaneWorkspaceDefinition(string workspaceId, out PaneWorkspaceDescriptor workspaceDefinition)
+        {
+            EnsureInitialized();
+            workspaceDefinition = BuildPaneWorkspaceSnapshot()
+                .FirstOrDefault(workspace =>
+                    string.Equals(workspace.WorkspaceId, workspaceId, StringComparison.Ordinal))!;
+            return workspaceDefinition is not null;
+        }
+
+        public static void SavePaneDefinition(PaneDefinitionDescriptor paneDefinition)
+        {
+            ArgumentNullException.ThrowIfNull(paneDefinition);
+
+            EnsureInitialized();
+
+            var paneDefinitionStore = PersistenceScope?.PaneDefinitionStore
+                ?? throw new InvalidOperationException("Pane definition store is not available.");
+
+            paneDefinitionStore.Upsert(paneDefinition);
+        }
+
+        private static IReadOnlyList<PaneDefinitionDescriptor> BuildPaneDefinitionSnapshot()
+        {
+            var definitionsById = new Dictionary<string, PaneDefinitionDescriptor>(StringComparer.Ordinal);
+
+            foreach (var definition in PaneCatalog.GetPaneDefinitions())
+            {
+                definitionsById[definition.PaneDefinitionId] = definition;
+            }
+
+            if (PersistenceScope?.PaneDefinitionStore is not null)
+            {
+                foreach (var definition in PersistenceScope.PaneDefinitionStore.ListAll())
+                {
+                    definitionsById[definition.PaneDefinitionId] = definition;
+                }
+            }
+
+            return definitionsById.Values
+                .OrderBy(definition => definition.DisplayLabel, StringComparer.Ordinal)
+                .ThenBy(definition => definition.PaneDefinitionId, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private static IReadOnlyList<PaneWorkspaceDescriptor> BuildPaneWorkspaceSnapshot()
+        {
+            var workspacesById = new Dictionary<string, PaneWorkspaceDescriptor>(StringComparer.Ordinal);
+
+            foreach (var workspace in PaneCatalog.GetWorkspaceDefinitions())
+            {
+                workspacesById[workspace.WorkspaceId] = workspace;
+            }
+
+            if (PersistenceScope?.PaneWorkspaceStore is not null)
+            {
+                foreach (var workspace in PersistenceScope.PaneWorkspaceStore.ListAll())
+                {
+                    workspacesById[workspace.WorkspaceId] = workspace;
+                }
+            }
+
+            return workspacesById.Values
+                .OrderBy(workspace => workspace.DisplayLabel, StringComparer.Ordinal)
+                .ThenBy(workspace => workspace.WorkspaceId, StringComparer.Ordinal)
+                .ToArray();
+        }
 
         private static bool _initialized;
 
@@ -50,7 +149,9 @@ namespace Constellate.Core.Messaging
             EventBus = bus;
             Scene = new EngineScene();
             ShellScene = new ShellSceneState(Scene);
-            Capabilities = new CapabilityRegistry();
+            var paneCatalog = new SeededPaneCatalog();
+            PaneCatalog = paneCatalog;
+            Capabilities = new CapabilityRegistry(paneCatalog);
             Settings = new EngineSettings();
 
             InitializePersistence();
@@ -108,6 +209,18 @@ namespace Constellate.Core.Messaging
                     surfaceRole = "detail",
                     worldAssignmentState = "unassigned"
                 });
+            PublishResourceSurfaceBindingChanged(
+                descriptor.ResourceId,
+                descriptor.TypeId,
+                descriptor.DisplayLabel,
+                descriptor.Title,
+                MarkdownRecordResourceDescriptor.DefaultDetailSurfaceRole,
+                descriptor.DetailViewRef,
+                ResourceSurfaceBindingPayload.ProjectionModeDetail,
+                ResourceSurfaceBindingPayload.TargetSurfaceKindChildPaneBody,
+                bindingState: "active",
+                targetKind: "surface",
+                worldAssignmentState: "unassigned");
             return descriptor;
         }
 
@@ -168,6 +281,7 @@ namespace Constellate.Core.Messaging
 
                     return new ResourceInspectionEntry(
                         registration,
+                        ResolveNativeRecordResourceTitle(registration.ResourceId),
                         assignedNodeIds.Count > 0,
                         assignedNodeIds);
                 })
@@ -191,6 +305,29 @@ namespace Constellate.Core.Messaging
         public static IReadOnlyList<ResourceInspectionEntry> ListUnassignedMarkdownRecordInspectionEntries()
         {
             return ListUnassignedResourceInspectionEntries(MarkdownRecordResourceDescriptor.DefaultTypeId);
+        }
+        
+        private static string? ResolveNativeRecordResourceTitle(string? resourceId)
+        {
+            if (string.IsNullOrWhiteSpace(resourceId) ||
+                !ResourceId.TryParse(resourceId.Trim(), out var parsedResourceId))
+            {
+                return null;
+            }
+
+            return ResolveNativeRecordResourceTitle(parsedResourceId);
+        }
+
+        private static string? ResolveNativeRecordResourceTitle(ResourceId resourceId)
+        {
+            var nativeRecordStore = PersistenceScope?.NativeRecordStore;
+            if (nativeRecordStore is null ||
+                !nativeRecordStore.TryGet(resourceId, out var record))
+            {
+                return null;
+            }
+
+            return record.ResourceTitle;
         }
 
         public static SceneNode AssignResourceToNewNode(
@@ -229,6 +366,19 @@ namespace Constellate.Core.Messaging
                     worldAssignmentState = "assigned",
                     bindingKind = "node"
                 });
+            PublishResourceSurfaceBindingChanged(
+                resourceId,
+                registration.TypeId,
+                registration.DisplayLabel,
+                registration.DisplayLabel,
+                DefaultResourceSummarySurfaceRole,
+                BuildResourceSummaryViewRef(resourceId),
+                ResourceSurfaceBindingPayload.ProjectionModeSummary,
+                ResourceSurfaceBindingPayload.TargetSurfaceKindWorldNode,
+                bindingState: "active",
+                targetId: assignedNode.Id.ToString(),
+                targetKind: "node",
+                worldAssignmentState: "assigned");
 
             return assignedNode;
         }
@@ -278,6 +428,19 @@ namespace Constellate.Core.Messaging
                     worldAssignmentState = "assigned",
                     bindingKind = "node"
                 });
+            PublishResourceSurfaceBindingChanged(
+                resourceId,
+                registration.TypeId,
+                registration.DisplayLabel,
+                registration.DisplayLabel,
+                DefaultResourceSummarySurfaceRole,
+                BuildResourceSummaryViewRef(resourceId),
+                ResourceSurfaceBindingPayload.ProjectionModeSummary,
+                ResourceSurfaceBindingPayload.TargetSurfaceKindWorldNode,
+                bindingState: "active",
+                targetId: assignedNode.Id.ToString(),
+                targetKind: "node",
+                worldAssignmentState: "assigned");
 
             return true;
         }
@@ -319,6 +482,19 @@ namespace Constellate.Core.Messaging
                     worldAssignmentState = "unassigned",
                     bindingKind = "node"
                 });
+            PublishResourceSurfaceBindingChanged(
+                resourceId,
+                resourceTypeId,
+                resourceDisplayLabel,
+                resourceDisplayLabel,
+                DefaultResourceSummarySurfaceRole,
+                BuildResourceSummaryViewRef(resourceId),
+                ResourceSurfaceBindingPayload.ProjectionModeSummary,
+                ResourceSurfaceBindingPayload.TargetSurfaceKindWorldNode,
+                bindingState: "inactive",
+                targetId: updatedNode.Id.ToString(),
+                targetKind: "node",
+                worldAssignmentState: "unassigned");
 
             return true;
         }
@@ -351,6 +527,56 @@ namespace Constellate.Core.Messaging
                 Phase: (anchorIndex % 12) * 0.2f,
                 Appearance: appearance ?? new NodeAppearance("triangle", "#F2B366", "#FFF2DE", 1.0f),
                 ResourceId: resourceId);
+        }
+
+        private static string BuildResourceSummaryViewRef(ResourceId resourceId)
+        {
+            return $"{DefaultResourceSummaryViewRefPrefix}:{resourceId}";
+        }
+
+        private static void PublishResourceSurfaceBindingChanged(
+            ResourceId resourceId,
+            string? resourceTypeId,
+            string? resourceDisplayLabel,
+            string? resourceTitle,
+            string? surfaceRole,
+            string? viewRef,
+            string? projectionMode,
+            string? targetSurfaceKind,
+            string bindingState,
+            string? targetId = null,
+            string? targetKind = null,
+            string? worldAssignmentState = null)
+        {
+            var binding = ResourceSurfaceBindingPayload.Create(
+                surfaceRole,
+                viewRef,
+                projectionMode,
+                targetSurfaceKind);
+            if (binding is null)
+            {
+                return;
+            }
+
+            PersistResourceSurfaceBinding(
+                resourceId,
+                resourceTypeId,
+                binding,
+                bindingState,
+                targetKind,
+                targetId);
+
+            PublishEvent(
+                EventNames.ResourceSurfaceBindingChanged,
+                new ResourceSurfaceBindingChangedPayload(
+                    resourceId.ToString(),
+                    resourceTypeId,
+                    resourceDisplayLabel,
+                    resourceTitle,
+                    binding,
+                    bindingState,
+                    targetId,
+                    worldAssignmentState));
         }
 
         private static void InitializePersistence()

@@ -1,47 +1,20 @@
 diff a/src/Constellate.App/ViewModels/MainWindowViewModel.PaneCommands.cs b/src/Constellate.App/ViewModels/MainWindowViewModel.PaneCommands.cs	(rejected hunks)
-@@ -237,42 +237,45 @@
-         RaiseChildPaneCollectionsChanged();
-         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
-         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
-         _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
-         _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
-     }
+@@ -497,12 +497,9 @@
+-            ChildPanes[i] = existing with
+-            {
+-                BaseTitle = existing.Title,
+-                BaseAppearanceVariant = existing.EffectiveAppearanceVariant,
+-                SourcePosture = ChildPaneSourcePosture.DetachedFromDefinition,
+-                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
+-                HasLocalModifications = false,
+-                HasSavedInstanceState = false
+-            };
++            ChildPanes[i] = (existing with
++            {
++                SourcePosture = ChildPaneSourcePosture.DetachedFromDefinition,
++                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
++                HasSavedInstanceState = false
++            }).WithCurrentLocalBaseline(hasSavedInstanceState: false);
  
-     private ParentPaneModel CreateParentPaneModel(string hostId)
-     {
-         var normalizedHost = NormalizeHostId(hostId);
-         var nextOrdinal = ParentPaneModels.Count(parent =>
-             string.Equals(NormalizeHostId(parent.HostId), normalizedHost, StringComparison.Ordinal)) + 1;
-         // Simple global ordinal for visibility during QA; note this is
-         // present-count based, so duplicates can occur if panes are removed/re-added.
-         // Good enough for test labeling; can be replaced later with a persistent counter.
-         var globalOrdinal = ParentPaneModels.Count + 1;
- 
-         return new ParentPaneModel
-         {
-             Id = $"parent.{normalizedHost}.{nextOrdinal}",
-             Title = $"Parent Pane #{globalOrdinal}",
-             HostId = normalizedHost,
-             IsMinimized = false,
-             SplitCount = 1,
-             SlideIndex = 0,
-             FloatingWidth = 320,
-             FloatingHeight = 240
-         };
-     }
-+
-+    // Legacy helper kept for compatibility; now sets pixels only if we need to seed
-+    // a single child with a default fixed size. No longer touches siblings.
-     /// <summary>
-     /// After a new child has been added to a parent/lane/slide, apply the MVP child sizing rule:
-     /// every newly created child begins at 25% occupancy of the lane's fixed viewport,
-     /// existing children keep their current occupancies,
-     /// and any remaining viewport space is filler until occupancy exceeds 1.0 and the lane scrolls.
-     /// </summary>
-     private void ApplyDefaultChildSizeForNewLaneMember(string parentId, int laneIndex, string newChildId)
-     {
-         var parent = ParentPaneModels.FirstOrDefault(p => string.Equals(p.Id, parentId, StringComparison.Ordinal));
-         if (parent is null)
-         {
-             return;
-         }
+             RaiseChildPaneCollectionsChanged();
+             return true;

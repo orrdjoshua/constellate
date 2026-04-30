@@ -174,7 +174,42 @@
                 CornerRadius="3" />
       </Canvas>
 
-      <Border IsVisible="{Binding HasCanonicalRecordDetailSurface}"
+      <Border IsVisible="{Binding HasSeededPaneCatalog}"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Margin="14,14,14,96"
+              Padding="10,8"
+              Background="#CC13202C"
+              BorderBrush="#FFC48A2F"
+              BorderThickness="1"
+              CornerRadius="6"
+              ZIndex="25">
+        <StackPanel Spacing="2">
+          <TextBlock Text="Seeded Pane Catalog"
+                     FontSize="11"
+                     Foreground="#FFFFD7A8" />
+          <TextBlock Text="{Binding SeededPaneCatalogPrimaryLabel}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="White" />
+          <TextBlock Text="{Binding SeededPaneCatalogSummary}"
+                     FontSize="11"
+                     Foreground="#FFE8E0D2" />
+          <ItemsControl IsVisible="{Binding HasSeededPaneCatalogWorkspacePreview}"
+                        ItemsSource="{Binding SeededPaneCatalogWorkspacePreviewLines}"
+                        Margin="0,4,0,0">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding .}"
+                           FontSize="10"
+                           Foreground="#FFBFD4E6" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border IsVisible="{Binding HasActiveResourceDetailSurface}"
               HorizontalAlignment="Left"
               VerticalAlignment="Bottom"
               Margin="14"
@@ -185,14 +220,14 @@
               CornerRadius="6"
               ZIndex="25">
         <StackPanel Spacing="2">
-          <TextBlock Text="Record Detail Surface"
+          <TextBlock Text="Resource Detail Surface"
                      FontSize="11"
                      Foreground="#FFBEE1FF" />
-          <TextBlock Text="{Binding CanonicalRecordDetailSurfaceTitle}"
+          <TextBlock Text="{Binding ActiveResourceDetailSurfaceTitle}"
                      FontSize="13"
                      FontWeight="SemiBold"
                      Foreground="White" />
-          <TextBlock Text="{Binding CanonicalRecordDetailSurfaceSubtitle}"
+          <TextBlock Text="{Binding ActiveResourceDetailSurfaceSubtitle}"
                      FontSize="11"
                      Foreground="#FFD3E0EF" />
         </StackPanel>

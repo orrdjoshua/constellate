@@ -13,6 +13,9 @@ namespace Constellate.Persistence.Bootstrap
         {
             BootstrapResult = bootstrapResult ?? throw new ArgumentNullException(nameof(bootstrapResult));
             EngineStateStore = new SeedEngineStateStore(bootstrapResult);
+            ProjectionBindingStore = new SeedEngineProjectionBindingStore(bootstrapResult);
+            PaneDefinitionStore = new SeedPaneDefinitionStore(bootstrapResult);
+            PaneWorkspaceStore = new SeedPaneWorkspaceStore(bootstrapResult);
             ResourceRegistryStore = new SeedResourceRegistryStore(bootstrapResult);
             NativeRecordStore = new SeedNativeRecordStore(bootstrapResult);
             ProviderRegistryStore = new SeedProviderRegistryStore(bootstrapResult);
@@ -22,6 +25,12 @@ namespace Constellate.Persistence.Bootstrap
         public PersistenceBootstrapResult BootstrapResult { get; }
 
         public IEngineStateStore EngineStateStore { get; }
+
+        public IEngineProjectionBindingStore ProjectionBindingStore { get; }
+
+        public IPaneDefinitionStore PaneDefinitionStore { get; }
+
+        public IPaneWorkspaceStore PaneWorkspaceStore { get; }
 
         public IResourceRegistryStore ResourceRegistryStore { get; }
 
@@ -33,6 +42,9 @@ namespace Constellate.Persistence.Bootstrap
 
         public void EnsureInitialized()
         {
+            ProjectionBindingStore.EnsureInitialized();
+            PaneDefinitionStore.EnsureInitialized();
+            PaneWorkspaceStore.EnsureInitialized();
             ResourceRegistryStore.EnsureInitialized();
             NativeRecordStore.EnsureInitialized();
             ProviderRegistryStore.EnsureInitialized();

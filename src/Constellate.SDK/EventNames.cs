@@ -12,6 +12,7 @@ namespace Constellate.SDK
         public const string FocusOriginChanged = "FocusOriginChanged";
         public const string PanelAttachmentsChanged = "PanelAttachmentsChanged";
         public const string InteractionModeChanged = "InteractionModeChanged";
+        public const string ResourceSurfaceBindingChanged = "ResourceSurfaceBindingChanged";
         public const string SceneChanged = "SceneChanged";
         public const string GroupChanged = "GroupChanged";
         public const string Error = "Error";

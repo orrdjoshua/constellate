@@ -72,19 +72,19 @@ namespace Constellate.Persistence.Registry
         private static ResourceRegistryRecord ToRecord(ResourceRegistration registration)
         {
             return new ResourceRegistryRecord(
-                registration.ResourceId.ToString(),
-                registration.TypeId,
-                registration.Family.ToString(),
-                registration.ProviderId,
-                registration.Origin.ToString(),
-                registration.EffectivePosture.ToString(),
-                registration.AuthorityMode,
-                registration.Locality,
-                registration.LifecycleState,
-                registration.DisplayLabel,
+                NormalizeRequired(registration.ResourceId.ToString()),
+                NormalizeRequired(registration.TypeId),
+                NormalizeRequired(registration.Family.ToString()),
+                NormalizeRequired(registration.ProviderId),
+                NormalizeRequired(registration.Origin.ToString()),
+                NormalizeRequired(registration.EffectivePosture.ToString()),
+                NormalizeRequired(registration.AuthorityMode),
+                NormalizeRequired(registration.Locality),
+                NormalizeRequired(registration.LifecycleState),
+                NormalizeRequired(registration.DisplayLabel),
                 registration.CreatedAt,
                 registration.UpdatedAt,
-                registration.PrimaryPayloadLocator);
+                NormalizeOptional(registration.PrimaryPayloadLocator));
         }
 
         private static ResourceRegistration ToRegistration(ResourceRegistryRecord record)
@@ -115,6 +115,22 @@ namespace Constellate.Persistence.Registry
                 record.CreatedAt,
                 record.UpdatedAt,
                 record.PrimaryPayloadLocator);
+        }
+
+        private static string NormalizeRequired(string value)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            return value.Trim();
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return value.Trim();
         }
     }
 }

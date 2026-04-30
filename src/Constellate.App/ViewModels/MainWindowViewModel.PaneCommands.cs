@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
+using Constellate.Core.Capabilities.Panes;
+using Constellate.Core.Messaging;
 
 namespace Constellate.App;
 
@@ -10,9 +14,6 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
-    private const string CanonicalRecordDetailPaneId = "record.detail.primary";
-    private const string CanonicalRecordDetailSurfaceRole = "resource.markdown.detail";
-
     /// <summary>
     /// Legacy MVP rule retained only as a creation-time fallback.
     /// Real persisted docked child sizing now lives in ChildPaneDescriptor.FixedSizePixels.
@@ -27,6 +28,23 @@ public sealed partial class MainWindowViewModel
     {
         var resolved = preferredSizeRatio ?? GetDefaultChildPanePreferredSizeRatio(parent);
         return Math.Clamp(resolved, 0.05, 0.95);
+    }
+
+    private static string NormalizeChildPaneAppearanceVariant(string? requestedVariant)
+    {
+        return ChildPaneDescriptor.NormalizeAppearanceVariant(requestedVariant);
+    }
+
+    private static bool ComputeChildPaneHasLocalModifications(
+        ChildPaneDescriptor pane,
+        string resolvedTitle,
+        string appearanceVariant,
+        string description)
+    {
+        return pane.ComputeHasLocalModifications(
+            title: resolvedTitle,
+            appearanceVariant: appearanceVariant,
+            description: description);
     }
 
     private void CreateChildPane(string? parentOrHost)
@@ -122,7 +140,10 @@ public sealed partial class MainWindowViewModel
             SlideIndex: slideIndex,
             PreferredSizeRatio: resolvedPreferredSizeRatio,
             ParentId: parentId,
-            FixedSizePixels: fixedPixels));
+            FixedSizePixels: fixedPixels,
+            BaseTitle: title,
+            SourcePosture: ChildPaneSourcePosture.CreatedLocalOnly,
+            DefinitionOriginKind: ChildPaneDefinitionOriginKind.LocalOnly));
 
         RaiseChildPaneCollectionsChanged();
 
@@ -130,7 +151,517 @@ public sealed partial class MainWindowViewModel
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
     }
 
-    private void UpsertCanonicalRecordDetailChildPane(
+    public bool TryApplyPaneDefinitionToChildPane(string childPaneId, string paneDefinitionId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(paneDefinitionId))
+        {
+            return false;
+        }
+
+        var paneDefinition = SeededPaneDefinitions.FirstOrDefault(definition =>
+            string.Equals(definition.PaneDefinitionId, paneDefinitionId, StringComparison.Ordinal));
+        if (paneDefinition is null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                Title = paneDefinition.DisplayLabel,
+                BaseTitle = paneDefinition.DisplayLabel,
+                Description = paneDefinition.Description ?? string.Empty,
+                BaseDescription = paneDefinition.Description ?? string.Empty,
+                AppearanceVariant = "default",
+                BaseAppearanceVariant = "default",
+                SourcePosture = ChildPaneSourcePosture.FromDefinition,
+                DefinitionOriginKind = paneDefinition.IsSeeded
+                    ? ChildPaneDefinitionOriginKind.Seeded
+                    : ChildPaneDefinitionOriginKind.UserAuthored,
+                DefinitionId = paneDefinition.PaneDefinitionId,
+                DefinitionLabel = paneDefinition.DisplayLabel,
+                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
+                HasLocalModifications = false,
+                HasSavedInstanceState = false,
+                SurfaceRole = null,
+                BoundViewRef = null,
+                BoundResourceTitle = null,
+                BoundResourceDisplayLabel = null,
+                ResourceContext = null
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryResetChildPaneToLocalNew(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                Title = "Untitled Pane",
+                BaseTitle = "Untitled Pane",
+                Description = string.Empty,
+                BaseDescription = string.Empty,
+                AppearanceVariant = "default",
+                BaseAppearanceVariant = "default",
+                SourcePosture = ChildPaneSourcePosture.CreatedLocalOnly,
+                DefinitionOriginKind = ChildPaneDefinitionOriginKind.LocalOnly,
+                DefinitionId = null,
+                DefinitionLabel = null,
+                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
+                HasLocalModifications = false,
+                HasSavedInstanceState = false,
+                SurfaceRole = null,
+                BoundViewRef = null,
+                BoundResourceTitle = null,
+                BoundResourceDisplayLabel = null,
+                ResourceContext = null
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TrySaveChildPaneInstanceOnly(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
+                !existing.CanSaveInstanceOnly)
+            {
+                continue;
+            }
+
+            ChildPanes[i] = existing.WithSavedInstanceOnlyState();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TrySetChildPaneLocalTitle(string childPaneId, string? requestedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        var normalizedTitle = string.IsNullOrWhiteSpace(requestedTitle)
+            ? null
+            : requestedTitle.Trim();
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var fallbackTitle = existing.TitleBaseline;
+            var resolvedTitle = string.IsNullOrWhiteSpace(normalizedTitle)
+                ? fallbackTitle
+                : normalizedTitle!;
+
+            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
+                existing,
+                resolvedTitle,
+                existing.EffectiveAppearanceVariant,
+                existing.EffectiveDescription);
+
+            if (string.Equals(existing.Title, resolvedTitle, StringComparison.Ordinal) &&
+                existing.HasLocalModifications == hasLocalModifications)
+            {
+                return false;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                Title = resolvedTitle
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryResetChildPaneLocalTitle(string childPaneId)
+    {
+        return TrySetChildPaneLocalTitle(childPaneId, null);
+    }
+
+    public bool TrySetChildPaneLocalDescription(string childPaneId, string? requestedDescription)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        var normalizedDescription = string.IsNullOrWhiteSpace(requestedDescription)
+            ? null
+            : requestedDescription.Trim();
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var resolvedDescription = normalizedDescription ?? existing.DescriptionBaseline;
+            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
+                existing,
+                existing.Title,
+                existing.EffectiveAppearanceVariant,
+                resolvedDescription);
+
+            if (string.Equals(existing.EffectiveDescription, resolvedDescription, StringComparison.Ordinal) &&
+                existing.HasLocalModifications == hasLocalModifications)
+            {
+                return false;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                Description = resolvedDescription
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryResetChildPaneLocalDescription(string childPaneId)
+    {
+        return TrySetChildPaneLocalDescription(childPaneId, null);
+    }
+
+    public bool TrySetChildPaneAppearanceVariant(string childPaneId, string? requestedVariant)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        var normalizedAppearanceVariant = NormalizeChildPaneAppearanceVariant(requestedVariant);
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
+                existing,
+                existing.Title,
+                normalizedAppearanceVariant,
+                existing.EffectiveDescription);
+
+            if (string.Equals(existing.EffectiveAppearanceVariant, normalizedAppearanceVariant, StringComparison.Ordinal) &&
+                existing.HasLocalModifications == hasLocalModifications)
+            {
+                return false;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                AppearanceVariant = normalizedAppearanceVariant
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryResetChildPaneAppearanceVariant(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        var existing = ChildPanes.FirstOrDefault(pane =>
+            string.Equals(pane.Id, childPaneId, StringComparison.Ordinal));
+
+        return existing is not null &&
+               TrySetChildPaneAppearanceVariant(childPaneId, existing.AppearanceVariantBaseline);
+    }
+
+    public bool TrySaveChildPaneAsNewDefinition(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var displayLabel = string.IsNullOrWhiteSpace(existing.Title)
+                ? "Untitled Pane"
+                : existing.Title.Trim();
+            var description = string.IsNullOrWhiteSpace(existing.EffectiveDescription)
+                ? null
+                : existing.EffectiveDescription;
+            var currentDefinitions = EngineServices.ListPaneDefinitions();
+            var definitionIds = new HashSet<string>(
+                currentDefinitions.Select(definition => definition.PaneDefinitionId),
+                StringComparer.Ordinal);
+            var newDefinitionId = BuildUniqueUserPaneDefinitionId(displayLabel, definitionIds);
+
+            PaneDefinitionDescriptor newDefinition;
+            if (!string.IsNullOrWhiteSpace(existing.DefinitionId) &&
+                EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var sourceDefinition))
+            {
+                var tags = sourceDefinition.Tags is null
+                    ? new[] { "user-authored" }
+                    : sourceDefinition.Tags
+                        .Append("user-authored")
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                newDefinition = sourceDefinition with
+                {
+                    PaneDefinitionId = newDefinitionId,
+                    DisplayLabel = displayLabel,
+                    Description = description,
+                    IsSeeded = false,
+                    Tags = tags
+                };
+            }
+            else
+            {
+                newDefinition = new PaneDefinitionDescriptor(
+                    newDefinitionId,
+                    displayLabel,
+                    PaneDefinitionKind.ChildPane,
+                    false,
+                    new[]
+                    {
+                        new PaneElementDescriptor(
+                            "definition.header",
+                            PaneElementKind.DefinitionHeader,
+                            displayLabel),
+                        new PaneElementDescriptor(
+                            "definition.placeholder",
+                            PaneElementKind.TextBlock,
+                            "Pane definition promoted from a local child pane instance.",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.LiteralText,
+                                "Pane definition promoted from a local child pane instance."))
+                    },
+                    description ?? "User-authored pane definition promoted from a live child pane instance.",
+                    new[] { "user-authored" });
+            }
+
+            EngineServices.SavePaneDefinition(newDefinition);
+            RefreshPaneDefinitionCatalogSnapshot();
+
+            ChildPanes[i] = (existing with
+            {
+                Title = displayLabel,
+                BaseTitle = displayLabel,
+                Description = newDefinition.Description ?? string.Empty,
+                BaseDescription = newDefinition.Description ?? string.Empty,
+                AppearanceVariant = existing.EffectiveAppearanceVariant,
+                BaseAppearanceVariant = existing.EffectiveAppearanceVariant,
+                SourcePosture = ChildPaneSourcePosture.FromDefinition,
+                DefinitionOriginKind = ChildPaneDefinitionOriginKind.UserAuthored,
+                DefinitionId = newDefinition.PaneDefinitionId,
+                DefinitionLabel = newDefinition.DisplayLabel,
+                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
+                HasSavedInstanceState = false
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryDetachChildPaneFromDefinition(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
+                !existing.IsDefinitionBacked)
+            {
+                continue;
+            }
+
+            ChildPanes[i] = existing.WithDetachedLocalBaseline();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryRevertChildPaneToDefinition(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
+                string.IsNullOrWhiteSpace(existing.DefinitionId) ||
+                !EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var definition))
+            {
+                continue;
+            }
+
+            ChildPanes[i] = (existing with
+            {
+                Title = definition.DisplayLabel,
+                BaseTitle = definition.DisplayLabel,
+                Description = definition.Description ?? string.Empty,
+                BaseDescription = definition.Description ?? string.Empty,
+                AppearanceVariant = "default",
+                BaseAppearanceVariant = "default",
+                SourcePosture = ChildPaneSourcePosture.FromDefinition,
+                DefinitionOriginKind = definition.IsSeeded
+                    ? ChildPaneDefinitionOriginKind.Seeded
+                    : ChildPaneDefinitionOriginKind.UserAuthored,
+                DefinitionLabel = definition.DisplayLabel,
+                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
+                HasLocalModifications = false,
+                HasSavedInstanceState = false,
+                SurfaceRole = null,
+                BoundViewRef = null,
+                BoundResourceTitle = null,
+                BoundResourceDisplayLabel = null,
+                ResourceContext = null
+            }).WithRecomputedLocalModifications();
+
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void RefreshPaneDefinitionCatalogSnapshot()
+    {
+        var definitions = EngineServices.ListPaneDefinitions();
+        SeededPaneDefinitions.Clear();
+
+        foreach (var definition in definitions)
+        {
+            SeededPaneDefinitions.Add(definition);
+        }
+
+        OnPropertyChanged(nameof(HasSeededPaneCatalog));
+        OnPropertyChanged(nameof(SeededPaneDefinitionCount));
+        OnPropertyChanged(nameof(SeededPaneCatalogPrimaryLabel));
+        OnPropertyChanged(nameof(SeededPaneCatalogSummary));
+    }
+
+    private static string BuildUniqueUserPaneDefinitionId(string displayLabel, IReadOnlySet<string> existingDefinitionIds)
+    {
+        var slugBuilder = new StringBuilder();
+        var lastWasSeparator = false;
+
+        foreach (var ch in displayLabel)
+        {
+            var normalized = char.ToLowerInvariant(ch);
+            if (char.IsLetterOrDigit(normalized))
+            {
+                slugBuilder.Append(normalized);
+                lastWasSeparator = false;
+                continue;
+            }
+
+            if (lastWasSeparator)
+            {
+                continue;
+            }
+
+            slugBuilder.Append('.');
+            lastWasSeparator = true;
+        }
+
+        var slug = slugBuilder
+            .ToString()
+            .Trim('.');
+        var baseId = string.IsNullOrWhiteSpace(slug)
+            ? "pane.user.authored"
+            : $"pane.user.{slug}";
+        var candidate = baseId;
+        var suffix = 2;
+
+        while (existingDefinitionIds.Contains(candidate))
+        {
+            candidate = $"{baseId}.{suffix}";
+            suffix++;
+        }
+
+        return candidate;
+    }
+
+    private void UpsertResourceBoundChildPane(
+        string paneId,
+        string paneTitle,
+        string surfaceRole,
         string? viewRef,
         string? resourceDisplayLabel,
         string? resourceTitle)
@@ -143,8 +674,11 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        var normalizedPaneTitle = string.IsNullOrWhiteSpace(paneTitle)
+            ? "Resource Detail"
+            : paneTitle.Trim();
         var normalizedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
-            ? "Record Detail"
+            ? normalizedPaneTitle
             : resourceTitle.Trim();
         var normalizedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
             ? normalizedResourceTitle
@@ -153,21 +687,21 @@ public sealed partial class MainWindowViewModel
             DisplayLabel: normalizedResourceDisplayLabel,
             Title: normalizedResourceTitle,
             ViewRef: normalizedViewRef,
-            SurfaceRole: CanonicalRecordDetailSurfaceRole);
+            SurfaceRole: surfaceRole);
 
         for (var i = 0; i < ChildPanes.Count; i++)
         {
             var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, CanonicalRecordDetailPaneId, StringComparison.Ordinal))
+            if (!string.Equals(existing.Id, paneId, StringComparison.Ordinal))
             {
                 continue;
             }
 
             ChildPanes[i] = existing with
             {
-                Title = "Record Detail",
+                Title = normalizedPaneTitle,
                 IsMinimized = false,
-                SurfaceRole = CanonicalRecordDetailSurfaceRole,
+                SurfaceRole = surfaceRole,
                 BoundViewRef = normalizedViewRef,
                 BoundResourceTitle = normalizedResourceTitle,
                 BoundResourceDisplayLabel = normalizedResourceDisplayLabel,
@@ -203,7 +737,7 @@ public sealed partial class MainWindowViewModel
                 : Math.Max(1.0, parent.BodyViewportWidth);
         }
 
-        var fixedPixels = Math.Max(1.0, fixedViewport * 0.25);
+        var fixedPixels = Math.Max(1.0, fixedViewport * ResolveChildPanePreferredSizeRatio(parent, 0.25));
         var insertOrder = anchorChild is not null
             ? anchorChild.Order + 1
             : ChildPanes.Count == 0
@@ -222,8 +756,8 @@ public sealed partial class MainWindowViewModel
         }
 
         ChildPanes.Add(new ChildPaneDescriptor(
-            CanonicalRecordDetailPaneId,
-            "Record Detail",
+            paneId,
+            normalizedPaneTitle,
             insertOrder,
             ContainerIndex: containerIndex,
             IsMinimized: false,
@@ -231,10 +765,11 @@ public sealed partial class MainWindowViewModel
             PreferredSizeRatio: preferredSizeRatio,
             ParentId: parent.Id,
             FixedSizePixels: fixedPixels,
-            SurfaceRole: CanonicalRecordDetailSurfaceRole,
+            SurfaceRole: surfaceRole,
             BoundViewRef: normalizedViewRef,
             BoundResourceTitle: normalizedResourceTitle,
             BoundResourceDisplayLabel: normalizedResourceDisplayLabel,
+            BaseTitle: normalizedPaneTitle,
             ResourceContext: resourceContext));
 
         RaiseChildPaneCollectionsChanged();
@@ -243,6 +778,123 @@ public sealed partial class MainWindowViewModel
         _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
         _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
     }
+
+    private static string BuildResourceBoundChildPaneId(string surfaceRole, string viewRef)
+    {
+        var seed = $"resource:{surfaceRole}:{viewRef}";
+        var builder = new StringBuilder(seed.Length);
+        var lastWasSeparator = false;
+
+        foreach (var ch in seed)
+        {
+            var normalized = char.ToLowerInvariant(ch);
+            if (char.IsLetterOrDigit(normalized))
+            {
+                builder.Append(normalized);
+                lastWasSeparator = false;
+                continue;
+            }
+
+            if (lastWasSeparator)
+            {
+                continue;
+            }
+
+            builder.Append('.');
+            lastWasSeparator = true;
+        }
+
+        var slug = builder.ToString().Trim('.');
+        return string.IsNullOrWhiteSpace(slug)
+            ? "pane.resource.detail"
+            : $"pane.{slug}";
+    }
+
+    private void UpsertResourceBoundDetailChildPane(
+        string surfaceRole,
+        string? viewRef,
+        string? resourceDisplayLabel,
+        string? resourceTitle)
+    {
+        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
+            ? string.Empty
+            : viewRef.Trim();
+        if (string.IsNullOrWhiteSpace(surfaceRole) || string.IsNullOrWhiteSpace(normalizedViewRef))
+        {
+            return;
+        }
+
+        UpsertResourceBoundChildPane(
+            BuildResourceBoundChildPaneId(surfaceRole, normalizedViewRef),
+            string.IsNullOrWhiteSpace(resourceTitle) ? "Resource Detail" : resourceTitle.Trim(),
+            surfaceRole,
+            normalizedViewRef,
+            resourceDisplayLabel,
+            resourceTitle);
+    }
+
+    private void ReconcileResourceBoundDetailChildPanes(IEnumerable<string> expectedPaneIds)
+    {
+        ArgumentNullException.ThrowIfNull(expectedPaneIds);
+
+        var expectedPaneIdSet = new HashSet<string>(expectedPaneIds, StringComparer.Ordinal);
+        var removedAny = false;
+
+        for (var i = ChildPanes.Count - 1; i >= 0; i--)
+        {
+            var pane = ChildPanes[i];
+            var surfaceBinding = GetPaneSurfaceBinding(pane);
+            if (surfaceBinding is null ||
+                !string.Equals(surfaceBinding.ProjectionMode, PaneSurfaceBinding.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(surfaceBinding.TargetSurfaceKind, PaneSurfaceBinding.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var autoGeneratedPaneId = BuildResourceBoundChildPaneId(surfaceBinding.SurfaceRole, surfaceBinding.ViewRef);
+            if (!string.Equals(pane.Id, autoGeneratedPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (expectedPaneIdSet.Contains(pane.Id))
+            {
+                continue;
+            }
+
+            ChildPanes.RemoveAt(i);
+            removedAny = true;
+        }
+
+        if (!removedAny)
+        {
+            return;
+        }
+
+        RaiseChildPaneCollectionsChanged();
+        _moveChildPaneUpCommand.RaiseCanExecuteChanged();
+        _moveChildPaneDownCommand.RaiseCanExecuteChanged();
+        _floatSettingsChildPaneCommand.RaiseCanExecuteChanged();
+        _dockSettingsChildPaneCommand.RaiseCanExecuteChanged();
+    }
+
+    private bool IsAutoGeneratedResourceBoundDetailPane(ChildPaneDescriptor pane)
+    {
+        var surfaceBinding = GetPaneSurfaceBinding(pane);
+        if (surfaceBinding is null ||
+            !string.Equals(surfaceBinding.ProjectionMode, PaneSurfaceBinding.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(surfaceBinding.TargetSurfaceKind, PaneSurfaceBinding.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var autoGeneratedPaneId = BuildResourceBoundChildPaneId(
+            surfaceBinding.SurfaceRole,
+            surfaceBinding.ViewRef);
+
+        return string.Equals(pane.Id, autoGeneratedPaneId, StringComparison.Ordinal);
+    }
+
 
     /// <summary>
     /// Create a new child pane against a specific parent/lane and insert it at the given insert index
@@ -281,7 +933,10 @@ public sealed partial class MainWindowViewModel
             SlideIndex: slideIndex,
             PreferredSizeRatio: 0.25,
             ParentId: parentId,
-            FixedSizePixels: fixedPixels));
+            FixedSizePixels: fixedPixels,
+            BaseTitle: title,
+            SourcePosture: ChildPaneSourcePosture.CreatedLocalOnly,
+            DefinitionOriginKind: ChildPaneDefinitionOriginKind.LocalOnly));
 
         // Place the brand-new child at the requested insert slot; will also reindex lane.
         PlaceChildInParentLane(id, parentId, Math.Max(0, laneIndex), Math.Max(0, insertIndex));

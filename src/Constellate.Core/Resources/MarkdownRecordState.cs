@@ -9,5 +9,11 @@ namespace Constellate.Core.Resources
         string MarkdownBody,
         int CurrentRevisionNumber,
         DateTimeOffset CreatedAt,
-        DateTimeOffset UpdatedAt);
+        DateTimeOffset UpdatedAt)
+    {
+        public string? ResourceTitle =>
+            string.IsNullOrWhiteSpace(Title)
+                ? null
+                : Title.Trim();
+    }
 }

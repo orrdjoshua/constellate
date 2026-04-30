@@ -6,6 +6,12 @@ namespace Constellate.Core.Storage
 
         IEngineStateStore EngineStateStore { get; }
 
+        IEngineProjectionBindingStore ProjectionBindingStore { get; }
+
+        IPaneDefinitionStore PaneDefinitionStore { get; }
+
+        IPaneWorkspaceStore PaneWorkspaceStore { get; }
+
         IResourceRegistryStore ResourceRegistryStore { get; }
 
         INativeRecordStore NativeRecordStore { get; }

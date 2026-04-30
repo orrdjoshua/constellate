@@ -7,6 +7,7 @@ using System.Numerics;
 using System.Text.Json;
 using System.Windows.Input;
 using Constellate.Core.Capabilities;
+using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Messaging;
 using Constellate.SDK;
 using Constellate.Core.Scene;
@@ -199,8 +200,57 @@ public sealed partial class MainWindowViewModel
 
     // Collections + capability list
     public ObservableCollection<EngineCapability> Capabilities { get; } = new(EngineServices.Capabilities.GetAll());
+    public ObservableCollection<PaneDefinitionDescriptor> SeededPaneDefinitions { get; } = new(EngineServices.ListPaneDefinitions());
+    public ObservableCollection<PaneWorkspaceDescriptor> SeededPaneWorkspaces { get; } = new(EngineServices.ListPaneWorkspaceDefinitions());
     public ObservableCollection<ChildPaneDescriptor> ChildPanes { get; } = new();
     public ObservableCollection<ParentPaneModel> ParentPaneModels { get; } = new();
+
+    public bool HasSeededPaneCatalog =>
+        SeededPaneDefinitions.Count > 0 || SeededPaneWorkspaces.Count > 0;
+
+    public int SeededPaneDefinitionCount => SeededPaneDefinitions.Count;
+
+    public int SeededPaneWorkspaceCount => SeededPaneWorkspaces.Count;
+
+    public string SeededPaneCatalogPrimaryLabel =>
+        SeededPaneWorkspaces.FirstOrDefault()?.DisplayLabel ??
+        SeededPaneDefinitions.FirstOrDefault()?.DisplayLabel ??
+        "No seeded pane catalog entries loaded.";
+
+    public string SeededPaneCatalogSummary =>
+        !HasSeededPaneCatalog
+            ? "Pane catalog not available."
+            : SeededPaneWorkspaces.FirstOrDefault() is { } workspace
+                ? $"{workspace.Members.Count} seeded panes · {string.Join(" • ", workspace.Members.OrderBy(member => member.Ordinal).Take(3).Select(member => $"{ResolveSeededPaneDefinitionLabel(member.PaneDefinitionId)} @ {member.HostHint}"))}"
+                : $"{SeededPaneDefinitionCount} pane definitions · {SeededPaneWorkspaceCount} workspaces";
+
+    public bool HasSeededPaneCatalogWorkspacePreview =>
+        SeededPaneWorkspaces.FirstOrDefault()?.Members.Count > 0;
+
+    public IReadOnlyList<string> SeededPaneCatalogWorkspacePreviewLines =>
+        GetSeededPaneCatalogWorkspacePreviewLines();
+
+    private IReadOnlyList<string> GetSeededPaneCatalogWorkspacePreviewLines()
+    {
+        var workspace = SeededPaneWorkspaces.FirstOrDefault();
+        if (workspace is null || workspace.Members.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return workspace.Members
+            .OrderBy(member => member.Ordinal)
+            .Select(member => $"{ResolveSeededPaneDefinitionLabel(member.PaneDefinitionId)} → {member.HostHint}")
+            .ToArray();
+    }
+
+    private string ResolveSeededPaneDefinitionLabel(string paneDefinitionId)
+    {
+        var definition = SeededPaneDefinitions.FirstOrDefault(candidate =>
+            string.Equals(candidate.PaneDefinitionId, paneDefinitionId, StringComparison.Ordinal));
+
+        return definition?.DisplayLabel ?? paneDefinitionId;
+    }
 
     // Declarative taxonomy of parent-pane hosts
     public IReadOnlyList<PaneHostDescriptor> PaneHosts { get; } =
@@ -440,6 +490,11 @@ public sealed partial class MainWindowViewModel
     public string ActiveResourceDetailSurfaceViewRef =>
         _activeResourceDetailViewRef;
 
+    public string ActiveResourceDetailSurfaceBindingKey =>
+        PaneSurfaceBinding.CreateResourceSurface(
+            _activeResourceDetailSurfaceRole,
+            _activeResourceDetailViewRef)?.BindingKey ?? string.Empty;
+
     public string ActiveResourceDetailPrimaryPaneId =>
         GetActiveResourceDetailPrimaryPaneId();
 
@@ -452,30 +507,6 @@ public sealed partial class MainWindowViewModel
         string.IsNullOrWhiteSpace(_activeResourceDetailSubtitle)
             ? "Waiting for an active resource detail binding."
             : _activeResourceDetailSubtitle;
-
-    public bool HasCanonicalRecordDetailSurface =>
-        HasActiveResourceDetailSurface &&
-        string.Equals(_activeResourceDetailSurfaceRole, CanonicalRecordDetailSurfaceRole, StringComparison.Ordinal);
-
-    public string CanonicalRecordDetailSurfaceViewRef =>
-        HasCanonicalRecordDetailSurface
-            ? ActiveResourceDetailSurfaceViewRef
-            : string.Empty;
-
-    public string CanonicalRecordDetailPrimaryPaneId =>
-        HasCanonicalRecordDetailSurface
-            ? ActiveResourceDetailPrimaryPaneId
-            : "shell.current";
-
-    public string CanonicalRecordDetailSurfaceTitle =>
-        !HasCanonicalRecordDetailSurface
-            ? "Markdown Detail"
-            : ActiveResourceDetailSurfaceTitle;
-
-    public string CanonicalRecordDetailSurfaceSubtitle =>
-        !HasCanonicalRecordDetailSurface
-            ? "Waiting for a canonical markdown detail binding."
-            : ActiveResourceDetailSurfaceSubtitle;
 
     private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
     {
@@ -499,14 +530,24 @@ public sealed partial class MainWindowViewModel
             SurfaceRole: pane.SurfaceRole);
     }
 
+    private static PaneSurfaceBinding? GetPaneSurfaceBinding(ChildPaneDescriptor pane)
+    {
+        return pane.SurfaceBinding ?? GetPaneEffectiveResourceContext(pane)?.SurfaceBinding;
+    }
+
     private static string? GetPaneSurfaceRole(ChildPaneDescriptor pane)
     {
-        return GetPaneEffectiveResourceContext(pane)?.SurfaceRole;
+        return GetPaneSurfaceBinding(pane)?.SurfaceRole;
     }
 
     private static string? GetPaneViewRef(ChildPaneDescriptor pane)
     {
-        return GetPaneEffectiveResourceContext(pane)?.ViewRef;
+        return GetPaneSurfaceBinding(pane)?.ViewRef;
+    }
+
+    private static string GetPaneSurfaceBindingKey(ChildPaneDescriptor pane)
+    {
+        return GetPaneSurfaceBinding(pane)?.BindingKey ?? string.Empty;
     }
 
     private string GetActiveResourceDetailPrimaryPaneId()
@@ -516,10 +557,13 @@ public sealed partial class MainWindowViewModel
             return "shell.current";
         }
 
+        var activeBindingKey = ActiveResourceDetailSurfaceBindingKey;
         var dedicatedPane = ChildPanes.FirstOrDefault(pane =>
-            string.Equals(GetPaneSurfaceRole(pane), _activeResourceDetailSurfaceRole, StringComparison.Ordinal) &&
-            !string.IsNullOrWhiteSpace(GetPaneViewRef(pane)) &&
-            string.Equals(GetPaneViewRef(pane), _activeResourceDetailViewRef, StringComparison.Ordinal));
+            !string.IsNullOrWhiteSpace(activeBindingKey) &&
+            string.Equals(
+                GetPaneSurfaceBindingKey(pane),
+                activeBindingKey,
+                StringComparison.Ordinal));
 
         return dedicatedPane?.Id ?? "shell.current";
     }
@@ -537,11 +581,9 @@ public sealed partial class MainWindowViewModel
             : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
                 ? resourceDisplayLabel.Trim()
                 : "Resource Detail";
-        var normalizedSubtitle = string.IsNullOrWhiteSpace(normalizedViewRef)
-            ? "Waiting for an active resource detail binding."
-            : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
-                ? $"{resourceDisplayLabel.Trim()} · {normalizedViewRef}"
-                : normalizedViewRef;
+        var normalizedSubtitle = BuildActiveResourceDetailSurfaceSubtitle(
+            normalizedSurfaceRole,
+            normalizedViewRef);
 
         if (_activeResourceDetailSurfaceRole == normalizedSurfaceRole &&
             _activeResourceDetailViewRef == normalizedViewRef &&
@@ -557,24 +599,26 @@ public sealed partial class MainWindowViewModel
         _activeResourceDetailSubtitle = normalizedSubtitle;
         OnPropertyChanged(nameof(HasActiveResourceDetailSurface));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceRole));
+        OnPropertyChanged(nameof(ActiveResourceDetailSurfaceBindingKey));
         OnPropertyChanged(nameof(ActiveResourceDetailPrimaryPaneId));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceViewRef));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceTitle));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceSubtitle));
-        OnPropertyChanged(nameof(HasCanonicalRecordDetailSurface));
-        OnPropertyChanged(nameof(CanonicalRecordDetailPrimaryPaneId));
-        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceViewRef));
-        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceTitle));
-        OnPropertyChanged(nameof(CanonicalRecordDetailSurfaceSubtitle));
     }
 
-    private void SetCanonicalRecordDetailSurface(string? viewRef, string? resourceDisplayLabel, string? resourceTitle)
+    private static string BuildActiveResourceDetailSurfaceSubtitle(string surfaceRole, string viewRef)
     {
-        SetActiveResourceDetailSurface(
-            CanonicalRecordDetailSurfaceRole,
-            viewRef,
-            resourceDisplayLabel,
-            resourceTitle);
+        if (string.IsNullOrWhiteSpace(viewRef))
+        {
+            return "Waiting for an active resource detail binding.";
+        }
+
+        if (string.IsNullOrWhiteSpace(surfaceRole))
+        {
+            return viewRef;
+        }
+
+        return $"{surfaceRole} · {viewRef}";
     }
 
     // Overlay-dock migration toggle: when true, docked parents are also realized

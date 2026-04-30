@@ -22,6 +22,7 @@ namespace Constellate.App
                 Dispatcher.UIThread.Post(() =>
                 {
                     UpdateLastActivity(eventName, activityLabel, envelope);
+                    TrySyncActiveResourceDetailSurfaceFromPersistence();
                     RefreshFromEngineState();
                 });
 
@@ -59,6 +60,94 @@ namespace Constellate.App
                 return true;
             });
         }
+
+        private IDisposable SubscribeResourceSurfaceBinding()
+        {
+            return EngineServices.EventBus.Subscribe(EventNames.ResourceSurfaceBindingChanged, envelope =>
+            {
+                if (!TryDeserialize(envelope.Payload, out ResourceSurfaceBindingChangedPayload? payload) || payload is null)
+                {
+                    return false;
+                }
+
+                var resolvedPayload = payload;
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    UpdateLastActivity(EventNames.ResourceSurfaceBindingChanged, "resource surface binding changed", envelope);
+                    TryTrackResourceSurfaceBinding(resolvedPayload);
+                    TrySyncActiveResourceDetailSurfaceFromPersistence();
+                    RefreshFromEngineState();
+                });
+
+                return true;
+            });
+        }
+
+        private void TryTrackResourceSurfaceBinding(ResourceSurfaceBindingChangedPayload payload)
+        {
+            if (!payload.IsActive ||
+                !string.Equals(payload.Binding.ProjectionMode, ResourceSurfaceBindingPayload.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(payload.Binding.TargetSurfaceKind, ResourceSurfaceBindingPayload.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            SetActiveResourceDetailSurface(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
+            UpsertResourceBoundDetailChildPane(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
+        }
+
+        private void TrySyncActiveResourceDetailSurfaceFromPersistence()
+        {
+            var detailBindings = EngineServices
+                .ListResolvedResourceSurfaceBindings(
+                    projectionMode: ResourceSurfaceBindingPayload.ProjectionModeDetail,
+                    targetSurfaceKind: ResourceSurfaceBindingPayload.TargetSurfaceKindChildPaneBody,
+                    activeOnly: true)
+                .ToArray();
+
+            var expectedPaneIds = detailBindings
+                .Select(detailBinding => BuildResourceBoundChildPaneId(detailBinding.SurfaceRole, detailBinding.ViewRef))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            ReconcileResourceBoundDetailChildPanes(expectedPaneIds);
+
+            if (detailBindings.Length == 0)
+            {
+                SetActiveResourceDetailSurface(null, null, null, null);
+                return;
+            }
+
+            foreach (var detailBinding in detailBindings)
+            {
+                UpsertResourceBoundDetailChildPane(
+                    detailBinding.SurfaceRole,
+                    detailBinding.ViewRef,
+                    detailBinding.ResourceDisplayLabel,
+                    detailBinding.ResourceTitle);
+            }
+
+            var activeBindingKey = ActiveResourceDetailSurfaceBindingKey;
+            var activeDetailBinding = detailBindings.FirstOrDefault(detailBinding =>
+                    !string.IsNullOrWhiteSpace(activeBindingKey) &&
+                    string.Equals(detailBinding.BindingKey, activeBindingKey, StringComparison.Ordinal))
+                ?? detailBindings[0];
+
+            SetActiveResourceDetailSurface(
+                activeDetailBinding.SurfaceRole,
+                activeDetailBinding.ViewRef,
+                activeDetailBinding.ResourceDisplayLabel,
+                activeDetailBinding.ResourceTitle);
+        }
+
+        private void MaterializePersistedResourceDetailSurfacesAtStartup()
+        {
+            RefreshFromEngineState();
+            TrySyncActiveResourceDetailSurfaceFromPersistence();
+            RefreshFromEngineState();
+        }
+
 
         private void SendCommand<TPayload>(string commandName, TPayload payload)
         {
@@ -103,7 +192,7 @@ namespace Constellate.App
         private void UpdateLastActivity(string eventName, string activityLabel, Envelope envelope)
         {
             AddHistoryEntry(eventName, envelope);
-            TryTrackCanonicalRecordDetailSurface(eventName, envelope);
+            TryTrackCompatibilityDetailSurfaceFallback(eventName, envelope);
             var detail = TryDescribeActivity(envelope);
             _lastActivitySummary = string.IsNullOrWhiteSpace(detail)
                 ? $"Last Activity: {activityLabel} ({eventName}) @ {envelope.Ts:HH:mm:ss}"
@@ -111,26 +200,36 @@ namespace Constellate.App
             OnPropertyChanged(nameof(LastActivitySummary));
         }
 
-        private void TryTrackCanonicalRecordDetailSurface(string eventName, Envelope envelope)
+        private void TryTrackCompatibilityDetailSurfaceFallback(string eventName, Envelope envelope)
         {
-            if (envelope.Payload is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
+            if (string.Equals(eventName, EventNames.ResourceSurfaceBindingChanged, StringComparison.Ordinal) ||
+                envelope.Payload is not JsonElement payload ||
+                payload.ValueKind != JsonValueKind.Object)
             {
                 return;
             }
 
-            if (!TryGetString(payload, "viewRef", out var viewRef) ||
-                !viewRef.StartsWith($"{MarkdownRecordResourceDescriptor.DefaultDetailViewRefPrefix}:", StringComparison.OrdinalIgnoreCase))
+            if (!TryGetString(payload, "viewRef", out var viewRef))
             {
                 return;
             }
 
-            if (string.Equals(eventName, EventNames.PanelAttachmentsChanged, StringComparison.Ordinal) &&
-                (!TryGetString(payload, "surfaceRole", out var surfaceRole) ||
-                 !string.Equals(surfaceRole, "detail", StringComparison.OrdinalIgnoreCase)))
+            if (TryResolveExplicitDetailSurfaceRole(payload, out var explicitSurfaceRole))
+            {
+                TrackActiveResourceDetailSurfaceFromPayload(explicitSurfaceRole, viewRef, payload);
+                return;
+            }
+
+            if (!TryInferLegacyMarkdownDetailSurfaceRole(viewRef, out var legacySurfaceRole))
             {
                 return;
             }
 
+            TrackActiveResourceDetailSurfaceFromPayload(legacySurfaceRole, viewRef, payload);
+        }
+
+        private void TrackActiveResourceDetailSurfaceFromPayload(string surfaceRole, string viewRef, JsonElement payload)
+        {
             var hasResourceDisplayLabel = TryGetString(payload, "resourceDisplayLabel", out var resourceDisplayLabel);
             var hasResourceTitle = TryGetString(payload, "resourceTitle", out var resourceTitle);
 
@@ -138,14 +237,48 @@ namespace Constellate.App
             var resolvedResourceTitle = hasResourceTitle ? resourceTitle : null;
 
             SetActiveResourceDetailSurface(
-                CanonicalRecordDetailSurfaceRole,
+                surfaceRole,
                 viewRef,
                 resolvedResourceDisplayLabel,
                 resolvedResourceTitle);
-            UpsertCanonicalRecordDetailChildPane(
+            UpsertResourceBoundDetailChildPane(
+                surfaceRole,
                 viewRef,
                 resolvedResourceDisplayLabel,
                 resolvedResourceTitle);
+        }
+
+        private static bool TryResolveExplicitDetailSurfaceRole(JsonElement payload, out string surfaceRole)
+        {
+            surfaceRole = string.Empty;
+
+            if (!TryGetString(payload, "surfaceRole", out var explicitSurfaceRole) ||
+                !IsDetailSurfaceRole(explicitSurfaceRole))
+            {
+                return false;
+            }
+
+            surfaceRole = explicitSurfaceRole;
+            return true;
+        }
+
+        private static bool TryInferLegacyMarkdownDetailSurfaceRole(string viewRef, out string surfaceRole)
+        {
+            surfaceRole = string.Empty;
+
+            if (!viewRef.StartsWith($"{MarkdownRecordResourceDescriptor.DefaultDetailViewRefPrefix}:", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            surfaceRole = MarkdownRecordResourceDescriptor.DefaultDetailSurfaceRole;
+            return true;
+        }
+
+        private static bool IsDetailSurfaceRole(string surfaceRole)
+        {
+            return string.Equals(surfaceRole, "detail", StringComparison.OrdinalIgnoreCase) ||
+                   surfaceRole.Contains("detail", StringComparison.OrdinalIgnoreCase);
         }
 
         private void AddHistoryEntry(string eventName, Envelope envelope)
@@ -275,6 +408,25 @@ namespace Constellate.App
             }
 
             return envelope.Name;
+        }
+
+        private static bool TryDeserialize<T>(JsonElement? payload, out T? value)
+        {
+            value = default;
+            if (payload is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                value = payload.Value.Deserialize<T>(JsonOptions);
+                return value is not null;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool TryGetString(JsonElement element, string propertyName, out string value)

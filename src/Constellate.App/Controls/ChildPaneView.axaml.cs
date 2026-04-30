@@ -2,14 +2,17 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using Constellate.App.Controls.Panes;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Constellate.App.Controls.Panes;
+using Constellate.Core.Capabilities.Panes;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using Avalonia.Threading;
-using Avalonia.Layout;
+using System.Linq;
 
 namespace Constellate.App.Controls
 {
@@ -23,6 +26,9 @@ namespace Constellate.App.Controls
         private Border? _boundResourceContextReadout;
         private TextBlock? _boundResourceContextTitleText;
         private TextBlock? _boundResourceContextSubtitleText;
+        private ComboBox? _paneDefinitionPicker;
+        private TextBox? _localTitleOverrideTextBox;
+        private TextBox? _localDescriptionTextBox;
 
         public ChildPaneView()
         {
@@ -38,6 +44,9 @@ namespace Constellate.App.Controls
             _boundResourceContextReadout = this.FindControl<Border>("BoundResourceContextReadout");
             _boundResourceContextTitleText = this.FindControl<TextBlock>("BoundResourceContextTitleText");
             _boundResourceContextSubtitleText = this.FindControl<TextBlock>("BoundResourceContextSubtitleText");
+            _paneDefinitionPicker = this.FindControl<ComboBox>("PaneDefinitionPicker");
+            _localTitleOverrideTextBox = this.FindControl<TextBox>("LocalTitleOverrideTextBox");
+            _localDescriptionTextBox = this.FindControl<TextBox>("LocalDescriptionTextBox");
             Debug.WriteLine($"[HeaderScroll][Child][Wire] init: chrome={_root is not null} headerScroll={_headerScroll is not null}");
 
             // React to item replacement in the ItemsControl:
@@ -54,6 +63,8 @@ namespace Constellate.App.Controls
                 RewireWindowViewModel();
                 ApplyFloatingMinimizedWidthIfNeeded();
                 SyncBoundResourceContextReadout();
+                SyncPaneDefinitionPickerSelection();
+                SyncLocalDescriptionOverrideText();
             }, DispatcherPriority.Background);
             DetachedFromVisualTree += (_, __) => UnwireWindowViewModel();
         }
@@ -67,6 +78,9 @@ namespace Constellate.App.Controls
             // Apply min-height rule initially after data context update
             Dispatcher.UIThread.Post(ApplyMinHeightFromHeader, DispatcherPriority.Background);
             Dispatcher.UIThread.Post(SyncBoundResourceContextReadout, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
         }
 
         private void OnHeaderMetricChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -115,6 +129,8 @@ namespace Constellate.App.Controls
             if (ReferenceEquals(_windowViewModel, nextWindowViewModel))
             {
                 SyncBoundResourceContextReadout();
+                SyncPaneDefinitionPickerSelection();
+                SyncLocalDescriptionOverrideText();
                 return;
             }
 
@@ -127,6 +143,9 @@ namespace Constellate.App.Controls
             }
 
             SyncBoundResourceContextReadout();
+            SyncPaneDefinitionPickerSelection();
+            SyncLocalTitleOverrideText();
+            SyncLocalDescriptionOverrideText();
         }
 
         private void UnwireWindowViewModel()
@@ -141,15 +160,19 @@ namespace Constellate.App.Controls
         private void OnWindowViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (!string.IsNullOrWhiteSpace(e.PropertyName) &&
-                e.PropertyName != nameof(MainWindowViewModel.HasCanonicalRecordDetailSurface) &&
-                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailPrimaryPaneId) &&
-                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailSurfaceTitle) &&
-                e.PropertyName != nameof(MainWindowViewModel.CanonicalRecordDetailSurfaceSubtitle))
+                e.PropertyName != nameof(MainWindowViewModel.HasActiveResourceDetailSurface) &&
+                e.PropertyName != nameof(MainWindowViewModel.ActiveResourceDetailPrimaryPaneId) &&
+                e.PropertyName != nameof(MainWindowViewModel.ActiveResourceDetailSurfaceTitle) &&
+                e.PropertyName != nameof(MainWindowViewModel.ActiveResourceDetailSurfaceSubtitle) &&
+                e.PropertyName != nameof(MainWindowViewModel.SeededPaneDefinitions))
             {
                 return;
             }
 
             Dispatcher.UIThread.Post(SyncBoundResourceContextReadout, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
         }
 
         private ChildPaneResourceContext? GetEffectiveResourceContext()
@@ -204,12 +227,6 @@ namespace Constellate.App.Controls
                         : "Bound Resource";
                 var subtitle = string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(resourceDisplayLabel) &&
-                    !string.Equals(resourceDisplayLabel, resolvedTitle, StringComparison.Ordinal))
-                {
-                    subtitle = resourceDisplayLabel;
-                }
-
                 if (!string.IsNullOrWhiteSpace(surfaceRole))
                 {
                     subtitle = string.IsNullOrWhiteSpace(subtitle)
@@ -233,62 +250,256 @@ namespace Constellate.App.Controls
                 return;
             }
 
-            var modelSurfaceRole = _model?.ResourceContext?.SurfaceRole ?? _model?.SurfaceRole;
-            var modelBoundViewRef = _model?.ResourceContext?.ViewRef ?? _model?.BoundViewRef;
             var isCurrentShellPane = string.Equals(_model?.Id, "shell.current", StringComparison.Ordinal);
-            var isDedicatedRecordDetailPane = string.Equals(modelSurfaceRole, "resource.markdown.detail", StringComparison.Ordinal);
-            var hasCanonicalRecordDetail = _windowViewModel?.HasCanonicalRecordDetailSurface == true;
-            var canonicalViewRef = _windowViewModel?.CanonicalRecordDetailSurfaceViewRef ?? string.Empty;
-            var primaryPaneId = _windowViewModel?.CanonicalRecordDetailPrimaryPaneId ?? string.Empty;
+            var hasActiveResourceDetailSurface = _windowViewModel?.HasActiveResourceDetailSurface == true;
+            var primaryPaneId = _windowViewModel?.ActiveResourceDetailPrimaryPaneId ?? string.Empty;
             var isPrimaryConsumerPane = !string.IsNullOrWhiteSpace(_model?.Id) &&
                                         string.Equals(_model!.Id, primaryPaneId, StringComparison.Ordinal);
-            var matchesDedicatedRecordBinding = isDedicatedRecordDetailPane &&
-                                               !string.IsNullOrWhiteSpace(modelBoundViewRef) &&
-                                               string.Equals(modelBoundViewRef, canonicalViewRef, StringComparison.Ordinal);
 
-            _boundResourceContextReadout.IsVisible = hasCanonicalRecordDetail &&
+            _boundResourceContextReadout.IsVisible = hasActiveResourceDetailSurface &&
                                                     isPrimaryConsumerPane &&
-                                                    (isCurrentShellPane || matchesDedicatedRecordBinding);
-            _boundResourceContextTitleText.Text = matchesDedicatedRecordBinding
-                ? _model?.BoundResourceTitle ?? _windowViewModel?.CanonicalRecordDetailSurfaceTitle ?? "Markdown Detail"
-                : hasCanonicalRecordDetail
-                    ? _windowViewModel?.CanonicalRecordDetailSurfaceTitle ?? "Markdown Detail"
-                    : string.Empty;
-            _boundResourceContextSubtitleText.Text = matchesDedicatedRecordBinding
-                ? !string.IsNullOrWhiteSpace(_model?.BoundResourceDisplayLabel)
-                    ? $"{_model!.BoundResourceDisplayLabel} · {_model.BoundViewRef}"
-                    : _model?.BoundViewRef ?? string.Empty
-                : hasCanonicalRecordDetail
-                    ? _windowViewModel?.CanonicalRecordDetailSurfaceSubtitle ?? string.Empty
-                    : string.Empty;
+                                                    isCurrentShellPane;
+            _boundResourceContextTitleText.Text = _boundResourceContextReadout.IsVisible
+                ? _windowViewModel?.ActiveResourceDetailSurfaceTitle ?? "Resource Detail"
+                : string.Empty;
+            _boundResourceContextSubtitleText.Text = _boundResourceContextReadout.IsVisible
+                ? _windowViewModel?.ActiveResourceDetailSurfaceSubtitle ?? string.Empty
+                : string.Empty;
 
-            if (matchesDedicatedRecordBinding && isPrimaryConsumerPane)
+            if (isCurrentShellPane && hasActiveResourceDetailSurface && isPrimaryConsumerPane)
             {
-                _emptyChildPaneBodyText.Text = "Dedicated record detail pane is consuming the canonical record detail binding.";
+                _emptyChildPaneBodyText.Text = "Current shell pane is consuming the active resource detail binding.";
             }
-            else if (isCurrentShellPane && hasCanonicalRecordDetail && isPrimaryConsumerPane)
+            else if (isCurrentShellPane && hasActiveResourceDetailSurface)
             {
-                _emptyChildPaneBodyText.Text = "Current shell pane is consuming the canonical record detail binding.";
-            }
-            else if (isCurrentShellPane && hasCanonicalRecordDetail)
-            {
-                _emptyChildPaneBodyText.Text = "Canonical record detail binding is currently consumed by the dedicated record detail pane.";
+                _emptyChildPaneBodyText.Text = "Active resource detail binding is currently consumed by another pane.";
             }
             else if (isCurrentShellPane)
             {
-                _emptyChildPaneBodyText.Text = "Waiting for canonical record detail binding.";
-            }
-            else if (isDedicatedRecordDetailPane && hasCanonicalRecordDetail)
-            {
-                _emptyChildPaneBodyText.Text = "Waiting for this pane to bind to the active canonical record detail surface.";
-            }
-            else if (isDedicatedRecordDetailPane)
-            {
-                _emptyChildPaneBodyText.Text = "Waiting for a bound canonical record detail surface.";
+                _emptyChildPaneBodyText.Text = "Waiting for an active resource detail binding.";
             }
             else
             {
                 _emptyChildPaneBodyText.Text = "(empty child pane)";
+            }
+        }
+
+        private void SyncPaneDefinitionPickerSelection()
+        {
+            if (_paneDefinitionPicker is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_model is null || string.IsNullOrWhiteSpace(_model.DefinitionId))
+            {
+                if (_paneDefinitionPicker.SelectedItem is not null)
+                {
+                    _paneDefinitionPicker.SelectedItem = null;
+                }
+
+                return;
+            }
+
+            var selectedDefinition = _windowViewModel.SeededPaneDefinitions.FirstOrDefault(definition =>
+                string.Equals(definition.PaneDefinitionId, _model.DefinitionId, StringComparison.Ordinal));
+
+            if (!ReferenceEquals(_paneDefinitionPicker.SelectedItem, selectedDefinition))
+            {
+                _paneDefinitionPicker.SelectedItem = selectedDefinition;
+            }
+        }
+
+        private void SyncLocalTitleOverrideText()
+        {
+            if (_localTitleOverrideTextBox is null)
+            {
+                return;
+            }
+
+            var modelTitle = _model?.Title ?? string.Empty;
+            if (!string.Equals(_localTitleOverrideTextBox.Text, modelTitle, StringComparison.Ordinal))
+            {
+                _localTitleOverrideTextBox.Text = modelTitle;
+            }
+        }
+
+        private void SyncLocalDescriptionOverrideText()
+        {
+            if (_localDescriptionTextBox is null)
+            {
+                return;
+            }
+
+            var modelDescription = _model?.EffectiveDescription ?? string.Empty;
+            if (!string.Equals(_localDescriptionTextBox.Text, modelDescription, StringComparison.Ordinal))
+            {
+                _localDescriptionTextBox.Text = modelDescription;
+            }
+        }
+
+        private void OnLoadExistingPaneClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null ||
+                _windowViewModel is null ||
+                _paneDefinitionPicker?.SelectedItem is not PaneDefinitionDescriptor definition)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryApplyPaneDefinitionToChildPane(_model.Id, definition.PaneDefinitionId))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnCreateNewPaneClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryResetChildPaneToLocalNew(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnApplyLocalTitleOverrideClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            var requestedTitle = _localTitleOverrideTextBox?.Text;
+            if (_windowViewModel.TrySetChildPaneLocalTitle(_model.Id, requestedTitle))
+            {
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnResetLocalTitleOverrideClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryResetChildPaneLocalTitle(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnApplyLocalDescriptionOverrideClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            var requestedDescription = _localDescriptionTextBox?.Text;
+            if (_windowViewModel.TrySetChildPaneLocalDescription(_model.Id, requestedDescription))
+            {
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnResetLocalDescriptionOverrideClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryResetChildPaneLocalDescription(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnApplyLocalAppearanceVariantClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null || sender is not Button button)
+            {
+                return;
+            }
+
+            var requestedVariant = button.Tag as string;
+            _windowViewModel.TrySetChildPaneAppearanceVariant(_model.Id, requestedVariant);
+        }
+
+        private void OnResetLocalAppearanceVariantClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryResetChildPaneAppearanceVariant(_model.Id);
+        }
+
+        private void OnSaveInstanceOnlyClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TrySaveChildPaneInstanceOnly(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnSaveAsNewDefinitionClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TrySaveChildPaneAsNewDefinition(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnDetachFromDefinitionClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryDetachChildPaneFromDefinition(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
+            }
+        }
+
+        private void OnRevertToDefinitionClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (_windowViewModel.TryRevertChildPaneToDefinition(_model.Id))
+            {
+                Dispatcher.UIThread.Post(SyncPaneDefinitionPickerSelection, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalTitleOverrideText, DispatcherPriority.Background);
+                Dispatcher.UIThread.Post(SyncLocalDescriptionOverrideText, DispatcherPriority.Background);
             }
         }
 

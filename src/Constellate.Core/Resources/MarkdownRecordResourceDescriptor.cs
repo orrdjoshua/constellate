@@ -14,6 +14,7 @@ namespace Constellate.Core.Resources
         public const string DefaultAuthorityMode = "EngineNative";
         public const string DefaultLocality = "Local";
         public const string DefaultDetailViewRefPrefix = "resource.markdown.detail";
+        public const string DefaultDetailSurfaceRole = "resource.markdown.detail";
         public const string DefaultLifecycleState = "Created";
 
         public static ResourceTypeDescriptor ResourceType { get; } = ResourceTypeDescriptor.Create(
