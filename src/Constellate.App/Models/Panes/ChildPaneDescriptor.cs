@@ -395,7 +395,8 @@ public sealed record ChildPaneDescriptor(
     string AppearanceVariant = "default",
     string? BaseAppearanceVariant = null,
     string? Description = null,
-    string? BaseDescription = null)
+    string? BaseDescription = null,
+    bool IsInlineRenaming = false)
 {
     public ChildPaneResourceContext? EffectiveResourceContext =>
         ResourceContext ??
@@ -444,6 +445,10 @@ public sealed record ChildPaneDescriptor(
             ? "This pane is currently bound to a resource context."
             : "(empty child pane)";
 
+    public bool ShouldShowDefaultEmptyBodyText =>
+        !HasDefinitionIdentity &&
+        !HasDirectBoundResourceContextPresentation;
+
     public string SurfaceBindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
 
     public bool IsDefinitionBacked => SourcePosture == ChildPaneSourcePosture.FromDefinition;
@@ -475,6 +480,9 @@ public sealed record ChildPaneDescriptor(
 
     public bool HasPaneSourcePresentation =>
         SourcePosture != ChildPaneSourcePosture.Unspecified;
+
+    public bool HasPaneSourceTextLabel =>
+        !string.IsNullOrWhiteSpace(PaneSourceLabel);
 
     public string EffectiveDefinitionLabel =>
         !string.IsNullOrWhiteSpace(DefinitionLabel)
@@ -766,12 +774,8 @@ public sealed record ChildPaneDescriptor(
                         ? "Detached local pane · saved locally"
                         : "Detached local pane",
             ChildPaneSourcePosture.CreatedLocalOnly => HasLocalModifications
-                ? HasSavedInstanceState
-                    ? "Local pane · saved in this workspace · local changes"
-                    : "Local pane · local changes"
-                : HasSavedInstanceState
-                    ? "Local pane · saved in this workspace"
-                    : "Local pane · not saved for reuse",
+                ? string.Empty
+                : string.Empty,
             _ => string.Empty
         };
 
@@ -971,6 +975,27 @@ public sealed record ChildPaneDescriptor(
     public ChildPaneDescriptor WithRevertedToDefinition(PaneDefinitionDescriptor definition)
     {
         return WithLoadedDefinition(definition);
+    }
+
+    public ChildPaneDescriptor WithInlineRenameStarted()
+    {
+        return this with
+        {
+            IsInlineRenaming = true
+        };
+    }
+
+    public ChildPaneDescriptor WithInlineRenameCancelled()
+    {
+        return this with
+        {
+            IsInlineRenaming = false
+        };
+    }
+
+    public ChildPaneDescriptor WithCommittedInlineRename(string? requestedTitle)
+    {
+        return WithRequestedLocalTitle(requestedTitle) with { IsInlineRenaming = false };
     }
 
     public static string NormalizeAppearanceVariant(string? variant)

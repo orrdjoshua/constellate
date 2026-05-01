@@ -21,6 +21,7 @@ namespace Constellate.App.Controls
 
         private ScrollViewer? _headerScroll;
         private PaneChrome? _root;
+        private TextBox? _inlineRenameEditor;
         private ParentPaneModel? _model;
         private Point _lastBodyContextPoint;
         private bool _hasBodyContextPoint;
@@ -34,6 +35,7 @@ namespace Constellate.App.Controls
         {
             AvaloniaXamlLoader.Load(this);
             _root = this.FindControl<PaneChrome>("ParentChrome");
+            _inlineRenameEditor = this.FindControl<TextBox>("InlineRenameEditor");
             _headerScroll = _root?.FindControl<ScrollViewer>("PART_HeaderScroll");
             Debug.WriteLine($"[HeaderScroll][Parent][Wire] init: chrome={_root is not null} headerScroll={_headerScroll is not null}");
 
@@ -53,6 +55,7 @@ namespace Constellate.App.Controls
 
         private void OnDataContextChanged(object? sender, EventArgs e) => HookModel();
 
+
         private void HookModel()
         {
             if (_model is INotifyPropertyChanged oldPc)
@@ -65,6 +68,7 @@ namespace Constellate.App.Controls
             {
                 pc.PropertyChanged += OnModelPropertyChanged;
             }
+            QueueInlineRenameRefresh();
         }
 
         private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -72,6 +76,13 @@ namespace Constellate.App.Controls
             if (_model is null || _root is null) return;
             if (!string.Equals(e.PropertyName, nameof(ParentPaneModel.IsMinimized), StringComparison.Ordinal)) return;
             if (!_model.IsMinimized) return;
+            if (string.Equals(e.PropertyName, nameof(ParentPaneModel.IsInlineRenaming), StringComparison.Ordinal))
+            {
+                QueueInlineRenameRefresh();
+                return;
+            }
+
+            if (!string.Equals(e.PropertyName, nameof(ParentPaneModel.IsMinimized), StringComparison.Ordinal)) return;
             if (!string.Equals(MainWindowViewModel.NormalizeHostId(_model.HostId), "floating", StringComparison.Ordinal)) return;
 
             Dispatcher.UIThread.Post(() =>
@@ -106,6 +117,33 @@ namespace Constellate.App.Controls
             return sum;
         }
 
+        private void QueueInlineRenameRefresh()
+        {
+            Dispatcher.UIThread.Post(SyncInlineRenameEditor, DispatcherPriority.Input);
+        }
+
+        private void SyncInlineRenameEditor()
+        {
+            if (_inlineRenameEditor is null || _model is null || !_model.IsInlineRenaming)
+            {
+                return;
+            }
+
+            _inlineRenameEditor.Text = _model.Title;
+            _inlineRenameEditor.Focus();
+            _inlineRenameEditor.SelectAll();
+        }
+
+        private void CommitInlineRename()
+        {
+            if (_model is null)
+            {
+                return;
+            }
+
+            PaneChromeInputHelper.ResolveMainWindowViewModel(this)?.TryCommitPaneRename(_model.Id, _inlineRenameEditor?.Text);
+        }
+
         private void Header_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e))
@@ -127,6 +165,30 @@ namespace Constellate.App.Controls
         private void Header_OnPointerExited(object? sender, PointerEventArgs e)
         {
             PaneChromeInputHelper.SetPaneDragHover(_root, sender, false);
+        }
+
+        private void OnInlineRenameKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                CommitInlineRename();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Escape && _model is not null)
+            {
+                PaneChromeInputHelper.ResolveMainWindowViewModel(this)?.TryCancelPaneRename(_model.Id);
+                e.Handled = true;
+            }
+        }
+
+        private void OnInlineRenameLostFocus(object? sender, RoutedEventArgs e)
+        {
+            if (_model?.IsInlineRenaming == true)
+            {
+                CommitInlineRename();
+            }
         }
 
         private void OnPaneChromePointerWheelChanged(object? sender, PointerWheelEventArgs e)

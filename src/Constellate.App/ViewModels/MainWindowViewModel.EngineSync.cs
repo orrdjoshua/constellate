@@ -141,13 +141,6 @@ namespace Constellate.App
                 activeDetailBinding.ResourceTitle);
         }
 
-        private void MaterializePersistedResourceDetailSurfacesAtStartup()
-        {
-            RefreshFromEngineState();
-            TrySyncActiveResourceDetailSurfaceFromPersistence();
-            RefreshFromEngineState();
-        }
-
 
         private void SendCommand<TPayload>(string commandName, TPayload payload)
         {

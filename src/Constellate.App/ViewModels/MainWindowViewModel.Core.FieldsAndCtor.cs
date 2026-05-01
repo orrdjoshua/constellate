@@ -731,11 +731,14 @@ namespace Constellate.App
             _renamePaneCommand = new RelayCommand(
                 parameter =>
                 {
-                    var target = parameter as string ?? "(unknown)";
-                    _lastActivitySummary = $"Last Activity: Rename Pane… requested for '{target}' @ {DateTimeOffset.Now:HH:mm:ss}";
-                    OnPropertyChanged(nameof(LastActivitySummary));
+                    if (parameter is string target && !string.IsNullOrWhiteSpace(target))
+                    {
+                        TryBeginPaneRename(target);
+                    }
                 },
-                _ => true);
+                parameter => parameter is string target &&
+                             !string.IsNullOrWhiteSpace(target) &&
+                             (FindChildPaneById(target) is not null || ParentPaneModels.Any(parent => string.Equals(parent.Id, target, StringComparison.Ordinal))));
 
             _addCommandBarButtonCommand = new RelayCommand(
                 parameter =>
@@ -845,8 +848,7 @@ namespace Constellate.App
                              FindChildPaneById(id) is { CanResetLocalAppearanceOverride: true });
 
             // Initial state refresh after command wiring
-            MaterializePersistedResourceDetailSurfacesAtStartup();
-            MaterializeSeededWorkspaceProofTargetIfNeeded();
+            RefreshFromEngineState();
             // Ownership depends on visible top/left
             // UpdateTopLeftOwnershipLayout() is invoked as panes come/go via RaiseParentPaneLayoutChanged
         }

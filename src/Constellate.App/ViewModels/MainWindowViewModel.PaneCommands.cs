@@ -140,6 +140,141 @@ public sealed partial class MainWindowViewModel
             string.Equals(pane.Id, childPaneId, StringComparison.Ordinal));
     }
 
+    public bool TryBeginPaneRename(string paneId)
+    {
+        if (string.IsNullOrWhiteSpace(paneId))
+        {
+            return false;
+        }
+
+        ClearInlinePaneRenameState(exceptPaneId: paneId);
+
+        var parentPane = ParentPaneModels.FirstOrDefault(parent =>
+            string.Equals(parent.Id, paneId, StringComparison.Ordinal));
+        if (parentPane is not null)
+        {
+            if (parentPane.IsInlineRenaming)
+            {
+                return false;
+            }
+
+            parentPane.IsInlineRenaming = true;
+            RaiseParentPaneLayoutChanged();
+            return true;
+        }
+
+        return TryUpdateChildPane(
+            paneId,
+            existing => existing.IsInlineRenaming
+                ? null
+                : existing.WithInlineRenameStarted());
+    }
+
+    public bool TryCommitPaneRename(string paneId, string? requestedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(paneId))
+        {
+            return false;
+        }
+
+        var parentPane = ParentPaneModels.FirstOrDefault(parent =>
+            string.Equals(parent.Id, paneId, StringComparison.Ordinal));
+        if (parentPane is not null)
+        {
+            var resolvedTitle = string.IsNullOrWhiteSpace(requestedTitle)
+                ? parentPane.Title
+                : requestedTitle.Trim();
+            var titleChanged = !string.Equals(parentPane.Title, resolvedTitle, StringComparison.Ordinal);
+            var renameStateChanged = parentPane.IsInlineRenaming;
+
+            parentPane.IsInlineRenaming = false;
+            if (titleChanged)
+            {
+                parentPane.Title = resolvedTitle;
+            }
+
+            if (!titleChanged && !renameStateChanged)
+            {
+                return false;
+            }
+
+            RaiseParentPaneLayoutChanged();
+            return true;
+        }
+
+        return TryUpdateChildPane(
+            paneId,
+            existing => existing.WithCommittedInlineRename(requestedTitle));
+    }
+
+    public bool TryCancelPaneRename(string paneId)
+    {
+        if (string.IsNullOrWhiteSpace(paneId))
+        {
+            return false;
+        }
+
+        var parentPane = ParentPaneModels.FirstOrDefault(parent =>
+            string.Equals(parent.Id, paneId, StringComparison.Ordinal));
+        if (parentPane is not null)
+        {
+            if (!parentPane.IsInlineRenaming)
+            {
+                return false;
+            }
+
+            parentPane.IsInlineRenaming = false;
+            RaiseParentPaneLayoutChanged();
+            return true;
+        }
+
+        return TryUpdateChildPane(
+            paneId,
+            existing => existing.IsInlineRenaming
+                ? existing.WithInlineRenameCancelled()
+                : null);
+    }
+
+    private void ClearInlinePaneRenameState(string? exceptPaneId = null)
+    {
+        var parentRenameStateChanged = false;
+        foreach (var parentPane in ParentPaneModels)
+        {
+            if (!parentPane.IsInlineRenaming ||
+                string.Equals(parentPane.Id, exceptPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            parentPane.IsInlineRenaming = false;
+            parentRenameStateChanged = true;
+        }
+
+        if (parentRenameStateChanged)
+        {
+            RaiseParentPaneLayoutChanged();
+        }
+
+        var childRenameStateChanged = false;
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var childPane = ChildPanes[i];
+            if (!childPane.IsInlineRenaming ||
+                string.Equals(childPane.Id, exceptPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            ChildPanes[i] = childPane.WithInlineRenameCancelled();
+            childRenameStateChanged = true;
+        }
+
+        if (childRenameStateChanged)
+        {
+            RaiseChildPaneCollectionsChanged();
+        }
+    }
+
     private bool TryUpdateChildPane(
         string childPaneId,
         Func<ChildPaneDescriptor, ChildPaneDescriptor?> update)

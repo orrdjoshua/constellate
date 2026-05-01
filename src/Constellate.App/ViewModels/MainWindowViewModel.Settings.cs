@@ -25,6 +25,7 @@ public sealed partial class MainWindowViewModel
             _mouseLeaveClearsFocus = value;
             EngineServices.Settings.MouseLeaveClearsFocus = value;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -42,6 +43,7 @@ public sealed partial class MainWindowViewModel
             _groupOverlayOpacity = clamped;
             EngineServices.Settings.GroupOverlayOpacity = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -59,6 +61,7 @@ public sealed partial class MainWindowViewModel
             _nodeHighlightOpacity = clamped;
             EngineServices.Settings.NodeHighlightOpacity = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -76,6 +79,7 @@ public sealed partial class MainWindowViewModel
             _nodeFocusHaloRadiusMultiplier = clamped;
             EngineServices.Settings.NodeFocusHaloRadiusMultiplier = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -93,6 +97,7 @@ public sealed partial class MainWindowViewModel
             _nodeSelectionHaloRadiusMultiplier = clamped;
             EngineServices.Settings.NodeSelectionHaloRadiusMultiplier = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -120,6 +125,7 @@ public sealed partial class MainWindowViewModel
             _nodeHaloMode = normalized;
             EngineServices.Settings.NodeHaloMode = normalized;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -146,6 +152,7 @@ public sealed partial class MainWindowViewModel
             _nodeHaloOcclusionMode = normalized;
             EngineServices.Settings.NodeHaloOcclusionMode = normalized;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -163,6 +170,7 @@ public sealed partial class MainWindowViewModel
             _backgroundAnimationSpeed = clamped;
             EngineServices.Settings.BackgroundAnimationSpeed = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -180,6 +188,7 @@ public sealed partial class MainWindowViewModel
             _linkStrokeThickness = clamped;
             EngineServices.Settings.LinkStrokeThickness = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -197,6 +206,7 @@ public sealed partial class MainWindowViewModel
             _linkOpacity = clamped;
             EngineServices.Settings.LinkOpacity = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -214,6 +224,7 @@ public sealed partial class MainWindowViewModel
             _paneletteBackgroundIntensity = clamped;
             EngineServices.Settings.PaneletteBackgroundIntensity = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -231,6 +242,7 @@ public sealed partial class MainWindowViewModel
             _commandSurfaceOverlayOpacity = clamped;
             EngineServices.Settings.CommandSurfaceOverlayOpacity = clamped;
             OnPropertyChanged();
+            RaiseDerivedSettingsReadoutsChanged();
         }
     }
 
@@ -266,8 +278,19 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(PaneletteBackgroundIntensity));
         _commandSurfaceOverlayOpacity = EngineServices.Settings.CommandSurfaceOverlayOpacity;
         OnPropertyChanged(nameof(CommandSurfaceOverlayOpacity));
+        RaiseDerivedSettingsReadoutsChanged();
         RaiseSceneStateChanged();
         RaiseCommandCanExecuteChanged();
+    }
+
+    private void RaiseDerivedSettingsReadoutsChanged()
+    {
+        OnPropertyChanged(nameof(VisualSemanticsSettingsSummary));
+        OnPropertyChanged(nameof(RenderSurfaceSettingsSummary));
+        OnPropertyChanged(nameof(SettingsSurfaceAuditSummary));
+        OnPropertyChanged(nameof(ParentShellControlAuditSummary));
+        OnPropertyChanged(nameof(MainWindowShellChromeAuditSummary));
+        OnPropertyChanged(nameof(HardcodedSurfaceAuditNextTargetsSummary));
     }
 
     /// <summary>

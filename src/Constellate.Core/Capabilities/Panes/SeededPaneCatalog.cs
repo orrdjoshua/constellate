@@ -952,7 +952,85 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             [PaneProjectionForm.List, PaneProjectionForm.Table, PaneProjectionForm.Tree],
             "Browse seeded and user-authored workspace definitions available to the current project.",
             OwnerKind: "Engine",
-            BindingTargetRef: "Browser:WorkspaceCatalog")
+            BindingTargetRef: "Browser:WorkspaceCatalog"),
+
+        new(
+            "engine.state.visual_semantics_settings_summary",
+            "Visual Semantics Settings Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of current hardcoded halo/focus/selection visual-semantics settings.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:VisualSemanticsSettingsSummary"),
+
+        new(
+            "engine.state.render_surface_settings_summary",
+            "Render Surface Settings Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of current hardcoded renderer/panelette/overlay surface settings.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:RenderSurfaceSettingsSummary"),
+
+        new(
+            "engine.state.settings_surface_audit_summary",
+            "Settings Surface Audit Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Audit/readout summary of settings surfaces that remain hardcoded in the current viewmodel layer.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:SettingsSurfaceAuditSummary"),
+
+        new(
+            "engine.state.parent_shell_control_audit_summary",
+            "Parent Shell Control Audit Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Audit/readout summary of parent-pane shell controls that remain hardcoded in pane chrome.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ParentShellControlAuditSummary"),
+
+        new(
+            "engine.state.main_window_shell_chrome_audit_summary",
+            "Main Window Shell Chrome Audit Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Audit/readout summary of shell-level MainWindow chrome that remains hardcoded outside the pane catalog path.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:MainWindowShellChromeAuditSummary"),
+
+        new(
+            "engine.state.hardcoded_surface_audit_next_targets_summary",
+            "Hardcoded Surface Audit Next Targets",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only next-target summary for the current hardcoded-surface migration lane.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:HardcodedSurfaceAuditNextTargetsSummary")
     ];
 
     private static readonly PaneDefinitionDescriptor[] PaneDefinitions =
@@ -2489,6 +2567,113 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             ],
             "Seeded workspace-authoring studio that deepens configuration/editor and monitor/feed grouping semantics through the shared runtime.",
             ["seeded", "authoring", "workspace", "studio"])
+            ,
+
+        new(
+            "pane.visual_semantics_audit",
+            "Visual Semantics Audit",
+            PaneDefinitionKind.ChildPane,
+            true,
+            [
+                new(
+                    "visual_semantics_audit.header",
+                    PaneElementKind.DefinitionHeader,
+                    "Visual Semantics Audit"),
+                new(
+                    "visual_semantics_audit.summary_section",
+                    PaneElementKind.Section,
+                    "Current Hardcoded Settings",
+                    null,
+                    [
+                        new(
+                            "visual_semantics_audit.visual_settings",
+                            PaneElementKind.LabelValueField,
+                            "Visual Semantics",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.visual_semantics_settings_summary")),
+                        new(
+                            "visual_semantics_audit.render_settings",
+                            PaneElementKind.PropertyEditor,
+                            "Render Surface Settings",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.render_surface_settings_summary")),
+                        new(
+                            "visual_semantics_audit.settings_audit",
+                            PaneElementKind.TextEditor,
+                            "Settings Audit",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.settings_surface_audit_summary")),
+                        new(
+                            "visual_semantics_audit.next_targets",
+                            PaneElementKind.TextEditor,
+                            "Next Targets",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.hardcoded_surface_audit_next_targets_summary"))
+                    ],
+                    BehaviorSettings: new Dictionary<string, string>
+                    {
+                        ["description"] = "First shared-runtime audit surface for halo/focus/selection semantics plus the still-hardcoded settings/viewmodel layer."
+                    })
+            ],
+            "Seeded audit pane that surfaces still-hardcoded visual-semantics and render settings through the generic pane runtime instead of only narrative docs.",
+            ["seeded", "audit", "settings", "visual-semantics"]),
+
+        new(
+            "pane.shell_hardcoded_surface_audit",
+            "Shell Hardcoded Surface Audit",
+            PaneDefinitionKind.ChildPane,
+            true,
+            [
+                new(
+                    "shell_hardcoded_surface_audit.header",
+                    PaneElementKind.DefinitionHeader,
+                    "Shell Hardcoded Surface Audit"),
+                new(
+                    "shell_hardcoded_surface_audit.audit_section",
+                    PaneElementKind.Section,
+                    "Shell Audit Findings",
+                    null,
+                    [
+                        new(
+                            "shell_hardcoded_surface_audit.parent_controls",
+                            PaneElementKind.PropertyEditor,
+                            "Parent Shell Controls",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.parent_shell_control_audit_summary")),
+                        new(
+                            "shell_hardcoded_surface_audit.main_window_chrome",
+                            PaneElementKind.PropertyEditor,
+                            "Main Window Shell Chrome",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.main_window_shell_chrome_audit_summary")),
+                        new(
+                            "shell_hardcoded_surface_audit.structure",
+                            PaneElementKind.ProjectionStatusView,
+                            "Current Shell Structure",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.pane_structure")),
+                        new(
+                            "shell_hardcoded_surface_audit.next_targets",
+                            PaneElementKind.TextEditor,
+                            "Next Targets",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.hardcoded_surface_audit_next_targets_summary"))
+                    ],
+                    BehaviorSettings: new Dictionary<string, string>
+                    {
+                        ["description"] = "Catalog-backed audit surface for the shell chrome and parent-pane controls that still live outside the reusable pane/workspace model."
+                    })
+            ],
+            "Seeded audit pane that makes shell-level hardcoded surface findings visible through the shared pane runtime.",
+            ["seeded", "audit", "shell", "chrome"])
     ];
 
     private static readonly PaneWorkspaceDescriptor[] WorkspaceDefinitions =
@@ -2514,7 +2699,9 @@ public sealed class SeededPaneCatalog : IPaneCatalog
                 new("workspace.member.catalog_navigation_studio", "pane.catalog_navigation_studio", 13, "top"),
                 new("workspace.member.shell_workspace_studio", "pane.shell_workspace_studio", 14, "left"),
                 new("workspace.member.pane_authoring_studio", "pane.pane_authoring_studio", 15, "right"),
-                new("workspace.member.workspace_authoring_studio", "pane.workspace_authoring_studio", 16, "bottom")
+                new("workspace.member.workspace_authoring_studio", "pane.workspace_authoring_studio", 16, "bottom"),
+                new("workspace.member.visual_semantics_audit", "pane.visual_semantics_audit", 17, "left"),
+                new("workspace.member.shell_hardcoded_surface_audit", "pane.shell_hardcoded_surface_audit", 18, "top")
             ],
             "Seeded workspace arrangement for the first catalog-backed pane toolset derived from current useful hardcoded behavior.",
             ["seeded", "workspace", "default"])

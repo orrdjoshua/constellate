@@ -22,6 +22,7 @@ namespace Constellate.App
         private string _hostId = "left";
         private bool _isVerticalBodyOrientation = true;
         private bool _isMinimized;
+        private bool _isInlineRenaming;
         private double _floatingX;
         private double _floatingY;
         private double _floatingWidth = 320;
@@ -143,6 +144,21 @@ namespace Constellate.App
         /// header/chrome should be visible (used for minimize-to-header semantics).
         /// </summary>
         public bool HasExpandedContent => !_isMinimized;
+
+        public bool IsInlineRenaming
+        {
+            get => _isInlineRenaming;
+            set
+            {
+                if (_isInlineRenaming == value)
+                {
+                    return;
+                }
+
+                _isInlineRenaming = value;
+                OnPropertyChanged();
+            }
+        }
 
         /// <summary>
         /// Convenience: true when HostId == "floating" (case-insensitive).

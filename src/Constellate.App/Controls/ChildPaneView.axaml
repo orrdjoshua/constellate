@@ -74,10 +74,24 @@
           </ContextMenu>
         </Border.ContextMenu>
         <StackPanel Spacing="2">
-          <TextBlock Text="{Binding Title}"
-                     FontSize="12"
+          <Grid>
+            <TextBlock Text="{Binding Title}"
+                       FontSize="12"
+                       Foreground="#E5EDF7"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsInlineRenaming, Converter={StaticResource BooleanNotConverter}}"/>
+            <TextBox x:Name="InlineRenameEditor"
+                     IsVisible="{Binding IsInlineRenaming}"
+                     MinWidth="180"
+                     Padding="4,0"
+                     Background="#162432"
                      Foreground="#E5EDF7"
-                     VerticalAlignment="Center"/>
+                     BorderBrush="#7DD3FC"
+                     BorderThickness="1"
+                     PlaceholderText="Pane title"
+                     KeyDown="OnInlineRenameKeyDown"
+                     LostFocus="OnInlineRenameLostFocus"/>
+          </Grid>
           <StackPanel Orientation="Horizontal"
                       Spacing="4"
                       IsVisible="{Binding HasPaneSourcePresentation}">
@@ -106,6 +120,7 @@
             <TextBlock Text="{Binding PaneSourceLabel}"
                        Foreground="#AFC4D8"
                        FontSize="10"
+                       IsVisible="{Binding HasPaneSourceTextLabel}"
                        VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis"/>
           </StackPanel>
@@ -131,6 +146,37 @@
             <MenuItem Header="Add CommandBar Button…"
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).AddCommandBarButtonCommand}"
                       CommandParameter="{Binding Id}"/>
+            <Separator />
+            <MenuItem Header="Save Instance Only"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanSaveInstanceOnly}" />
+            <MenuItem Header="Save As New Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneAsNewDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanSaveAsNewDefinition}" />
+            <MenuItem Header="Detach from Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DetachChildPaneFromDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanDetachFromDefinition}" />
+            <MenuItem Header="Revert to Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RevertChildPaneToDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanRevertToDefinition}" />
+            <Separator />
+            <MenuItem Header="Apply Default Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneDefaultAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Apply Cool Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneCoolAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Apply Warm Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneWarmAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Reset Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ResetChildPaneAppearanceVariantCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanResetLocalAppearanceOverride}" />
           </ContextMenu>
         </Border.ContextMenu>
       </Border>
@@ -200,305 +246,310 @@
               Cursor="Hand"
               PointerEntered="Body_OnPointerEntered"
               PointerExited="Body_OnPointerExited">
+        <Border.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Rename Pane…"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RenamePaneCommand}"
+                      CommandParameter="{Binding Id}" />
+            <Separator />
+            <MenuItem Header="Save Instance Only"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanSaveInstanceOnly}" />
+            <MenuItem Header="Save As New Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneAsNewDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanSaveAsNewDefinition}" />
+            <MenuItem Header="Detach from Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DetachChildPaneFromDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanDetachFromDefinition}" />
+            <MenuItem Header="Revert to Definition"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RevertChildPaneToDefinitionCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanRevertToDefinition}" />
+            <Separator />
+            <MenuItem Header="Apply Default Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneDefaultAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Apply Cool Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneCoolAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Apply Warm Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneWarmAppearanceCommand}"
+                      CommandParameter="{Binding Id}" />
+            <MenuItem Header="Reset Appearance"
+                      Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ResetChildPaneAppearanceVariantCommand}"
+                      CommandParameter="{Binding Id}"
+                      IsVisible="{Binding CanResetLocalAppearanceOverride}" />
+          </ContextMenu>
+        </Border.ContextMenu>
         <StackPanel Spacing="8">
           <TextBlock x:Name="EmptyChildPaneBodyText"
                      Text="(empty child pane)"
+                     IsVisible="{Binding ShouldShowDefaultEmptyBodyText}"
                      Foreground="#9BA8B7"
                      FontSize="11"/>
-          <Border x:Name="RealizedPaneDefinitionContainer"
-                  Background="#101A24"
-                  BorderBrush="#355066"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8"
-                  IsVisible="{Binding HasDefinitionIdentity}">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Realized Pane Definition"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <ContentControl x:Name="RealizedPaneDefinitionHost"/>
-            </StackPanel>
-          </Border>
-          <Border Background="#162535"
-                  BorderBrush="#3A6E8E"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8"
-                  IsVisible="{Binding HasDirectBoundResourceContextPresentation}">
-            <StackPanel Spacing="2">
-              <TextBlock Text="Bound Resource Surface"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="{Binding PaneBoundResourceReadoutTitle}"
-                         Foreground="White"
-                         FontSize="12"
-                         FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding PaneBoundResourceReadoutSubtitle}"
-                         Foreground="#D4E5F3"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-            </StackPanel>
-          </Border>
-          <Border Background="#14202C"
-                  BorderBrush="#294056"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8"
-                  IsVisible="{Binding HasPaneSourcePresentation}">
-            <StackPanel Spacing="3">
-              <TextBlock Text="Pane Source"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="{Binding PaneSourceLabel}"
-                         Foreground="White"
-                         FontSize="12"
-                         FontWeight="SemiBold"
-                         TextWrapping="Wrap"/>
-              <StackPanel Orientation="Horizontal"
-                          Spacing="4">
-                <Border Background="#25435D"
-                        BorderBrush="#3A6E8E"
-                        BorderThickness="1"
-                        CornerRadius="3"
-                        Padding="4,1"
-                        IsVisible="{Binding HasPaneSourcePrimaryBadge}">
-                  <TextBlock Text="{Binding PaneSourcePrimaryBadge}"
-                             Foreground="#D8F0FF"
-                             FontSize="9"
+          <ScrollViewer VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="8">
+              <Border x:Name="RealizedPaneDefinitionContainer"
+                      Background="#101A24"
+                      BorderBrush="#355066"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8"
+                      IsVisible="{Binding HasDefinitionIdentity}">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Realized Pane Definition"
+                             Foreground="#A9DDF9"
+                             FontSize="10"/>
+                  <ContentControl x:Name="RealizedPaneDefinitionHost"/>
+                </StackPanel>
+              </Border>
+              <Border Background="#162535"
+                      BorderBrush="#3A6E8E"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8"
+                      IsVisible="{Binding HasDirectBoundResourceContextPresentation}">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Bound Resource Surface"
+                             Foreground="#A9DDF9"
+                             FontSize="10"/>
+                  <TextBlock Text="{Binding PaneBoundResourceReadoutTitle}"
+                             Foreground="White"
+                             FontSize="12"
                              FontWeight="SemiBold"/>
-                </Border>
-                <Border Background="#3A2A14"
-                        BorderBrush="#8C6933"
-                        BorderThickness="1"
-                        CornerRadius="3"
-                        Padding="4,1"
-                        IsVisible="{Binding HasPaneSourceStatusBadge}">
-                  <TextBlock Text="{Binding PaneSourceStatusBadge}"
-                             Foreground="#FFE5B8"
-                             FontSize="9"
+                  <TextBlock Text="{Binding PaneBoundResourceReadoutSubtitle}"
+                             Foreground="#D4E5F3"
+                             FontSize="10"
+                             TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+              <Border Background="#13202C"
+                      BorderBrush="#2F4A5F"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Expander Header="Pane Definition"
+                          IsExpanded="False">
+                  <StackPanel Spacing="6"
+                              Margin="0,6,0,0">
+                    <TextBlock Text="{Binding PaneDefinitionChooserSourceSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneDefinitionChooserActionSummary}"
+                               Foreground="#C5D5E4"
+                               FontSize="11"
+                               TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="6">
+                      <ComboBox x:Name="PaneDefinitionPicker"
+                                Width="220"
+                                HorizontalAlignment="Left"
+                                SelectedValueBinding="{Binding PaneDefinitionId}"
+                                SelectedValue="{Binding DefinitionId, Mode=OneWay}"
+                                ItemsSource="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SeededPaneDefinitions}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate>
+                            <TextBlock Text="{Binding DisplayLabel}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                      <Button Content="Load Existing Definition"
+                              Click="OnLoadExistingPaneClick" />
+                    </StackPanel>
+                    <Button Content="Create New Pane"
+                            HorizontalAlignment="Left"
+                            Click="OnCreateNewPaneClick" />
+                  </StackPanel>
+                </Expander>
+              </Border>
+              <Border Background="#13202C"
+                      BorderBrush="#4A6378"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Expander Header="Local Appearance"
+                          IsExpanded="False">
+                  <StackPanel Spacing="6"
+                              Margin="0,6,0,0">
+                    <TextBlock Text="Apply a child-pane-local appearance variant without mutating any reusable definition."
+                               Foreground="#C5D5E4"
+                               FontSize="11"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneAppearanceCurrentValueSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneAppearanceBaselineValueSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <WrapPanel Orientation="Horizontal"
+                               ItemHeight="28"
+                               ItemWidth="110">
+                      <Button Content="Default"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneDefaultAppearanceCommand}"
+                              CommandParameter="{Binding Id}" />
+                      <Button Content="Cool"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneCoolAppearanceCommand}"
+                              CommandParameter="{Binding Id}" />
+                      <Button Content="Warm"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneWarmAppearanceCommand}"
+                              CommandParameter="{Binding Id}" />
+                      <Button Content="Reset Appearance"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ResetChildPaneAppearanceVariantCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding CanResetLocalAppearanceOverride}" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Expander>
+              </Border>
+              <Border Background="#13202C"
+                      BorderBrush="#4A6378"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <Expander Header="Authoring Actions"
+                          IsExpanded="False">
+                  <StackPanel Spacing="6"
+                              Margin="0,6,0,0">
+                    <TextBlock Text="Save this pane as instance-local state, promote it into a reusable definition, detach it into local state, or revert it back to its current definition."
+                               Foreground="#C5D5E4"
+                               FontSize="11"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneWorkingCopyStatusSummary}"
+                               Foreground="#AFC4D8"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneWorkingCopySourceSummary}"
+                               Foreground="#9FC9E7"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneWorkingCopyDefinitionSyncSummary}"
+                               Foreground="#9FC9E7"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding HasPaneWorkingCopyDefinitionSyncSummary}"/>
+                    <TextBlock Text="{Binding PaneAuthoredValueStatusSummary}"
+                               Foreground="#B9CBDC"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneWorkingCopyLocalStateSummary}"
+                               Foreground="#9FC9E7"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneCurrentAuthoredSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneBaselineAuthoredSummary}"
+                               Foreground="#B9CBDC"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneLocalOverrideSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding PaneLifecycleActionSummary}"
+                               Foreground="#D5E4F1"
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    <ItemsControl ItemsSource="{Binding PaneWorkingCopyStatusBadgeLabels}"
+                                  IsVisible="{Binding HasPaneWorkingCopyStatusBadges}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#243847"
+                                  BorderBrush="#53728C"
+                                  BorderThickness="1"
+                                  CornerRadius="3"
+                                  Padding="6,2"
+                                  Margin="0,0,6,6">
+                            <TextBlock Text="{Binding .}"
+                                       Foreground="#E4F0FB"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding PaneWorkingCopyActiveOverrideAxisLabels}"
+                                  IsVisible="{Binding HasPaneWorkingCopyOverrideAxes}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Background="#213244"
+                                  BorderBrush="#48627B"
+                                  BorderThickness="1"
+                                  CornerRadius="3"
+                                  Padding="6,2"
+                                  Margin="0,0,6,6">
+                            <TextBlock Text="{Binding .}"
+                                       Foreground="#DDEBFA"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <WrapPanel Orientation="Horizontal"
+                               ItemHeight="28"
+                               ItemWidth="150">
+                      <Button Content="Save Instance Only"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding CanSaveInstanceOnly}" />
+                      <Button Content="Save As New Definition"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneAsNewDefinitionCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding CanSaveAsNewDefinition}" />
+                      <Button Content="Detach from Definition"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DetachChildPaneFromDefinitionCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding CanDetachFromDefinition}" />
+                      <Button Content="Revert to Definition"
+                              Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RevertChildPaneToDefinitionCommand}"
+                              CommandParameter="{Binding Id}"
+                              IsVisible="{Binding CanRevertToDefinition}" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Expander>
+              </Border>
+              <Border x:Name="BoundResourceContextReadout"
+                      IsVisible="False"
+                      Background="#162535"
+                      BorderBrush="#3A6E8E"
+                      BorderThickness="1"
+                      CornerRadius="4"
+                      Padding="8">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="Bound Resource Surface"
+                             Foreground="#A9DDF9"
+                             FontSize="10"/>
+                  <TextBlock x:Name="BoundResourceContextTitleText"
+                             Foreground="White"
+                             FontSize="12"
                              FontWeight="SemiBold"/>
-                </Border>
-              </StackPanel>
+                  <TextBlock x:Name="BoundResourceContextSubtitleText"
+                             Foreground="#D4E5F3"
+                             FontSize="10"
+                             TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
             </StackPanel>
-          </Border>
-          <Border Background="#13202C"
-                  BorderBrush="#2F4A5F"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Pane Definition"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="{Binding PaneDefinitionChooserSourceSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneDefinitionChooserActionSummary}"
-                         Foreground="#C5D5E4"
-                         FontSize="11"
-                         TextWrapping="Wrap"/>
-              <StackPanel Orientation="Horizontal"
-                          Spacing="6">
-                <ComboBox x:Name="PaneDefinitionPicker"
-                          Width="220"
-                          HorizontalAlignment="Left"
-                          SelectedValueBinding="{Binding PaneDefinitionId}"
-                          SelectedValue="{Binding DefinitionId, Mode=OneWay}"
-                          ItemsSource="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SeededPaneDefinitions}">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding DisplayLabel}" />
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Content="Load Existing Definition"
-                        Click="OnLoadExistingPaneClick" />
-              </StackPanel>
-              <Button Content="Create New Pane"
-                      HorizontalAlignment="Left"
-                      Click="OnCreateNewPaneClick" />
-            </StackPanel>
-          </Border>
-          <Border Background="#13202C"
-                  BorderBrush="#4A6378"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Local Appearance"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="Apply a child-pane-local appearance variant without mutating any reusable definition."
-                         Foreground="#C5D5E4"
-                         FontSize="11"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneAppearanceCurrentValueSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneAppearanceBaselineValueSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <WrapPanel Orientation="Horizontal"
-                         ItemHeight="28"
-                         ItemWidth="110">
-                <Button Content="Default"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneDefaultAppearanceCommand}"
-                        CommandParameter="{Binding Id}" />
-                <Button Content="Cool"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneCoolAppearanceCommand}"
-                        CommandParameter="{Binding Id}" />
-                <Button Content="Warm"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneWarmAppearanceCommand}"
-                        CommandParameter="{Binding Id}" />
-                <Button Content="Reset Appearance"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ResetChildPaneAppearanceVariantCommand}"
-                        CommandParameter="{Binding Id}"
-                        IsVisible="{Binding CanResetLocalAppearanceOverride}" />
-              </WrapPanel>
-            </StackPanel>
-          </Border>
-          <Border Background="#13202C"
-                  BorderBrush="#4A6378"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Authoring Actions"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="Save this pane as instance-local state, promote it into a reusable definition, detach it into local state, or revert it back to its current definition."
-                         Foreground="#C5D5E4"
-                         FontSize="11"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneWorkingCopyStatusSummary}"
-                         Foreground="#AFC4D8"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneWorkingCopySourceSummary}"
-                         Foreground="#9FC9E7"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneWorkingCopyDefinitionSyncSummary}"
-                         Foreground="#9FC9E7"
-                         FontSize="10"
-                         TextWrapping="Wrap"
-                         IsVisible="{Binding HasPaneWorkingCopyDefinitionSyncSummary}"/>
-              <TextBlock Text="{Binding PaneAuthoredValueStatusSummary}"
-                         Foreground="#B9CBDC"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneWorkingCopyLocalStateSummary}"
-                         Foreground="#9FC9E7"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneCurrentAuthoredSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneBaselineAuthoredSummary}"
-                         Foreground="#B9CBDC"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneLocalOverrideSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneLifecycleActionSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <ItemsControl ItemsSource="{Binding PaneWorkingCopyStatusBadgeLabels}"
-                            IsVisible="{Binding HasPaneWorkingCopyStatusBadges}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal"/>
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Border Background="#243847"
-                            BorderBrush="#53728C"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="6,2"
-                            Margin="0,0,6,6">
-                      <TextBlock Text="{Binding .}"
-                                 Foreground="#E4F0FB"
-                                 FontSize="9"
-                                 FontWeight="SemiBold"/>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <ItemsControl ItemsSource="{Binding PaneWorkingCopyActiveOverrideAxisLabels}"
-                            IsVisible="{Binding HasPaneWorkingCopyOverrideAxes}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal"/>
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Border Background="#213244"
-                            BorderBrush="#48627B"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="6,2"
-                            Margin="0,0,6,6">
-                      <TextBlock Text="{Binding .}"
-                                 Foreground="#DDEBFA"
-                                 FontSize="9"
-                                 FontWeight="SemiBold"/>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <WrapPanel Orientation="Horizontal"
-                         ItemHeight="28"
-                         ItemWidth="150">
-                <Button Content="Save Instance Only"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
-                        CommandParameter="{Binding Id}"
-                        IsVisible="{Binding CanSaveInstanceOnly}" />
-                <Button Content="Save As New Definition"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneAsNewDefinitionCommand}"
-                        CommandParameter="{Binding Id}"
-                        IsVisible="{Binding CanSaveAsNewDefinition}" />
-                <Button Content="Detach from Definition"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DetachChildPaneFromDefinitionCommand}"
-                        CommandParameter="{Binding Id}"
-                        IsVisible="{Binding CanDetachFromDefinition}" />
-                <Button Content="Revert to Definition"
-                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RevertChildPaneToDefinitionCommand}"
-                        CommandParameter="{Binding Id}"
-                        IsVisible="{Binding CanRevertToDefinition}" />
-              </WrapPanel>
-            </StackPanel>
-          </Border>
-          <Border x:Name="BoundResourceContextReadout"
-                  IsVisible="False"
-                  Background="#162535"
-                  BorderBrush="#3A6E8E"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="2">
-              <TextBlock Text="Bound Resource Surface"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock x:Name="BoundResourceContextTitleText"
-                         Foreground="White"
-                         FontSize="12"
-                         FontWeight="SemiBold"/>
-              <TextBlock x:Name="BoundResourceContextSubtitleText"
-                         Foreground="#D4E5F3"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-            </StackPanel>
-          </Border>
+          </ScrollViewer>
         </StackPanel>
       </Border>
     </panes:PaneChrome.BodyContent>

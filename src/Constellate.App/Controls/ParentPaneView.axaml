@@ -51,11 +51,25 @@
                       CommandParameter="{Binding Id}" />
           </ContextMenu>
         </Border.ContextMenu>
-        <TextBlock Text="{Binding Title}"
-                   FontSize="13"
-                   FontWeight="SemiBold"
+        <Grid>
+          <TextBlock Text="{Binding Title}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="#E5EDF7"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding IsInlineRenaming, Converter={StaticResource BooleanNotConverter}}"/>
+          <TextBox x:Name="InlineRenameEditor"
+                   IsVisible="{Binding IsInlineRenaming}"
+                   MinWidth="200"
+                   Padding="4,0"
+                   Background="#162432"
                    Foreground="#E5EDF7"
-                   VerticalAlignment="Center"/>
+                   BorderBrush="#7DD3FC"
+                   BorderThickness="1"
+                   PlaceholderText="Pane title"
+                   KeyDown="OnInlineRenameKeyDown"
+                   LostFocus="OnInlineRenameLostFocus"/>
+        </Grid>
       </Border>
     </panes:PaneChrome.LabelContent>
 

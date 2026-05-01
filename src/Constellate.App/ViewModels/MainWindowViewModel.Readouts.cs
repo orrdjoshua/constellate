@@ -380,6 +380,24 @@ public sealed partial class MainWindowViewModel
             ? "none"
             : string.Join(", ", ChildPanesOrdered.Select(p => p.Id)));
 
+    public string VisualSemanticsSettingsSummary =>
+        $"Mouse-leave clears focus={MouseLeaveClearsFocus} • node halo mode={NodeHaloMode} • halo occlusion={NodeHaloOcclusionMode} • focus radius x{NodeFocusHaloRadiusMultiplier:0.##} • selection radius x{NodeSelectionHaloRadiusMultiplier:0.##} • node highlight opacity={NodeHighlightOpacity:0.##} • group overlay opacity={GroupOverlayOpacity:0.##}";
+
+    public string RenderSurfaceSettingsSummary =>
+        $"Background animation speed={BackgroundAnimationSpeed:0.##} • link thickness={LinkStrokeThickness:0.##} • link opacity={LinkOpacity:0.##} • panelette background intensity={PaneletteBackgroundIntensity:0.##} • command-surface overlay opacity={CommandSurfaceOverlayOpacity:0.##}";
+
+    public string SettingsSurfaceAuditSummary =>
+        "MainWindowViewModel.Settings.cs still exposes direct shell/viewmodel settings properties for focus-clear behavior, node halo semantics, background animation, link presentation, panelette background intensity, and command-surface overlay intensity.";
+
+    public string ParentShellControlAuditSummary =>
+        "ParentPaneView.axaml still hardcodes split-count controls, slide controls, add-child, minimize, and destroy actions directly into parent-pane chrome instead of routing them through reusable pane/workspace authoring surfaces.";
+
+    public string MainWindowShellChromeAuditSummary =>
+        "MainWindow.axaml still hardcodes shell-level resource-detail overlay readout, corner affordance triangles, and overlay drag-shadow layers. These still need explicit classification as final shell chrome versus future migrated capability surfaces.";
+
+    public string HardcodedSurfaceAuditNextTargetsSummary =>
+        "Nearest follow-on targets: surface halo/focus/selection settings through shared runtime, reduce parent-pane header command clutter, and decide whether the shell resource-detail overlay remains final chrome or moves behind an explicit authored/admin surface.";
+
     public string PaneCatalogDefinitionDetails
     {
         get
