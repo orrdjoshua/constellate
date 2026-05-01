@@ -756,8 +756,97 @@ namespace Constellate.App
                 },
                 _ => true);
 
+            _saveChildPaneInstanceOnlyCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TrySaveChildPaneInstanceOnly(id);
+                    }
+                },
+                parameter => parameter is string id &&
+                             !string.IsNullOrWhiteSpace(id) &&
+                             FindChildPaneById(id) is { CanSaveInstanceOnly: true });
+
+            _saveChildPaneAsNewDefinitionCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TrySaveChildPaneAsNewDefinition(id);
+                    }
+                },
+                parameter => parameter is string id && !string.IsNullOrWhiteSpace(id) && FindChildPaneById(id) is not null);
+
+            _detachChildPaneFromDefinitionCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TryDetachChildPaneFromDefinition(id);
+                    }
+                },
+                parameter => parameter is string id &&
+                             !string.IsNullOrWhiteSpace(id) &&
+                             FindChildPaneById(id) is { CanDetachFromDefinition: true });
+
+            _revertChildPaneToDefinitionCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TryRevertChildPaneToDefinition(id);
+                    }
+                },
+                parameter => parameter is string id &&
+                             !string.IsNullOrWhiteSpace(id) &&
+                             FindChildPaneById(id) is { CanRevertToDefinition: true });
+
+            _applyChildPaneDefaultAppearanceCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TrySetChildPaneAppearanceVariant(id, "default");
+                    }
+                },
+                parameter => parameter is string id && !string.IsNullOrWhiteSpace(id) && FindChildPaneById(id) is not null);
+
+            _applyChildPaneCoolAppearanceCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TrySetChildPaneAppearanceVariant(id, "cool");
+                    }
+                },
+                parameter => parameter is string id && !string.IsNullOrWhiteSpace(id) && FindChildPaneById(id) is not null);
+
+            _applyChildPaneWarmAppearanceCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TrySetChildPaneAppearanceVariant(id, "warm");
+                    }
+                },
+                parameter => parameter is string id && !string.IsNullOrWhiteSpace(id) && FindChildPaneById(id) is not null);
+
+            _resetChildPaneAppearanceVariantCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is string id && !string.IsNullOrWhiteSpace(id))
+                    {
+                        TryResetChildPaneAppearanceVariant(id);
+                    }
+                },
+                parameter => parameter is string id &&
+                             !string.IsNullOrWhiteSpace(id) &&
+                             FindChildPaneById(id) is { CanResetLocalAppearanceOverride: true });
+
             // Initial state refresh after command wiring
             MaterializePersistedResourceDetailSurfacesAtStartup();
+            MaterializeSeededWorkspaceProofTargetIfNeeded();
             // Ownership depends on visible top/left
             // UpdateTopLeftOwnershipLayout() is invoked as panes come/go via RaiseParentPaneLayoutChanged
         }

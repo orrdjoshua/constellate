@@ -129,6 +129,14 @@ public sealed partial class MainWindowViewModel
     private readonly RelayCommand _renamePaneCommand;
     private readonly RelayCommand _addCommandBarButtonCommand;
     private readonly RelayCommand _removeCommandBarButtonCommand;
+    private readonly RelayCommand _saveChildPaneInstanceOnlyCommand;
+    private readonly RelayCommand _saveChildPaneAsNewDefinitionCommand;
+    private readonly RelayCommand _detachChildPaneFromDefinitionCommand;
+    private readonly RelayCommand _revertChildPaneToDefinitionCommand;
+    private readonly RelayCommand _applyChildPaneDefaultAppearanceCommand;
+    private readonly RelayCommand _applyChildPaneCoolAppearanceCommand;
+    private readonly RelayCommand _applyChildPaneWarmAppearanceCommand;
+    private readonly RelayCommand _resetChildPaneAppearanceVariantCommand;
     // Activity + history
     private string _lastActivitySummary = "Last Activity: app started";
     private readonly Queue<string> _commandHistory = new();
@@ -212,6 +220,13 @@ public sealed partial class MainWindowViewModel
 
     public int SeededPaneWorkspaceCount => SeededPaneWorkspaces.Count;
 
+    public int MaterializedSeededPaneDefinitionCount =>
+        ChildPanes.Count(pane =>
+            !string.IsNullOrWhiteSpace(pane.DefinitionId) &&
+            SeededPaneDefinitions.Any(definition =>
+                definition.IsSeeded &&
+                string.Equals(definition.PaneDefinitionId, pane.DefinitionId, StringComparison.Ordinal)));
+
     public string SeededPaneCatalogPrimaryLabel =>
         SeededPaneWorkspaces.FirstOrDefault()?.DisplayLabel ??
         SeededPaneDefinitions.FirstOrDefault()?.DisplayLabel ??
@@ -221,7 +236,7 @@ public sealed partial class MainWindowViewModel
         !HasSeededPaneCatalog
             ? "Pane catalog not available."
             : SeededPaneWorkspaces.FirstOrDefault() is { } workspace
-                ? $"{workspace.Members.Count} seeded panes · {string.Join(" • ", workspace.Members.OrderBy(member => member.Ordinal).Take(3).Select(member => $"{ResolveSeededPaneDefinitionLabel(member.PaneDefinitionId)} @ {member.HostHint}"))}"
+                ? $"{workspace.Members.Count} seeded panes · materialized={MaterializedSeededPaneDefinitionCount} · {string.Join(" • ", workspace.Members.OrderBy(member => member.Ordinal).Take(3).Select(member => $"{ResolveSeededPaneDefinitionLabel(member.PaneDefinitionId)} @ {member.HostHint}"))}"
                 : $"{SeededPaneDefinitionCount} pane definitions · {SeededPaneWorkspaceCount} workspaces";
 
     public bool HasSeededPaneCatalogWorkspacePreview =>
@@ -635,6 +650,16 @@ public sealed partial class MainWindowViewModel
             OnPropertyChanged();
         }
     }
+
+    public ICommand SaveChildPaneInstanceOnlyCommand => _saveChildPaneInstanceOnlyCommand;
+    public ICommand SaveChildPaneAsNewDefinitionCommand => _saveChildPaneAsNewDefinitionCommand;
+    public ICommand DetachChildPaneFromDefinitionCommand => _detachChildPaneFromDefinitionCommand;
+    public ICommand RevertChildPaneToDefinitionCommand => _revertChildPaneToDefinitionCommand;
+    public ICommand ApplyChildPaneDefaultAppearanceCommand => _applyChildPaneDefaultAppearanceCommand;
+    public ICommand ApplyChildPaneCoolAppearanceCommand => _applyChildPaneCoolAppearanceCommand;
+    public ICommand ApplyChildPaneWarmAppearanceCommand => _applyChildPaneWarmAppearanceCommand;
+    public ICommand ResetChildPaneAppearanceVariantCommand => _resetChildPaneAppearanceVariantCommand;
+
     // Settings child floating flag
     public bool IsSettingsChildFloating
     {

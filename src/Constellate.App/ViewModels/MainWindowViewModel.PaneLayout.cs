@@ -101,9 +101,19 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(IsShellSettingsChildVisible));
         OnPropertyChanged(nameof(IsShellDeveloperChildVisible));
         OnPropertyChanged(nameof(IsShellCapabilitiesChildVisible));
+        OnPropertyChanged(nameof(MaterializedSeededPaneDefinitionCount));
+        OnPropertyChanged(nameof(SeededPaneCatalogSummary));
         OnPropertyChanged(nameof(ActiveResourceDetailPrimaryPaneId));
         OnPropertyChanged(nameof(PaneStructureSummary));
 
+        _saveChildPaneInstanceOnlyCommand.RaiseCanExecuteChanged();
+        _saveChildPaneAsNewDefinitionCommand.RaiseCanExecuteChanged();
+        _detachChildPaneFromDefinitionCommand.RaiseCanExecuteChanged();
+        _revertChildPaneToDefinitionCommand.RaiseCanExecuteChanged();
+        _applyChildPaneDefaultAppearanceCommand.RaiseCanExecuteChanged();
+        _applyChildPaneCoolAppearanceCommand.RaiseCanExecuteChanged();
+        _applyChildPaneWarmAppearanceCommand.RaiseCanExecuteChanged();
+        _resetChildPaneAppearanceVariantCommand.RaiseCanExecuteChanged();
         RefreshParentBodyLayoutProjections();
     }
 

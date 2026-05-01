@@ -205,6 +205,40 @@
                      Text="(empty child pane)"
                      Foreground="#9BA8B7"
                      FontSize="11"/>
+          <Border x:Name="RealizedPaneDefinitionContainer"
+                  Background="#101A24"
+                  BorderBrush="#355066"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="8"
+                  IsVisible="{Binding HasDefinitionIdentity}">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Realized Pane Definition"
+                         Foreground="#A9DDF9"
+                         FontSize="10"/>
+              <ContentControl x:Name="RealizedPaneDefinitionHost"/>
+            </StackPanel>
+          </Border>
+          <Border Background="#162535"
+                  BorderBrush="#3A6E8E"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="8"
+                  IsVisible="{Binding HasDirectBoundResourceContextPresentation}">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Bound Resource Surface"
+                         Foreground="#A9DDF9"
+                         FontSize="10"/>
+              <TextBlock Text="{Binding PaneBoundResourceReadoutTitle}"
+                         Foreground="White"
+                         FontSize="12"
+                         FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding PaneBoundResourceReadoutSubtitle}"
+                         Foreground="#D4E5F3"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
           <Border Background="#14202C"
                   BorderBrush="#294056"
                   BorderThickness="1"
@@ -256,7 +290,11 @@
               <TextBlock Text="Pane Definition"
                          Foreground="#A9DDF9"
                          FontSize="10"/>
-              <TextBlock Text="Load an existing pane definition or reset this child pane into a new local pane."
+              <TextBlock Text="{Binding PaneDefinitionChooserSourceSummary}"
+                         Foreground="#D5E4F1"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding PaneDefinitionChooserActionSummary}"
                          Foreground="#C5D5E4"
                          FontSize="11"
                          TextWrapping="Wrap"/>
@@ -265,6 +303,8 @@
                 <ComboBox x:Name="PaneDefinitionPicker"
                           Width="220"
                           HorizontalAlignment="Left"
+                          SelectedValueBinding="{Binding PaneDefinitionId}"
+                          SelectedValue="{Binding DefinitionId, Mode=OneWay}"
                           ItemsSource="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SeededPaneDefinitions}">
                   <ComboBox.ItemTemplate>
                     <DataTemplate>
@@ -286,69 +326,6 @@
                   CornerRadius="4"
                   Padding="8">
             <StackPanel Spacing="6">
-              <TextBlock Text="Local Description"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="Apply a pane-instance description override without mutating any reusable definition."
-                         Foreground="#C5D5E4"
-                         FontSize="11"
-                         TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneDescriptionSummary}"
-                         Foreground="#D5E4F1"
-                         FontSize="10"
-                         TextWrapping="Wrap"/>
-              <StackPanel Spacing="6">
-                <TextBox x:Name="LocalDescriptionTextBox"
-                         Width="320"
-                         Height="72"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         PlaceholderText="Pane description" />
-                <WrapPanel Orientation="Horizontal"
-                           ItemHeight="28"
-                           ItemWidth="130">
-                  <Button Content="Apply Description"
-                          Click="OnApplyLocalDescriptionOverrideClick" />
-                  <Button Content="Reset Description"
-                          Click="OnResetLocalDescriptionOverrideClick"
-                          IsVisible="{Binding CanResetLocalDescriptionOverride}" />
-                </WrapPanel>
-              </StackPanel>
-            </StackPanel>
-          </Border>
-          <Border Background="#13202C"
-                  BorderBrush="#4A6378"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="6">
-              <TextBlock Text="Local Title Override"
-                         Foreground="#A9DDF9"
-                         FontSize="10"/>
-              <TextBlock Text="Apply a pane-instance title override without mutating any reusable definition."
-                         Foreground="#C5D5E4"
-                         FontSize="11"
-                         TextWrapping="Wrap"/>
-              <StackPanel Orientation="Horizontal"
-                          Spacing="6">
-                <TextBox x:Name="LocalTitleOverrideTextBox"
-                         Width="220"
-                         PlaceholderText="Pane title"
-                         Text="{Binding Title}" />
-                <Button Content="Apply Title"
-                        Click="OnApplyLocalTitleOverrideClick" />
-                <Button Content="Reset Title"
-                        Click="OnResetLocalTitleOverrideClick"
-                        IsVisible="{Binding CanResetLocalTitleOverride}" />
-              </StackPanel>
-            </StackPanel>
-          </Border>
-          <Border Background="#13202C"
-                  BorderBrush="#4A6378"
-                  BorderThickness="1"
-                  CornerRadius="4"
-                  Padding="8">
-            <StackPanel Spacing="6">
               <TextBlock Text="Local Appearance"
                          Foreground="#A9DDF9"
                          FontSize="10"/>
@@ -356,7 +333,11 @@
                          Foreground="#C5D5E4"
                          FontSize="11"
                          TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding PaneAppearanceSummary}"
+              <TextBlock Text="{Binding PaneAppearanceCurrentValueSummary}"
+                         Foreground="#D5E4F1"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding PaneAppearanceBaselineValueSummary}"
                          Foreground="#D5E4F1"
                          FontSize="10"
                          TextWrapping="Wrap"/>
@@ -364,16 +345,17 @@
                          ItemHeight="28"
                          ItemWidth="110">
                 <Button Content="Default"
-                        Tag="default"
-                        Click="OnApplyLocalAppearanceVariantClick" />
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneDefaultAppearanceCommand}"
+                        CommandParameter="{Binding Id}" />
                 <Button Content="Cool"
-                        Tag="cool"
-                        Click="OnApplyLocalAppearanceVariantClick" />
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneCoolAppearanceCommand}"
+                        CommandParameter="{Binding Id}" />
                 <Button Content="Warm"
-                        Tag="warm"
-                        Click="OnApplyLocalAppearanceVariantClick" />
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ApplyChildPaneWarmAppearanceCommand}"
+                        CommandParameter="{Binding Id}" />
                 <Button Content="Reset Appearance"
-                        Click="OnResetLocalAppearanceVariantClick"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).ResetChildPaneAppearanceVariantCommand}"
+                        CommandParameter="{Binding Id}"
                         IsVisible="{Binding CanResetLocalAppearanceOverride}" />
               </WrapPanel>
             </StackPanel>
@@ -404,8 +386,20 @@
                          FontSize="10"
                          TextWrapping="Wrap"
                          IsVisible="{Binding HasPaneWorkingCopyDefinitionSyncSummary}"/>
+              <TextBlock Text="{Binding PaneAuthoredValueStatusSummary}"
+                         Foreground="#B9CBDC"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
               <TextBlock Text="{Binding PaneWorkingCopyLocalStateSummary}"
                          Foreground="#9FC9E7"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding PaneCurrentAuthoredSummary}"
+                         Foreground="#D5E4F1"
+                         FontSize="10"
+                         TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding PaneBaselineAuthoredSummary}"
+                         Foreground="#B9CBDC"
                          FontSize="10"
                          TextWrapping="Wrap"/>
               <TextBlock Text="{Binding PaneLocalOverrideSummary}"
@@ -416,6 +410,29 @@
                          Foreground="#D5E4F1"
                          FontSize="10"
                          TextWrapping="Wrap"/>
+              <ItemsControl ItemsSource="{Binding PaneWorkingCopyStatusBadgeLabels}"
+                            IsVisible="{Binding HasPaneWorkingCopyStatusBadges}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Background="#243847"
+                            BorderBrush="#53728C"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            Margin="0,0,6,6">
+                      <TextBlock Text="{Binding .}"
+                                 Foreground="#E4F0FB"
+                                 FontSize="9"
+                                 FontWeight="SemiBold"/>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <ItemsControl ItemsSource="{Binding PaneWorkingCopyActiveOverrideAxisLabels}"
                             IsVisible="{Binding HasPaneWorkingCopyOverrideAxes}">
                 <ItemsControl.ItemsPanel>
@@ -443,16 +460,20 @@
                          ItemHeight="28"
                          ItemWidth="150">
                 <Button Content="Save Instance Only"
-                        Click="OnSaveInstanceOnlyClick"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
+                        CommandParameter="{Binding Id}"
                         IsVisible="{Binding CanSaveInstanceOnly}" />
                 <Button Content="Save As New Definition"
-                        Click="OnSaveAsNewDefinitionClick"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneAsNewDefinitionCommand}"
+                        CommandParameter="{Binding Id}"
                         IsVisible="{Binding CanSaveAsNewDefinition}" />
                 <Button Content="Detach from Definition"
-                        Click="OnDetachFromDefinitionClick"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DetachChildPaneFromDefinitionCommand}"
+                        CommandParameter="{Binding Id}"
                         IsVisible="{Binding CanDetachFromDefinition}" />
                 <Button Content="Revert to Definition"
-                        Click="OnRevertToDefinitionClick"
+                        Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RevertChildPaneToDefinitionCommand}"
+                        CommandParameter="{Binding Id}"
                         IsVisible="{Binding CanRevertToDefinition}" />
               </WrapPanel>
             </StackPanel>

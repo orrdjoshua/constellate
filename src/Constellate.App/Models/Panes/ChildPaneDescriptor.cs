@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Constellate.Core.Capabilities.Panes;
 
 namespace Constellate.App;
 
@@ -34,6 +35,163 @@ public enum ChildPaneLocalOverrideAxis
     Appearance
 }
 
+public sealed record ChildPaneAuthoredValues(
+    string Title,
+    string Description,
+    string AppearanceVariant);
+
+public sealed record ChildPaneAuthoredState(
+    ChildPaneAuthoredValues Current,
+    ChildPaneAuthoredValues Baseline)
+{
+    public bool HasTitleOverride =>
+        !string.Equals(Current.Title, Baseline.Title, StringComparison.Ordinal);
+
+    public bool HasDescriptionOverride =>
+        !string.Equals(Current.Description, Baseline.Description, StringComparison.Ordinal);
+
+    public bool HasAppearanceOverride =>
+        !string.Equals(Current.AppearanceVariant, Baseline.AppearanceVariant, StringComparison.Ordinal);
+
+    public bool HasAnyLocalOverride =>
+        HasTitleOverride || HasDescriptionOverride || HasAppearanceOverride;
+
+    public int OverrideAxisCount =>
+        (HasTitleOverride ? 1 : 0) +
+        (HasDescriptionOverride ? 1 : 0) +
+        (HasAppearanceOverride ? 1 : 0);
+
+    public IReadOnlyList<ChildPaneLocalOverrideAxis> ActiveOverrideAxes =>
+        GetActiveOverrideAxes();
+
+    public IReadOnlyList<string> ActiveOverrideAxisLabels =>
+        GetActiveOverrideAxisLabels();
+
+    public string TitleSummary =>
+        HasTitleOverride
+            ? $"Current title: {FormatTitleLabel(Current.Title)} · baseline: {FormatTitleLabel(Baseline.Title)}"
+            : $"Current title: {FormatTitleLabel(Current.Title)}";
+
+    public string CurrentSummary =>
+        $"Current values: title={FormatTitleLabel(Current.Title)} · description={FormatDescriptionLabel(Current.Description)} · appearance={GetAppearanceVariantLabel(Current.AppearanceVariant)}";
+
+    public string BaselineSummary =>
+        $"Baseline values: title={FormatTitleLabel(Baseline.Title)} · description={FormatDescriptionLabel(Baseline.Description)} · appearance={GetAppearanceVariantLabel(Baseline.AppearanceVariant)}";
+
+    public string OverrideAxisStatusSummary =>
+        !HasAnyLocalOverride
+            ? "No authored-value overrides are active."
+            : $"Active authored-value overrides: {string.Join(" · ", ActiveOverrideAxisLabels)}";
+
+    public string TitleCurrentValueSummary =>
+        $"Current title: {FormatTitleLabel(Current.Title)}";
+
+    public string TitleBaselineValueSummary =>
+        $"Baseline title: {FormatTitleLabel(Baseline.Title)}";
+
+    public string DescriptionCurrentValueSummary =>
+        $"Current description: {FormatDescriptionLabel(Current.Description)}";
+
+    public string DescriptionBaselineValueSummary =>
+        $"Baseline description: {FormatDescriptionLabel(Baseline.Description)}";
+
+    public string DescriptionSummary =>
+        HasDescriptionOverride
+            ? $"Current description: {FormatDescriptionLabel(Current.Description)} · baseline: {FormatDescriptionLabel(Baseline.Description)}"
+            : $"Current description: {FormatDescriptionLabel(Current.Description)}";
+
+    public string AppearanceSummary =>
+        HasAppearanceOverride
+            ? $"Current appearance: {GetAppearanceVariantLabel(Current.AppearanceVariant)} · baseline: {GetAppearanceVariantLabel(Baseline.AppearanceVariant)}"
+            : $"Current appearance: {GetAppearanceVariantLabel(Current.AppearanceVariant)}";
+
+    public string AppearanceCurrentValueSummary =>
+        $"Current appearance: {GetAppearanceVariantLabel(Current.AppearanceVariant)}";
+
+    public string AppearanceBaselineValueSummary =>
+        $"Baseline appearance: {GetAppearanceVariantLabel(Baseline.AppearanceVariant)}";
+
+    private ChildPaneLocalOverrideAxis[] GetActiveOverrideAxes()
+    {
+        if (!HasAnyLocalOverride)
+        {
+            return Array.Empty<ChildPaneLocalOverrideAxis>();
+        }
+
+        var axes = new ChildPaneLocalOverrideAxis[OverrideAxisCount];
+        var index = 0;
+
+        if (HasTitleOverride)
+        {
+            axes[index++] = ChildPaneLocalOverrideAxis.Title;
+        }
+
+        if (HasDescriptionOverride)
+        {
+            axes[index++] = ChildPaneLocalOverrideAxis.Description;
+        }
+
+        if (HasAppearanceOverride)
+        {
+            axes[index] = ChildPaneLocalOverrideAxis.Appearance;
+        }
+
+        return axes;
+    }
+
+    private string[] GetActiveOverrideAxisLabels()
+    {
+        var axes = ActiveOverrideAxes;
+        if (axes.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var labels = new string[axes.Count];
+        for (var i = 0; i < axes.Count; i++)
+        {
+            labels[i] = GetAxisLabel(axes[i]);
+        }
+
+        return labels;
+    }
+
+    private static string GetAxisLabel(ChildPaneLocalOverrideAxis axis)
+    {
+        return axis switch
+        {
+            ChildPaneLocalOverrideAxis.Title => "Title",
+            ChildPaneLocalOverrideAxis.Description => "Description",
+            ChildPaneLocalOverrideAxis.Appearance => "Appearance",
+            _ => "Unknown"
+        };
+    }
+
+    private static string GetAppearanceVariantLabel(string variant)
+    {
+        return variant switch
+        {
+            "cool" => "Cool",
+            "warm" => "Warm",
+            _ => "Default"
+        };
+    }
+
+    private static string FormatTitleLabel(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "(untitled)"
+            : value;
+    }
+
+    private static string FormatDescriptionLabel(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "(empty)"
+            : value;
+    }
+}
+
 public sealed record ChildPaneWorkingCopyState(
     ChildPaneSourcePosture SourcePosture,
     ChildPaneDefinitionSyncPosture DefinitionSyncPosture,
@@ -45,6 +203,11 @@ public sealed record ChildPaneWorkingCopyState(
     public int LocalOverrideAxisCount => ActiveOverrideAxes.Count;
 
     public IReadOnlyList<string> ActiveOverrideAxisLabels => GetActiveOverrideAxisLabels();
+
+    public IReadOnlyList<string> StatusBadgeLabels => GetStatusBadgeLabels();
+
+    public bool HasStatusBadges =>
+        StatusBadgeLabels.Count > 0;
 
     public bool HasDefinitionSyncSummary =>
         !string.IsNullOrWhiteSpace(DefinitionSyncSummary);
@@ -133,6 +296,43 @@ public sealed record ChildPaneWorkingCopyState(
                 : "No working-copy overrides"
         };
 
+    private string[] GetStatusBadgeLabels()
+    {
+        var labels = new List<string>(4);
+
+        switch (SourcePosture)
+        {
+            case ChildPaneSourcePosture.FromDefinition:
+                labels.Add("Definition-Backed");
+                labels.Add(DefinitionSyncPosture == ChildPaneDefinitionSyncPosture.BehindCurrentDefinitionRevision
+                    ? "Out of Date"
+                    : "In Sync");
+                break;
+
+            case ChildPaneSourcePosture.DetachedFromDefinition:
+                labels.Add("Detached");
+                break;
+
+            case ChildPaneSourcePosture.CreatedLocalOnly:
+                labels.Add("Local Only");
+                break;
+        }
+
+        if (HasSavedInstanceState)
+        {
+            labels.Add(SourcePosture == ChildPaneSourcePosture.FromDefinition
+                ? "Saved Instance"
+                : "Saved Local Baseline");
+        }
+
+        if (HasLocalOverrides)
+        {
+            labels.Add("Local Overrides");
+        }
+
+        return labels.ToArray();
+    }
+
     private string[] GetActiveOverrideAxisLabels()
     {
         if (ActiveOverrideAxes.Count == 0)
@@ -197,11 +397,52 @@ public sealed record ChildPaneDescriptor(
     string? Description = null,
     string? BaseDescription = null)
 {
+    public ChildPaneResourceContext? EffectiveResourceContext =>
+        ResourceContext ??
+        CreateFallbackResourceContext();
+
     public PaneSurfaceBinding? SurfaceBinding =>
-        ResourceContext?.SurfaceBinding ??
+        EffectiveResourceContext?.SurfaceBinding ??
         PaneSurfaceBinding.CreateResourceSurface(
             SurfaceRole,
             BoundViewRef);
+
+    public bool HasDirectBoundResourceContextPresentation =>
+        EffectiveResourceContext is not null;
+
+    public string PaneBoundResourceReadoutTitle
+    {
+        get
+        {
+            var resourceContext = EffectiveResourceContext;
+            if (resourceContext is null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(resourceContext.Title))
+            {
+                return resourceContext.Title!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(resourceContext.DisplayLabel))
+            {
+                return resourceContext.DisplayLabel!;
+            }
+
+            return "Bound Resource";
+        }
+    }
+
+    public string PaneBoundResourceReadoutSubtitle =>
+        EffectiveResourceContext is { } resourceContext
+            ? BuildBoundResourceReadoutSubtitle(resourceContext)
+            : string.Empty;
+
+    public string PaneDefaultEmptyBodyText =>
+        HasDirectBoundResourceContextPresentation
+            ? "This pane is currently bound to a resource context."
+            : "(empty child pane)";
 
     public string SurfaceBindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
 
@@ -251,12 +492,6 @@ public sealed record ChildPaneDescriptor(
                     ? "Untitled Pane"
                     : Title;
 
-    public bool HasLocalTitleOverride =>
-        !string.Equals(Title, TitleBaseline, StringComparison.Ordinal);
-
-    public bool CanResetLocalTitleOverride =>
-        HasLocalTitleOverride;
-
     public string EffectiveDescription =>
         string.IsNullOrWhiteSpace(Description)
             ? string.Empty
@@ -267,52 +502,124 @@ public sealed record ChildPaneDescriptor(
             ? string.Empty
             : BaseDescription.Trim();
 
-    public bool HasLocalDescriptionOverride =>
-        !string.Equals(EffectiveDescription, DescriptionBaseline, StringComparison.Ordinal);
-
-    public bool CanResetLocalDescriptionOverride =>
-        HasLocalDescriptionOverride;
-
-    public string PaneDescriptionSummary =>
-        HasLocalDescriptionOverride
-            ? $"Current description: {FormatDescriptionLabel(EffectiveDescription)} · baseline: {FormatDescriptionLabel(DescriptionBaseline)}"
-            : $"Current description: {FormatDescriptionLabel(EffectiveDescription)}";
-
     public string EffectiveAppearanceVariant =>
         NormalizeAppearanceVariant(AppearanceVariant);
 
     public string AppearanceVariantBaseline =>
         NormalizeAppearanceVariant(BaseAppearanceVariant);
 
+    public ChildPaneAuthoredValues CurrentAuthoredValues =>
+        new(
+            Title,
+            EffectiveDescription,
+            EffectiveAppearanceVariant);
+
+    public ChildPaneAuthoredValues BaselineAuthoredValues =>
+        new(
+            TitleBaseline,
+            DescriptionBaseline,
+            AppearanceVariantBaseline);
+
+    public ChildPaneAuthoredState AuthoredState =>
+        new(
+            CurrentAuthoredValues,
+            BaselineAuthoredValues);
+
+    public string PaneCurrentAuthoredSummary =>
+        AuthoredState.CurrentSummary;
+
+    public string PaneBaselineAuthoredSummary =>
+        AuthoredState.BaselineSummary;
+
+    public string PaneAuthoredValueStatusSummary =>
+        AuthoredState.OverrideAxisStatusSummary;
+
+    public string PaneTitleCurrentValueSummary =>
+        AuthoredState.TitleCurrentValueSummary;
+
+    public string PaneTitleBaselineValueSummary =>
+        AuthoredState.TitleBaselineValueSummary;
+
+    public string PaneTitleSummary =>
+        AuthoredState.TitleSummary;
+
+    public string PaneAuthoredTitleEditorValue =>
+        CurrentAuthoredValues.Title;
+
+    public string PaneDescriptionCurrentValueSummary =>
+        AuthoredState.DescriptionCurrentValueSummary;
+
+    public string PaneDescriptionBaselineValueSummary =>
+        AuthoredState.DescriptionBaselineValueSummary;
+
+    public bool HasLocalTitleOverride =>
+        AuthoredState.HasTitleOverride;
+
+    public bool CanResetLocalTitleOverride =>
+        HasLocalTitleOverride;
+
+    public bool HasLocalDescriptionOverride =>
+        AuthoredState.HasDescriptionOverride;
+
+    public bool CanResetLocalDescriptionOverride =>
+        HasLocalDescriptionOverride;
+
+    public string PaneDescriptionSummary =>
+        AuthoredState.DescriptionSummary;
+
+    public string PaneAuthoredDescriptionEditorValue =>
+        CurrentAuthoredValues.Description;
+
     public bool HasLocalAppearanceOverride =>
-        !string.Equals(
-            EffectiveAppearanceVariant,
-            AppearanceVariantBaseline,
-            StringComparison.Ordinal);
+        AuthoredState.HasAppearanceOverride;
 
     public bool CanResetLocalAppearanceOverride =>
         HasLocalAppearanceOverride;
 
     public bool HasAnyLocalOverride =>
-        HasLocalTitleOverride || HasLocalDescriptionOverride || HasLocalAppearanceOverride;
+        AuthoredState.HasAnyLocalOverride;
 
     public int LocalOverrideAxisCount =>
-        (HasLocalTitleOverride ? 1 : 0) +
-        (HasLocalDescriptionOverride ? 1 : 0) +
-        (HasLocalAppearanceOverride ? 1 : 0);
+        AuthoredState.OverrideAxisCount;
 
     public ChildPaneWorkingCopyState WorkingCopyState =>
         new(
             SourcePosture,
             DefinitionSyncPosture,
             HasSavedInstanceState,
-            GetLocalOverrideAxes());
+            AuthoredState.ActiveOverrideAxes);
 
     public string PaneWorkingCopyStatusSummary =>
         WorkingCopyState.StatusSummary;
 
     public string PaneWorkingCopySourceSummary =>
         WorkingCopyState.SourcePostureSummary;
+
+    public IReadOnlyList<string> PaneWorkingCopyStatusBadgeLabels =>
+        WorkingCopyState.StatusBadgeLabels;
+
+    public bool HasPaneWorkingCopyStatusBadges =>
+        WorkingCopyState.HasStatusBadges;
+
+    public string PaneDefinitionChooserSourceSummary =>
+        SourcePosture switch
+        {
+            ChildPaneSourcePosture.FromDefinition => $"Current reusable definition: {EffectiveDefinitionLabel}",
+            ChildPaneSourcePosture.DetachedFromDefinition => HasDefinitionIdentity
+                ? $"Detached from reusable definition: {EffectiveDefinitionLabel}"
+                : "Detached local pane with no active reusable definition link.",
+            ChildPaneSourcePosture.CreatedLocalOnly => "This pane is local-only and not currently backed by a reusable definition.",
+            _ => "Choose a reusable pane definition or keep working with pane-local authored state."
+        };
+
+    public string PaneDefinitionChooserActionSummary =>
+        SourcePosture switch
+        {
+            ChildPaneSourcePosture.FromDefinition => "Loading a different definition replaces this pane instance baseline with the selected reusable pane.",
+            ChildPaneSourcePosture.DetachedFromDefinition => "Loading a definition reattaches this pane to reusable pane truth and replaces its detached local baseline.",
+            ChildPaneSourcePosture.CreatedLocalOnly => "Loading a definition converts this local pane into a definition-backed instance. Create New resets to a fresh local pane baseline.",
+            _ => "Load an existing pane definition or reset this child pane into a new local pane."
+        };
 
     public string PaneWorkingCopyDefinitionSyncSummary =>
         WorkingCopyState.DefinitionSyncSummary;
@@ -357,9 +664,13 @@ public sealed record ChildPaneDescriptor(
         GetAppearanceVariantLabel(AppearanceVariantBaseline);
 
     public string PaneAppearanceSummary =>
-        HasLocalAppearanceOverride
-            ? $"Current appearance: {PaneAppearanceVariantLabel} · baseline: {PaneAppearanceBaselineLabel}"
-            : $"Current appearance: {PaneAppearanceVariantLabel}";
+        AuthoredState.AppearanceSummary;
+
+    public string PaneAppearanceCurrentValueSummary =>
+        AuthoredState.AppearanceCurrentValueSummary;
+
+    public string PaneAppearanceBaselineValueSummary =>
+        AuthoredState.AppearanceBaselineValueSummary;
 
     public string PaneHeaderBackgroundBrush =>
         EffectiveAppearanceVariant switch
@@ -469,40 +780,93 @@ public sealed record ChildPaneDescriptor(
         string? appearanceVariant = null,
         string? description = null)
     {
-        var resolvedTitle = title is null
-            ? Title
-            : string.IsNullOrWhiteSpace(title)
-                ? TitleBaseline
-                : title.Trim();
-        var resolvedAppearanceVariant = NormalizeAppearanceVariant(appearanceVariant ?? AppearanceVariant);
-        var resolvedDescription = description is null
-            ? EffectiveDescription
-            : string.IsNullOrWhiteSpace(description)
-                ? string.Empty
-                : description.Trim();
+        var resolvedValues = new ChildPaneAuthoredValues(
+            title is null
+                ? CurrentAuthoredValues.Title
+                : string.IsNullOrWhiteSpace(title)
+                    ? TitleBaseline
+                    : title.Trim(),
+            description is null
+                ? CurrentAuthoredValues.Description
+                : string.IsNullOrWhiteSpace(description)
+                    ? string.Empty
+                    : description.Trim(),
+            NormalizeAppearanceVariant(appearanceVariant ?? AppearanceVariant));
 
-        return !string.Equals(resolvedTitle, TitleBaseline, StringComparison.Ordinal) ||
-               !string.Equals(resolvedAppearanceVariant, AppearanceVariantBaseline, StringComparison.Ordinal) ||
-               !string.Equals(resolvedDescription, DescriptionBaseline, StringComparison.Ordinal);
+        return ComputeHasLocalModifications(resolvedValues);
+    }
+
+    public bool ComputeHasLocalModifications(ChildPaneAuthoredValues currentValues)
+    {
+        return !string.Equals(currentValues.Title, BaselineAuthoredValues.Title, StringComparison.Ordinal) ||
+               !string.Equals(currentValues.Description, BaselineAuthoredValues.Description, StringComparison.Ordinal) ||
+               !string.Equals(currentValues.AppearanceVariant, BaselineAuthoredValues.AppearanceVariant, StringComparison.Ordinal);
+    }
+
+    public ChildPaneDescriptor WithRequestedLocalTitle(string? requestedTitle)
+    {
+        var resolvedTitle = string.IsNullOrWhiteSpace(requestedTitle)
+            ? TitleBaseline
+            : requestedTitle.Trim();
+
+        return WithCurrentAuthoredValues(CurrentAuthoredValues with
+        {
+            Title = resolvedTitle
+        });
+    }
+
+    public ChildPaneDescriptor WithRequestedLocalDescription(string? requestedDescription)
+    {
+        var resolvedDescription = string.IsNullOrWhiteSpace(requestedDescription)
+            ? DescriptionBaseline
+            : requestedDescription.Trim();
+
+        return WithCurrentAuthoredValues(CurrentAuthoredValues with
+        {
+            Description = resolvedDescription
+        });
+    }
+
+    public ChildPaneDescriptor WithRequestedAppearanceVariant(string? requestedVariant)
+    {
+        return WithCurrentAuthoredValues(CurrentAuthoredValues with
+        {
+            AppearanceVariant = NormalizeAppearanceVariant(requestedVariant)
+        });
+    }
+
+    public ChildPaneDescriptor WithCurrentAuthoredValues(ChildPaneAuthoredValues currentValues)
+    {
+        return (this with
+        {
+            Title = currentValues.Title,
+            Description = currentValues.Description,
+            AppearanceVariant = NormalizeAppearanceVariant(currentValues.AppearanceVariant)
+        }).WithRecomputedLocalModifications();
+    }
+
+    public ChildPaneDescriptor WithBaselineAuthoredValues(ChildPaneAuthoredValues baselineValues, bool hasSavedInstanceState)
+    {
+        return (this with
+        {
+            BaseTitle = baselineValues.Title,
+            BaseDescription = baselineValues.Description,
+            BaseAppearanceVariant = NormalizeAppearanceVariant(baselineValues.AppearanceVariant),
+            HasSavedInstanceState = hasSavedInstanceState
+        }).WithRecomputedLocalModifications();
     }
 
     public ChildPaneDescriptor WithRecomputedLocalModifications()
     {
         return this with
         {
-            HasLocalModifications = ComputeHasLocalModifications()
+            HasLocalModifications = ComputeHasLocalModifications(CurrentAuthoredValues)
         };
     }
 
     public ChildPaneDescriptor WithCurrentLocalBaseline(bool hasSavedInstanceState)
     {
-        return (this with
-        {
-            BaseTitle = Title,
-            BaseAppearanceVariant = EffectiveAppearanceVariant,
-            BaseDescription = EffectiveDescription,
-            HasSavedInstanceState = hasSavedInstanceState
-        }).WithRecomputedLocalModifications();
+        return WithBaselineAuthoredValues(CurrentAuthoredValues, hasSavedInstanceState);
     }
 
     public ChildPaneDescriptor WithSavedInstanceOnlyState()
@@ -527,13 +891,86 @@ public sealed record ChildPaneDescriptor(
     {
         return (this with
         {
-            BaseTitle = Title,
-            BaseAppearanceVariant = EffectiveAppearanceVariant,
-            BaseDescription = EffectiveDescription,
             SourcePosture = ChildPaneSourcePosture.DetachedFromDefinition,
             DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
             HasSavedInstanceState = true
-        }).WithRecomputedLocalModifications();
+        }).WithBaselineAuthoredValues(CurrentAuthoredValues, true);
+    }
+
+    public ChildPaneDescriptor WithLoadedDefinition(PaneDefinitionDescriptor definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        var authoredValues = CreateDefinitionAuthoredValues(definition);
+
+        return ((this with
+        {
+            SourcePosture = ChildPaneSourcePosture.FromDefinition,
+            DefinitionOriginKind = definition.IsSeeded
+                ? ChildPaneDefinitionOriginKind.Seeded
+                : ChildPaneDefinitionOriginKind.UserAuthored,
+            DefinitionId = definition.PaneDefinitionId,
+            DefinitionLabel = definition.DisplayLabel,
+            DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
+            HasSavedInstanceState = false,
+            SurfaceRole = null,
+            BoundViewRef = null,
+            BoundResourceTitle = null,
+            BoundResourceDisplayLabel = null,
+            ResourceContext = null
+        }).WithBaselineAuthoredValues(authoredValues, false))
+            .WithCurrentAuthoredValues(authoredValues);
+    }
+
+    public ChildPaneDescriptor WithResetToLocalNew()
+    {
+        var authoredValues = new ChildPaneAuthoredValues(
+            "Untitled Pane",
+            string.Empty,
+            "default");
+
+        return ((this with
+        {
+            SourcePosture = ChildPaneSourcePosture.CreatedLocalOnly,
+            DefinitionOriginKind = ChildPaneDefinitionOriginKind.LocalOnly,
+            DefinitionId = null,
+            DefinitionLabel = null,
+            DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
+            HasSavedInstanceState = false,
+            SurfaceRole = null,
+            BoundViewRef = null,
+            BoundResourceTitle = null,
+            BoundResourceDisplayLabel = null,
+            ResourceContext = null
+        }).WithBaselineAuthoredValues(authoredValues, false))
+            .WithCurrentAuthoredValues(authoredValues);
+    }
+
+    public ChildPaneDescriptor WithPromotedDefinition(PaneDefinitionDescriptor definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+
+        var authoredValues = CreateDefinitionAuthoredValues(
+            definition,
+            CurrentAuthoredValues.AppearanceVariant);
+
+        return ((this with
+        {
+            SourcePosture = ChildPaneSourcePosture.FromDefinition,
+            DefinitionOriginKind = definition.IsSeeded
+                ? ChildPaneDefinitionOriginKind.Seeded
+                : ChildPaneDefinitionOriginKind.UserAuthored,
+            DefinitionId = definition.PaneDefinitionId,
+            DefinitionLabel = definition.DisplayLabel,
+            DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
+            HasSavedInstanceState = false
+        }).WithBaselineAuthoredValues(authoredValues, false))
+            .WithCurrentAuthoredValues(authoredValues);
+    }
+
+    public ChildPaneDescriptor WithRevertedToDefinition(PaneDefinitionDescriptor definition)
+    {
+        return WithLoadedDefinition(definition);
     }
 
     public static string NormalizeAppearanceVariant(string? variant)
@@ -549,32 +986,54 @@ public sealed record ChildPaneDescriptor(
             : "default";
     }
 
-    private ChildPaneLocalOverrideAxis[] GetLocalOverrideAxes()
+    private ChildPaneResourceContext? CreateFallbackResourceContext()
     {
-        if (!HasAnyLocalOverride)
+        if (string.IsNullOrWhiteSpace(SurfaceRole) &&
+            string.IsNullOrWhiteSpace(BoundViewRef) &&
+            string.IsNullOrWhiteSpace(BoundResourceTitle) &&
+            string.IsNullOrWhiteSpace(BoundResourceDisplayLabel))
         {
-            return Array.Empty<ChildPaneLocalOverrideAxis>();
+            return null;
         }
 
-        var axes = new ChildPaneLocalOverrideAxis[LocalOverrideAxisCount];
-        var index = 0;
+        return new ChildPaneResourceContext(
+            DisplayLabel: BoundResourceDisplayLabel,
+            Title: BoundResourceTitle,
+            ViewRef: BoundViewRef,
+            SurfaceRole: SurfaceRole);
+    }
 
-        if (HasLocalTitleOverride)
+    private static string BuildBoundResourceReadoutSubtitle(ChildPaneResourceContext resourceContext)
+    {
+        var subtitle = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(resourceContext.SurfaceRole))
         {
-            axes[index++] = ChildPaneLocalOverrideAxis.Title;
+            subtitle = resourceContext.SurfaceRole!;
         }
 
-        if (HasLocalDescriptionOverride)
+        if (!string.IsNullOrWhiteSpace(resourceContext.ViewRef))
         {
-            axes[index++] = ChildPaneLocalOverrideAxis.Description;
+            subtitle = string.IsNullOrWhiteSpace(subtitle)
+                ? resourceContext.ViewRef!
+                : $"{subtitle} · {resourceContext.ViewRef}";
         }
 
-        if (HasLocalAppearanceOverride)
-        {
-            axes[index] = ChildPaneLocalOverrideAxis.Appearance;
-        }
+        return string.IsNullOrWhiteSpace(subtitle)
+            ? "Pane is bound to a resource context."
+            : subtitle;
+    }
 
-        return axes;
+    private static ChildPaneAuthoredValues CreateDefinitionAuthoredValues(
+        PaneDefinitionDescriptor definition,
+        string appearanceVariant = "default")
+    {
+        return new ChildPaneAuthoredValues(
+            definition.DisplayLabel,
+            string.IsNullOrWhiteSpace(definition.Description)
+                ? string.Empty
+                : definition.Description.Trim(),
+            NormalizeAppearanceVariant(appearanceVariant));
     }
 
     private static string GetAppearanceVariantLabel(string variant)
@@ -585,12 +1044,5 @@ public sealed record ChildPaneDescriptor(
             "warm" => "Warm",
             _ => "Default"
         };
-    }
-
-    private static string FormatDescriptionLabel(string value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? "(empty)"
-            : value;
     }
 }

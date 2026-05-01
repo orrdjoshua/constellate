@@ -78,6 +78,14 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    public string InteractionModeBadgeLabel =>
+        _shellScene.GetInteractionMode() switch
+        {
+            "marquee" => "Marquee",
+            "move" => "Move",
+            _ => "Navigate"
+        };
+
     public string FocusedTransformSummary
     {
         get
@@ -371,6 +379,62 @@ public sealed partial class MainWindowViewModel
         (ChildPanesOrdered.Count == 0
             ? "none"
             : string.Join(", ", ChildPanesOrdered.Select(p => p.Id)));
+
+    public string PaneCatalogDefinitionDetails
+    {
+        get
+        {
+            if (SeededPaneDefinitions.Count == 0)
+            {
+                return "No pane definitions available.";
+            }
+
+            return string.Join(
+                "\n",
+                SeededPaneDefinitions
+                    .OrderBy(definition => definition.DisplayLabel, StringComparer.Ordinal)
+                    .Select(definition =>
+                    {
+                        var tags = definition.Tags is { Count: > 0 }
+                            ? string.Join(", ", definition.Tags)
+                            : "none";
+
+                        return $"{definition.DisplayLabel} [{definition.PaneDefinitionId}] · kind={definition.DefinitionKind} · seeded={definition.IsSeeded} · elements={definition.Elements.Count} · tags={tags}";
+                    }));
+        }
+    }
+
+    public string WorkspaceCatalogDetails
+    {
+        get
+        {
+            if (SeededPaneWorkspaces.Count == 0)
+            {
+                return "No workspace definitions available.";
+            }
+
+            return string.Join(
+                "\n\n",
+                SeededPaneWorkspaces
+                    .OrderBy(workspace => workspace.DisplayLabel, StringComparer.Ordinal)
+                    .Select(workspace =>
+                    {
+                        var tags = workspace.Tags is { Count: > 0 }
+                            ? $" · tags={string.Join(", ", workspace.Tags)}"
+                            : string.Empty;
+                        var memberLines = workspace.Members.Count == 0
+                            ? " - no members"
+                            : string.Join(
+                                "\n",
+                                workspace.Members
+                                    .OrderBy(member => member.Ordinal)
+                                    .Select(member =>
+                                        $" - {ResolveSeededPaneDefinitionLabel(member.PaneDefinitionId)} @ {member.HostHint} lane={member.LaneIndex} slide={member.SlideIndex}"));
+
+                        return $"{workspace.DisplayLabel} [{workspace.WorkspaceId}] · members={workspace.Members.Count}{tags}\n{memberLines}";
+                    }));
+        }
+    }
 
     public string LastActivitySummary => _lastActivitySummary;
 

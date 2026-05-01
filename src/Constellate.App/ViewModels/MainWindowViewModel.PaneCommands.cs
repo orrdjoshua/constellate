@@ -30,23 +30,6 @@ public sealed partial class MainWindowViewModel
         return Math.Clamp(resolved, 0.05, 0.95);
     }
 
-    private static string NormalizeChildPaneAppearanceVariant(string? requestedVariant)
-    {
-        return ChildPaneDescriptor.NormalizeAppearanceVariant(requestedVariant);
-    }
-
-    private static bool ComputeChildPaneHasLocalModifications(
-        ChildPaneDescriptor pane,
-        string resolvedTitle,
-        string appearanceVariant,
-        string description)
-    {
-        return pane.ComputeHasLocalModifications(
-            title: resolvedTitle,
-            appearanceVariant: appearanceVariant,
-            description: description);
-    }
-
     private void CreateChildPane(string? parentOrHost)
     {
         CreateChildPane(parentOrHost, preferredSizeRatio: null);
@@ -151,6 +134,45 @@ public sealed partial class MainWindowViewModel
         _moveChildPaneDownCommand.RaiseCanExecuteChanged();
     }
 
+    private ChildPaneDescriptor? FindChildPaneById(string childPaneId)
+    {
+        return ChildPanes.FirstOrDefault(pane =>
+            string.Equals(pane.Id, childPaneId, StringComparison.Ordinal));
+    }
+
+    private bool TryUpdateChildPane(
+        string childPaneId,
+        Func<ChildPaneDescriptor, ChildPaneDescriptor?> update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ChildPanes.Count; i++)
+        {
+            var existing = ChildPanes[i];
+            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var updated = update(existing);
+            if (updated is null || Equals(existing, updated))
+            {
+                return false;
+            }
+
+            ChildPanes[i] = updated;
+            RaiseChildPaneCollectionsChanged();
+            return true;
+        }
+
+        return false;
+    }
+
     public bool TryApplyPaneDefinitionToChildPane(string childPaneId, string paneDefinitionId)
     {
         if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(paneDefinitionId))
@@ -165,43 +187,7 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                Title = paneDefinition.DisplayLabel,
-                BaseTitle = paneDefinition.DisplayLabel,
-                Description = paneDefinition.Description ?? string.Empty,
-                BaseDescription = paneDefinition.Description ?? string.Empty,
-                AppearanceVariant = "default",
-                BaseAppearanceVariant = "default",
-                SourcePosture = ChildPaneSourcePosture.FromDefinition,
-                DefinitionOriginKind = paneDefinition.IsSeeded
-                    ? ChildPaneDefinitionOriginKind.Seeded
-                    : ChildPaneDefinitionOriginKind.UserAuthored,
-                DefinitionId = paneDefinition.PaneDefinitionId,
-                DefinitionLabel = paneDefinition.DisplayLabel,
-                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
-                HasLocalModifications = false,
-                HasSavedInstanceState = false,
-                SurfaceRole = null,
-                BoundViewRef = null,
-                BoundResourceTitle = null,
-                BoundResourceDisplayLabel = null,
-                ResourceContext = null
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing => existing.WithLoadedDefinition(paneDefinition));
     }
 
     public bool TryResetChildPaneToLocalNew(string childPaneId)
@@ -211,41 +197,7 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                Title = "Untitled Pane",
-                BaseTitle = "Untitled Pane",
-                Description = string.Empty,
-                BaseDescription = string.Empty,
-                AppearanceVariant = "default",
-                BaseAppearanceVariant = "default",
-                SourcePosture = ChildPaneSourcePosture.CreatedLocalOnly,
-                DefinitionOriginKind = ChildPaneDefinitionOriginKind.LocalOnly,
-                DefinitionId = null,
-                DefinitionLabel = null,
-                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
-                HasLocalModifications = false,
-                HasSavedInstanceState = false,
-                SurfaceRole = null,
-                BoundViewRef = null,
-                BoundResourceTitle = null,
-                BoundResourceDisplayLabel = null,
-                ResourceContext = null
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing => existing.WithResetToLocalNew());
     }
 
     public bool TrySaveChildPaneInstanceOnly(string childPaneId)
@@ -255,22 +207,10 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
-                !existing.CanSaveInstanceOnly)
-            {
-                continue;
-            }
-
-            ChildPanes[i] = existing.WithSavedInstanceOnlyState();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.CanSaveInstanceOnly
+                ? existing.WithSavedInstanceOnlyState()
+                : null);
     }
 
     public bool TrySetChildPaneLocalTitle(string childPaneId, string? requestedTitle)
@@ -284,41 +224,8 @@ public sealed partial class MainWindowViewModel
             ? null
             : requestedTitle.Trim();
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var fallbackTitle = existing.TitleBaseline;
-            var resolvedTitle = string.IsNullOrWhiteSpace(normalizedTitle)
-                ? fallbackTitle
-                : normalizedTitle!;
-
-            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
-                existing,
-                resolvedTitle,
-                existing.EffectiveAppearanceVariant,
-                existing.EffectiveDescription);
-
-            if (string.Equals(existing.Title, resolvedTitle, StringComparison.Ordinal) &&
-                existing.HasLocalModifications == hasLocalModifications)
-            {
-                return false;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                Title = resolvedTitle
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithRequestedLocalTitle(normalizedTitle));
     }
 
     public bool TryResetChildPaneLocalTitle(string childPaneId)
@@ -337,37 +244,8 @@ public sealed partial class MainWindowViewModel
             ? null
             : requestedDescription.Trim();
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var resolvedDescription = normalizedDescription ?? existing.DescriptionBaseline;
-            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
-                existing,
-                existing.Title,
-                existing.EffectiveAppearanceVariant,
-                resolvedDescription);
-
-            if (string.Equals(existing.EffectiveDescription, resolvedDescription, StringComparison.Ordinal) &&
-                existing.HasLocalModifications == hasLocalModifications)
-            {
-                return false;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                Description = resolvedDescription
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithRequestedLocalDescription(normalizedDescription));
     }
 
     public bool TryResetChildPaneLocalDescription(string childPaneId)
@@ -382,38 +260,8 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        var normalizedAppearanceVariant = NormalizeChildPaneAppearanceVariant(requestedVariant);
-
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var hasLocalModifications = ComputeChildPaneHasLocalModifications(
-                existing,
-                existing.Title,
-                normalizedAppearanceVariant,
-                existing.EffectiveDescription);
-
-            if (string.Equals(existing.EffectiveAppearanceVariant, normalizedAppearanceVariant, StringComparison.Ordinal) &&
-                existing.HasLocalModifications == hasLocalModifications)
-            {
-                return false;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                AppearanceVariant = normalizedAppearanceVariant
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithRequestedAppearanceVariant(requestedVariant));
     }
 
     public bool TryResetChildPaneAppearanceVariant(string childPaneId)
@@ -423,8 +271,7 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        var existing = ChildPanes.FirstOrDefault(pane =>
-            string.Equals(pane.Id, childPaneId, StringComparison.Ordinal));
+        var existing = FindChildPaneById(childPaneId);
 
         return existing is not null &&
                TrySetChildPaneAppearanceVariant(childPaneId, existing.AppearanceVariantBaseline);
@@ -437,95 +284,74 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
+        var existing = FindChildPaneById(childPaneId);
+        if (existing is null)
         {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var displayLabel = string.IsNullOrWhiteSpace(existing.Title)
-                ? "Untitled Pane"
-                : existing.Title.Trim();
-            var description = string.IsNullOrWhiteSpace(existing.EffectiveDescription)
-                ? null
-                : existing.EffectiveDescription;
-            var currentDefinitions = EngineServices.ListPaneDefinitions();
-            var definitionIds = new HashSet<string>(
-                currentDefinitions.Select(definition => definition.PaneDefinitionId),
-                StringComparer.Ordinal);
-            var newDefinitionId = BuildUniqueUserPaneDefinitionId(displayLabel, definitionIds);
-
-            PaneDefinitionDescriptor newDefinition;
-            if (!string.IsNullOrWhiteSpace(existing.DefinitionId) &&
-                EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var sourceDefinition))
-            {
-                var tags = sourceDefinition.Tags is null
-                    ? new[] { "user-authored" }
-                    : sourceDefinition.Tags
-                        .Append("user-authored")
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
-
-                newDefinition = sourceDefinition with
-                {
-                    PaneDefinitionId = newDefinitionId,
-                    DisplayLabel = displayLabel,
-                    Description = description,
-                    IsSeeded = false,
-                    Tags = tags
-                };
-            }
-            else
-            {
-                newDefinition = new PaneDefinitionDescriptor(
-                    newDefinitionId,
-                    displayLabel,
-                    PaneDefinitionKind.ChildPane,
-                    false,
-                    new[]
-                    {
-                        new PaneElementDescriptor(
-                            "definition.header",
-                            PaneElementKind.DefinitionHeader,
-                            displayLabel),
-                        new PaneElementDescriptor(
-                            "definition.placeholder",
-                            PaneElementKind.TextBlock,
-                            "Pane definition promoted from a local child pane instance.",
-                            new PaneElementBindingDescriptor(
-                                PaneElementBindingTargetKind.LiteralText,
-                                "Pane definition promoted from a local child pane instance."))
-                    },
-                    description ?? "User-authored pane definition promoted from a live child pane instance.",
-                    new[] { "user-authored" });
-            }
-
-            EngineServices.SavePaneDefinition(newDefinition);
-            RefreshPaneDefinitionCatalogSnapshot();
-
-            ChildPanes[i] = (existing with
-            {
-                Title = displayLabel,
-                BaseTitle = displayLabel,
-                Description = newDefinition.Description ?? string.Empty,
-                BaseDescription = newDefinition.Description ?? string.Empty,
-                AppearanceVariant = existing.EffectiveAppearanceVariant,
-                BaseAppearanceVariant = existing.EffectiveAppearanceVariant,
-                SourcePosture = ChildPaneSourcePosture.FromDefinition,
-                DefinitionOriginKind = ChildPaneDefinitionOriginKind.UserAuthored,
-                DefinitionId = newDefinition.PaneDefinitionId,
-                DefinitionLabel = newDefinition.DisplayLabel,
-                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
-                HasSavedInstanceState = false
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
+            return false;
         }
 
-        return false;
+        var displayLabel = string.IsNullOrWhiteSpace(existing.Title)
+            ? "Untitled Pane"
+            : existing.Title.Trim();
+        var description = string.IsNullOrWhiteSpace(existing.EffectiveDescription)
+            ? null
+            : existing.EffectiveDescription;
+        var currentDefinitions = EngineServices.ListPaneDefinitions();
+        var definitionIds = new HashSet<string>(
+            currentDefinitions.Select(definition => definition.PaneDefinitionId),
+            StringComparer.Ordinal);
+        var newDefinitionId = BuildUniqueUserPaneDefinitionId(displayLabel, definitionIds);
+
+        PaneDefinitionDescriptor newDefinition;
+        if (!string.IsNullOrWhiteSpace(existing.DefinitionId) &&
+            EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var sourceDefinition))
+        {
+            var tags = sourceDefinition.Tags is null
+                ? new[] { "user-authored" }
+                : sourceDefinition.Tags
+                    .Append("user-authored")
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+            newDefinition = sourceDefinition with
+            {
+                PaneDefinitionId = newDefinitionId,
+                DisplayLabel = displayLabel,
+                Description = description,
+                IsSeeded = false,
+                Tags = tags
+            };
+        }
+        else
+        {
+            newDefinition = new PaneDefinitionDescriptor(
+                newDefinitionId,
+                displayLabel,
+                PaneDefinitionKind.ChildPane,
+                false,
+                new[]
+                {
+                    new PaneElementDescriptor(
+                        "definition.header",
+                        PaneElementKind.DefinitionHeader,
+                        displayLabel),
+                    new PaneElementDescriptor(
+                        "definition.placeholder",
+                        PaneElementKind.TextBlock,
+                        "Pane definition promoted from a local child pane instance.",
+                        new PaneElementBindingDescriptor(
+                            PaneElementBindingTargetKind.LiteralText,
+                            "Pane definition promoted from a local child pane instance."))
+                },
+                description ?? "User-authored pane definition promoted from a live child pane instance.",
+                new[] { "user-authored" });
+        }
+
+        EngineServices.SavePaneDefinition(newDefinition);
+        RefreshPaneDefinitionCatalogSnapshot();
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithPromotedDefinition(newDefinition));
     }
 
     public bool TryDetachChildPaneFromDefinition(string childPaneId)
@@ -535,22 +361,10 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
-        {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
-                !existing.IsDefinitionBacked)
-            {
-                continue;
-            }
-
-            ChildPanes[i] = existing.WithDetachedLocalBaseline();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
-        }
-
-        return false;
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.IsDefinitionBacked
+                ? existing.WithDetachedLocalBaseline()
+                : null);
     }
 
     public bool TryRevertChildPaneToDefinition(string childPaneId)
@@ -560,44 +374,16 @@ public sealed partial class MainWindowViewModel
             return false;
         }
 
-        for (var i = 0; i < ChildPanes.Count; i++)
+        var existing = FindChildPaneById(childPaneId);
+        if (existing is null ||
+            string.IsNullOrWhiteSpace(existing.DefinitionId) ||
+            !EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var definition))
         {
-            var existing = ChildPanes[i];
-            if (!string.Equals(existing.Id, childPaneId, StringComparison.Ordinal) ||
-                string.IsNullOrWhiteSpace(existing.DefinitionId) ||
-                !EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var definition))
-            {
-                continue;
-            }
-
-            ChildPanes[i] = (existing with
-            {
-                Title = definition.DisplayLabel,
-                BaseTitle = definition.DisplayLabel,
-                Description = definition.Description ?? string.Empty,
-                BaseDescription = definition.Description ?? string.Empty,
-                AppearanceVariant = "default",
-                BaseAppearanceVariant = "default",
-                SourcePosture = ChildPaneSourcePosture.FromDefinition,
-                DefinitionOriginKind = definition.IsSeeded
-                    ? ChildPaneDefinitionOriginKind.Seeded
-                    : ChildPaneDefinitionOriginKind.UserAuthored,
-                DefinitionLabel = definition.DisplayLabel,
-                DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
-                HasLocalModifications = false,
-                HasSavedInstanceState = false,
-                SurfaceRole = null,
-                BoundViewRef = null,
-                BoundResourceTitle = null,
-                BoundResourceDisplayLabel = null,
-                ResourceContext = null
-            }).WithRecomputedLocalModifications();
-
-            RaiseChildPaneCollectionsChanged();
-            return true;
+            return false;
         }
 
-        return false;
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithRevertedToDefinition(definition));
     }
 
     private void RefreshPaneDefinitionCatalogSnapshot()
@@ -614,6 +400,117 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(SeededPaneDefinitionCount));
         OnPropertyChanged(nameof(SeededPaneCatalogPrimaryLabel));
         OnPropertyChanged(nameof(SeededPaneCatalogSummary));
+        OnPropertyChanged(nameof(PaneCatalogDefinitionDetails));
+        OnPropertyChanged(nameof(WorkspaceCatalogDetails));
+        OnPropertyChanged(nameof(HasSeededPaneCatalogWorkspacePreview));
+        OnPropertyChanged(nameof(SeededPaneCatalogWorkspacePreviewLines));
+    }
+
+    private void MaterializeSeededWorkspaceProofTargetIfNeeded()
+    {
+        var workspace = SeededPaneWorkspaces.FirstOrDefault();
+        if (workspace is null || workspace.Members.Count == 0)
+        {
+            return;
+        }
+
+        var parentLayoutChanged = false;
+
+        foreach (var member in workspace.Members.OrderBy(member => member.Ordinal))
+        {
+            var definition = SeededPaneDefinitions.FirstOrDefault(candidate =>
+                string.Equals(candidate.PaneDefinitionId, member.PaneDefinitionId, StringComparison.Ordinal));
+            if (definition is null)
+            {
+                continue;
+            }
+
+            var targetParent = EnsureSeededWorkspaceHostParent(member.HostHint);
+            if (targetParent is null)
+            {
+                continue;
+            }
+
+            var targetLaneIndex = Math.Clamp(member.LaneIndex, 0, 2);
+            if (targetParent.SplitCount < targetLaneIndex + 1)
+            {
+                targetParent.SplitCount = targetLaneIndex + 1;
+                parentLayoutChanged = true;
+            }
+
+            if (member.SlideIndex >= 0 && targetParent.SlideIndex != member.SlideIndex)
+            {
+                targetParent.SlideIndex = member.SlideIndex;
+                parentLayoutChanged = true;
+            }
+
+            if (targetParent.IsMinimized)
+            {
+                targetParent.IsMinimized = false;
+                parentLayoutChanged = true;
+            }
+
+            var existingPane = ChildPanes.FirstOrDefault(pane =>
+                string.Equals(pane.DefinitionId, definition.PaneDefinitionId, StringComparison.Ordinal));
+            var targetInsertIndex = GetChildrenCountInLaneForCurrentSlide(targetParent.Id, targetLaneIndex);
+
+            if (existingPane is not null)
+            {
+                var requiresDockMove =
+                    existingPane.ParentId is null ||
+                    !string.Equals(existingPane.ParentId, targetParent.Id, StringComparison.Ordinal) ||
+                    existingPane.ContainerIndex != targetLaneIndex ||
+                    existingPane.SlideIndex != targetParent.SlideIndex;
+
+                if (requiresDockMove)
+                {
+                    DockChildPaneToParent(existingPane.Id, targetParent.Id, targetLaneIndex, targetInsertIndex);
+                }
+
+                if (existingPane.IsMinimized)
+                {
+                    SetChildPaneMinimized(existingPane.Id, false);
+                }
+
+                continue;
+            }
+
+            var existingChildIds = new HashSet<string>(
+                ChildPanes.Select(pane => pane.Id),
+                StringComparer.Ordinal);
+
+            CreateChildPaneAt(targetParent.Id, targetLaneIndex, targetInsertIndex);
+
+            var createdPane = ChildPanes.FirstOrDefault(pane =>
+                !existingChildIds.Contains(pane.Id));
+            if (createdPane is null)
+            {
+                continue;
+            }
+
+            TryApplyPaneDefinitionToChildPane(createdPane.Id, definition.PaneDefinitionId);
+        }
+
+        if (parentLayoutChanged)
+        {
+            RaiseParentPaneLayoutChanged(includeChildRefresh: true);
+        }
+    }
+
+    private ParentPaneModel? EnsureSeededWorkspaceHostParent(string hostHint)
+    {
+        var normalizedHost = NormalizeHostId(hostHint);
+
+        var existingParent = ParentPaneModels.FirstOrDefault(parent =>
+            string.Equals(NormalizeHostId(parent.HostId), normalizedHost, StringComparison.Ordinal));
+        if (existingParent is not null)
+        {
+            return existingParent;
+        }
+
+        var createdParent = CreateParentPaneModel(normalizedHost);
+        ParentPaneModels.Add(createdParent);
+        return createdParent;
     }
 
     private static string BuildUniqueUserPaneDefinitionId(string displayLabel, IReadOnlySet<string> existingDefinitionIds)
