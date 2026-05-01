@@ -13,6 +13,7 @@ using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 
 namespace Constellate.App.Controls
 {

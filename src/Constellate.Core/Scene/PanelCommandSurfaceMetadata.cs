@@ -6,9 +6,13 @@ namespace Constellate.Core.Scene
 {
     public sealed record PanelCommandDescriptor(
         string CommandId,
-        string DisplayLabel)
+        string DisplayLabel,
+        string? CatalogCapabilityId = null)
     {
-        public static PanelCommandDescriptor? Create(string? commandId, string? displayLabel = null)
+        public bool IsCatalogBacked =>
+            !string.IsNullOrWhiteSpace(CatalogCapabilityId);
+
+        public static PanelCommandDescriptor? Create(string? commandId, string? displayLabel = null, string? catalogCapabilityId = null)
         {
             if (string.IsNullOrWhiteSpace(commandId))
             {
@@ -19,8 +23,11 @@ namespace Constellate.Core.Scene
             var normalizedDisplayLabel = string.IsNullOrWhiteSpace(displayLabel)
                 ? normalizedCommandId
                 : displayLabel.Trim();
+            var normalizedCatalogCapabilityId = string.IsNullOrWhiteSpace(catalogCapabilityId)
+                ? null
+                : catalogCapabilityId.Trim();
 
-            return new PanelCommandDescriptor(normalizedCommandId, normalizedDisplayLabel);
+            return new PanelCommandDescriptor(normalizedCommandId, normalizedDisplayLabel, normalizedCatalogCapabilityId);
         }
     }
 
@@ -36,6 +43,15 @@ namespace Constellate.Core.Scene
 
         public IReadOnlyList<string> CommandIds =>
             Commands.Select(command => command.CommandId).ToArray();
+
+        public bool HasCatalogCapabilityBindings =>
+            Commands.Any(command => command.IsCatalogBacked);
+
+        public IReadOnlyList<string> CatalogCapabilityIds =>
+            Commands
+                .Where(command => command.IsCatalogBacked)
+                .Select(command => command.CatalogCapabilityId!)
+                .ToArray();
 
         public string DescribeIdentity() =>
             $"{SurfaceName}/{SurfaceGroup}/{SurfaceSource}";
@@ -93,7 +109,7 @@ namespace Constellate.Core.Scene
 
             foreach (var command in commands ?? Array.Empty<PanelCommandDescriptor>())
             {
-                var normalizedCommand = PanelCommandDescriptor.Create(command.CommandId, command.DisplayLabel);
+                var normalizedCommand = PanelCommandDescriptor.Create(command.CommandId, command.DisplayLabel, command.CatalogCapabilityId);
                 if (normalizedCommand is not null && seen.Add(normalizedCommand.CommandId))
                 {
                     normalized.Add(normalizedCommand);

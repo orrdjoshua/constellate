@@ -398,6 +398,30 @@ public sealed partial class MainWindowViewModel
     public string HardcodedSurfaceAuditNextTargetsSummary =>
         "Nearest follow-on targets: surface halo/focus/selection settings through shared runtime, reduce parent-pane header command clutter, and decide whether the shell resource-detail overlay remains final chrome or moves behind an explicit authored/admin surface.";
 
+    public string ViewportCommandSurfaceAuditSummary =>
+        "OpenTkViewportControl.CommandSurface.cs still owns hardcoded background / node / link / group context-surface command inventories, including panelette attach/clear/promote actions, create-node-at-pointer, bookmark and mode actions, transform nudges/grow-shrink, and link/group context actions.";
+
+    public string RendererViewportRegistryGapSummary =>
+        "Those renderer-owned context surfaces are not yet emitted from SeededPaneCatalog / CapabilityRegistry as reusable pane capability inventory. PanelCommandSurfaceMetadata still carries ad hoc command ids/display labels, and OpenTkViewportControl.Interaction.cs still routes command-surface open/cycle/invoke behavior directly inside the renderer control.";
+
+    public string ShellNativeChromeBoundarySummary =>
+        "Projected overlay layout, hit-testing, hover state, active context-surface selection state, and command-surface drawing currently look closer to final shell-native renderer chrome than reusable pane-definition truth. The next migration focus should therefore stay on command inventories and metadata classification, not overlay math itself.";
+
+    public string RendererParityNextTargetsSummary =>
+        "Next parity-wave targets: inspect ActivePanelCommandSurfaceState, OpenTkViewportControl.Rendering, and ProjectedNodeHitTesting; decide whether additional renderer helpers expose reusable capability candidates; then migrate the highest-value command inventories and metadata seams into explicit registry-backed form.";
+
+    public string ActivePanelCommandSurfaceStateSummary =>
+        "ActivePanelCommandSurfaceState.cs is only transient renderer overlay state for active node/view identity and current command index. It currently looks like final shell-native UI state, not reusable pane capability truth.";
+
+    public string RendererHaloAndGroupEffectSummary =>
+        "OpenTkViewportControl.Rendering.cs still directly owns 3D halo rendering, hollow-vs-occluding halo behavior, stencil/depth layering, group-volume overlays, and renderer-side use of focus/selection/group/link visual settings. Those semantics are still renderer-native even though audit panes now surface their summaries.";
+
+    public string ProjectedHitTestingBoundarySummary =>
+        "ProjectedNodeHitTesting.cs is projected mesh / triangle / marquee hit-testing math for viewport interaction. It currently looks like shell-native interaction infrastructure rather than reusable pane-definition content.";
+
+    public string RendererMigrationBoundarySummary =>
+        "The next migratable parity gap is the renderer-local command inventory plus command-surface metadata classification. Overlay math, transient active-overlay state, projected hit-testing, and renderer draw orchestration should remain shell-native unless a concrete later consumer requires broader reuse.";
+
     public string PaneCatalogDefinitionDetails
     {
         get

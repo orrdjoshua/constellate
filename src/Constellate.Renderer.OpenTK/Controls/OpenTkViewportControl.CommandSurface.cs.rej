@@ -1,0 +1,37 @@
+diff a/src/Constellate.Renderer.OpenTK/Controls/OpenTkViewportControl.CommandSurface.cs b/src/Constellate.Renderer.OpenTK/Controls/OpenTkViewportControl.CommandSurface.cs	(rejected hunks)
+@@ -103,20 +103,20 @@
+             var commandDescriptors = new[]
+             {
+-                PanelCommandDescriptor.Create(CommandNames.CenterOnNode, "Center on Node"),
+-                PanelCommandDescriptor.Create(CommandNames.Select, "Select"),
+-                PanelCommandDescriptor.Create(CommandNames.Focus, "Focus"),
+-                PanelCommandDescriptor.Create(CommandNames.EnterNode, "Enter Node"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node"),
+-                PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node")
+-            }
++                PanelCommandDescriptor.Create(SurfaceCommand_CreateNodeAtPointer, "Create Node Here", "engine.command.create_node_at_pointer"),
++                PanelCommandDescriptor.Create(CommandNames.ClearFocus, "Clear Focus", "engine.command.clear_focus"),
++                PanelCommandDescriptor.Create(CommandNames.ClearSelection, "Clear Selection", "engine.command.clear_selection"),
++                PanelCommandDescriptor.Create(CommandNames.HomeView, "Home View", "engine.command.home_view"),
++                PanelCommandDescriptor.Create(CommandNames.FrameSelection, "Frame Selection", "engine.command.frame_selection"),
++                hasEnteredNode ? PanelCommandDescriptor.Create(SurfaceCommand_ExitNodeContext, "Exit Node Context", "engine.command.exit_node_context") : null,
++                PanelCommandDescriptor.Create(SurfaceCommand_SaveBookmark, "Save Bookmark", "engine.command.save_bookmark"),
++                PanelCommandDescriptor.Create(SurfaceCommand_RestoreBookmark, "Restore Bookmark", "engine.command.restore_latest_bookmark"),
++                PanelCommandDescriptor.Create(SurfaceCommand_SetModeNavigate, "Set Mode: Navigate", "engine.command.activate_navigate_mode"),
++                PanelCommandDescriptor.Create(SurfaceCommand_SetModeMarquee, "Set Mode: Marquee", "engine.command.activate_marquee_mode"),
++                PanelCommandDescriptor.Create(SurfaceCommand_SetModeMove, "Set Mode: Move", "engine.command.activate_move_mode"),
++                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPanelettesForAllNodes, "Attach Metadata Panelettes (All Nodes)", "engine.command.attach_metadata_panelettes_for_all_nodes"),
++                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes, "Attach Detailed Metadata Panelettes (All Nodes)", "engine.command.attach_detail_metadata_panelettes_for_all_nodes"),
++                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPanelettesForAllNodes, "Attach Label Panelettes (All Nodes)", "engine.command.attach_label_panelettes_for_all_nodes"),
++                PanelCommandDescriptor.Create(SurfaceCommand_ClearPanelettesForAllNodes, "Remove Panelettes (All Nodes)", "engine.command.clear_panelettes_for_all_nodes")
+             .Where(descriptor => descriptor is not null)
+             .Cast<PanelCommandDescriptor>()
+             .ToArray();

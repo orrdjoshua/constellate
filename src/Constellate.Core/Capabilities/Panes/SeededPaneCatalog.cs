@@ -747,6 +747,305 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             BindingTargetRef: "EngineCommand:ClearLinks"),
 
         new(
+            "engine.command.clear_focus",
+            "Clear Focus",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentWorld,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Clear the current focused node or panel target.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:ClearFocus"),
+
+        new(
+            "engine.command.create_node_at_pointer",
+            "Create Node At Pointer",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.BackgroundContext,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Create a node at the current viewport pointer/context-surface anchor point.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:CreateNodeAtPointer"),
+
+        new(
+            "engine.command.exit_node_context",
+            "Exit Node Context",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentWorld,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Exit the currently entered node context from a viewport background command surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:ExitNodeContext"),
+
+        new(
+            "engine.command.focus_node_context_target",
+            "Focus Node Context Target",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Focus the node targeted by the active viewport node context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:Focus"),
+
+        new(
+            "engine.command.select_node_context_target",
+            "Select Node Context Target",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Select the node targeted by the active viewport node context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:Select"),
+
+        new(
+            "engine.command.enter_node_context_target",
+            "Enter Node Context Target",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Enter the node targeted by the active viewport node context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:EnterNode"),
+
+        new(
+            "engine.command.attach_metadata_panelette_for_node",
+            "Attach Metadata Panelette",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach a metadata panelette for the node targeted by the viewport context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachMetadataPaneletteForNode"),
+
+        new(
+            "engine.command.attach_label_panelette_for_node",
+            "Attach Label Panelette",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach a label panelette for the node targeted by the viewport context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachLabelPaneletteForNode"),
+
+        new(
+            "engine.command.attach_detail_metadata_panelette_for_node",
+            "Attach Detailed Metadata Panelette",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach a higher-detail metadata panelette for the node targeted by the viewport context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachDetailMetadataPaneletteForNode"),
+
+        new(
+            "engine.command.clear_panelette_for_node",
+            "Remove Panelette",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.Destructive,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.FocusedNode,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Remove panelette attachments from the node targeted by the viewport context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:ClearPaneletteForNode"),
+
+        new(
+            "engine.command.attach_metadata_panelettes_for_all_nodes",
+            "Attach Metadata Panelettes (All Nodes)",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.BackgroundContext,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach metadata panelettes across all current nodes from the viewport background context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachMetadataPanelettesForAllNodes"),
+
+        new(
+            "engine.command.attach_label_panelettes_for_all_nodes",
+            "Attach Label Panelettes (All Nodes)",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.BackgroundContext,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach label panelettes across all current nodes from the viewport background context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachLabelPanelettesForAllNodes"),
+
+        new(
+            "engine.command.attach_detail_metadata_panelettes_for_all_nodes",
+            "Attach Detailed Metadata Panelettes (All Nodes)",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.BackgroundContext,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Attach higher-detail metadata panelettes across all current nodes from the viewport background context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:AttachDetailMetadataPanelettesForAllNodes"),
+
+        new(
+            "engine.command.clear_panelettes_for_all_nodes",
+            "Remove Panelettes (All Nodes)",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.Destructive,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.BackgroundContext,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Remove panelette attachments across all current nodes from the viewport background context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:ClearPanelettesForAllNodes"),
+
+        new(
+            "engine.command.link_select_source",
+            "Select Link Source",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Select the source endpoint for the active viewport link context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:LinkSelectSource"),
+
+        new(
+            "engine.command.link_select_target",
+            "Select Link Target",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Select the target endpoint for the active viewport link context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:LinkSelectTarget"),
+
+        new(
+            "engine.command.link_frame_endpoints",
+            "Frame Link Endpoints",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Frame the source and target endpoints for the active viewport link context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:LinkFrameEndpoints"),
+
+        new(
+            "engine.command.link_unlink_context",
+            "Unlink Endpoints",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.Destructive,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Remove the relationship represented by the active viewport link context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:LinkUnlink"),
+
+        new(
+            "engine.command.group_select_members",
+            "Select Group Nodes",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Select members of the group targeted by the active viewport group context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:GroupSelectMembers"),
+
+        new(
+            "engine.command.group_frame",
+            "Frame Group",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Frame members of the group targeted by the active viewport group context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:GroupFrame"),
+
+        new(
+            "engine.command.group_add_selection_to_context_group",
+            "Add Selection To Group",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Add the current selection to the group targeted by the active viewport group context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:GroupAddSelection"),
+
+        new(
+            "engine.command.group_remove_selection_from_context_group",
+            "Remove Selection From Group",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.EngineStateMutating,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Remove the current selection from the group targeted by the active viewport group context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:GroupRemoveSelection"),
+
+        new(
+            "engine.command.group_delete_context_group",
+            "Delete Group",
+            PaneCapabilityKind.EngineCommand,
+            PaneCapabilitySourceDomain.EngineState,
+            PaneCapabilityAuthority.Destructive,
+            PaneCapabilityLifetime.OneShot,
+            PaneCapabilityContext.CurrentSelection,
+            [PaneProjectionForm.Button, PaneProjectionForm.Toolbar, PaneProjectionForm.Menu],
+            "Delete the group targeted by the active viewport group context surface.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "EngineCommand:GroupDelete"),
+
+        new(
             "engine.state.current_selection",
             "Current Selection",
             PaneCapabilityKind.StateSelector,
@@ -1030,7 +1329,111 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             [PaneProjectionForm.Card, PaneProjectionForm.Editor],
             "Read-only next-target summary for the current hardcoded-surface migration lane.",
             OwnerKind: "Engine",
-            BindingTargetRef: "StateSelector:HardcodedSurfaceAuditNextTargetsSummary")
+            BindingTargetRef: "StateSelector:HardcodedSurfaceAuditNextTargetsSummary"),
+
+        new(
+            "engine.state.viewport_command_surface_audit_summary",
+            "Viewport Command Surface Audit Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of renderer-local viewport command-surface inventories that still sit outside the reusable pane registry.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ViewportCommandSurfaceAuditSummary"),
+
+        new(
+            "engine.state.renderer_viewport_registry_gap_summary",
+            "Renderer Viewport Registry Gap Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of the current gap between renderer-owned command surfaces and reusable pane capability registration.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:RendererViewportRegistryGapSummary"),
+
+        new(
+            "engine.state.shell_native_chrome_boundary_summary",
+            "Shell Native Chrome Boundary Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of renderer/shell mechanics that currently look like final shell-native chrome rather than reusable pane-definition truth.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ShellNativeChromeBoundarySummary"),
+
+        new(
+            "engine.state.renderer_parity_next_targets_summary",
+            "Renderer Parity Next Targets Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of the next renderer/helper files and parity targets for the current registry-expansion wave.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:RendererParityNextTargetsSummary"),
+
+        new(
+            "engine.state.active_panel_command_surface_state_summary",
+            "Active Panel Command Surface State Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary classifying the renderer-local active command-surface state helper.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ActivePanelCommandSurfaceStateSummary"),
+
+        new(
+            "engine.state.renderer_halo_and_group_effect_summary",
+            "Renderer Halo And Group Effect Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of renderer-native halo, group-volume, and visual-effect ownership.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:RendererHaloAndGroupEffectSummary"),
+
+        new(
+            "engine.state.projected_hit_testing_boundary_summary",
+            "Projected Hit-Testing Boundary Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary classifying projected node hit-testing as shell-native interaction math.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ProjectedHitTestingBoundarySummary"),
+
+        new(
+            "engine.state.renderer_migration_boundary_summary",
+            "Renderer Migration Boundary Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of which renderer parity gaps are migratable next versus shell-native for now.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:RendererMigrationBoundarySummary")
     ];
 
     private static readonly PaneDefinitionDescriptor[] PaneDefinitions =
@@ -2674,6 +3077,91 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             ],
             "Seeded audit pane that makes shell-level hardcoded surface findings visible through the shared pane runtime.",
             ["seeded", "audit", "shell", "chrome"])
+            ,
+
+        new(
+            "pane.viewport_command_surface_audit",
+            "Viewport Command Surface Audit",
+            PaneDefinitionKind.ChildPane,
+            true,
+            [
+                new(
+                    "viewport_command_surface_audit.header",
+                    PaneElementKind.DefinitionHeader,
+                    "Viewport Command Surface Audit"),
+                new(
+                    "viewport_command_surface_audit.renderer_section",
+                    PaneElementKind.Section,
+                    "Renderer / Viewport Findings",
+                    null,
+                    [
+                        new(
+                            "viewport_command_surface_audit.command_inventory",
+                            PaneElementKind.PropertyEditor,
+                            "Viewport Command Surface Inventory",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.viewport_command_surface_audit_summary")),
+                        new(
+                            "viewport_command_surface_audit.registry_gap",
+                            PaneElementKind.PropertyEditor,
+                            "Registry Gap",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.renderer_viewport_registry_gap_summary")),
+                        new(
+                            "viewport_command_surface_audit.shell_boundary",
+                            PaneElementKind.PropertyEditor,
+                            "Shell-Native Boundary",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.shell_native_chrome_boundary_summary")),
+                        new(
+                            "viewport_command_surface_audit.next_targets",
+                            PaneElementKind.TextEditor,
+                            "Next Targets",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.renderer_parity_next_targets_summary"))
+                    ]),
+                new(
+                    "viewport_command_surface_audit.helper_section",
+                    PaneElementKind.Section,
+                    "Helper / Boundary Findings",
+                    null,
+                    [
+                        new(
+                            "viewport_command_surface_audit.active_state",
+                            PaneElementKind.PropertyEditor,
+                            "Active Command Surface State",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.active_panel_command_surface_state_summary")),
+                        new(
+                            "viewport_command_surface_audit.halo_effects",
+                            PaneElementKind.PropertyEditor,
+                            "Renderer Halo / Group Effects",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.renderer_halo_and_group_effect_summary")),
+                        new(
+                            "viewport_command_surface_audit.hit_testing",
+                            PaneElementKind.PropertyEditor,
+                            "Projected Hit-Testing Boundary",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.projected_hit_testing_boundary_summary")),
+                        new(
+                            "viewport_command_surface_audit.migration_boundary",
+                            PaneElementKind.TextEditor,
+                            "Migration Boundary",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.renderer_migration_boundary_summary"))
+                    ])
+            ],
+            "Seeded audit pane that surfaces the first concrete renderer/viewport capability-parity findings through the shared pane runtime.",
+            ["seeded", "audit", "renderer", "viewport"])
     ];
 
     private static readonly PaneWorkspaceDescriptor[] WorkspaceDefinitions =
@@ -2701,7 +3189,8 @@ public sealed class SeededPaneCatalog : IPaneCatalog
                 new("workspace.member.pane_authoring_studio", "pane.pane_authoring_studio", 15, "right"),
                 new("workspace.member.workspace_authoring_studio", "pane.workspace_authoring_studio", 16, "bottom"),
                 new("workspace.member.visual_semantics_audit", "pane.visual_semantics_audit", 17, "left"),
-                new("workspace.member.shell_hardcoded_surface_audit", "pane.shell_hardcoded_surface_audit", 18, "top")
+                new("workspace.member.shell_hardcoded_surface_audit", "pane.shell_hardcoded_surface_audit", 18, "top"),
+                new("workspace.member.viewport_command_surface_audit", "pane.viewport_command_surface_audit", 19, "right")
             ],
             "Seeded workspace arrangement for the first catalog-backed pane toolset derived from current useful hardcoded behavior.",
             ["seeded", "workspace", "default"])

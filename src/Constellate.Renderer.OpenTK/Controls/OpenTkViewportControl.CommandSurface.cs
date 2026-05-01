@@ -102,20 +102,20 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             var commandDescriptors = new[]
             {
-                PanelCommandDescriptor.Create(CommandNames.CenterOnNode, "Center on Node"),
-                PanelCommandDescriptor.Create(CommandNames.Select, "Select"),
-                PanelCommandDescriptor.Create(CommandNames.Focus, "Focus"),
-                PanelCommandDescriptor.Create(CommandNames.EnterNode, "Enter Node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette"),
-                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node")
+                PanelCommandDescriptor.Create(CommandNames.CenterOnNode, "Center on Node", "engine.command.center_focused_node"),
+                PanelCommandDescriptor.Create(CommandNames.Select, "Select", "engine.command.select_node_context_target"),
+                PanelCommandDescriptor.Create(CommandNames.Focus, "Focus", "engine.command.focus_node_context_target"),
+                PanelCommandDescriptor.Create(CommandNames.EnterNode, "Enter Node", "engine.command.enter_node_context_target"),
+                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette", "engine.command.attach_metadata_panelette_for_node"),
+                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette", "engine.command.attach_label_panelette_for_node"),
+                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette", "engine.command.attach_detail_metadata_panelette_for_node"),
+                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette", "engine.command.clear_panelette_for_node"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left", "engine.command.nudge_focused_left"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right", "engine.command.nudge_focused_right"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up", "engine.command.nudge_focused_up"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down", "engine.command.nudge_focused_down"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node", "engine.command.grow_focused_node"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node", "engine.command.shrink_focused_node")
             }
             .Where(descriptor => descriptor is not null)
             .Cast<PanelCommandDescriptor>()
@@ -217,16 +217,16 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             var commandDescriptors = new[]
             {
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectSource, "Select Source"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectTarget, "Select Target"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkFrameEndpoints, "Frame Endpoints"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left"),
+                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectSource, "Select Source", "engine.command.link_select_source"),
+                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectTarget, "Select Target", "engine.command.link_select_target"),
+                PanelCommandDescriptor.Create(SurfaceCommand_LinkFrameEndpoints, "Frame Endpoints", "engine.command.link_frame_endpoints"),
+                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left", "engine.command.nudge_focused_left"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node"),
                 PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkUnlink, "Unlink")
+                PanelCommandDescriptor.Create(SurfaceCommand_LinkUnlink, "Unlink", "engine.command.link_unlink_context")
             }
             .Where(descriptor => descriptor is not null)
             .Cast<PanelCommandDescriptor>()
@@ -403,11 +403,11 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             var commandDescriptors = new[]
             {
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupSelectMembers, "Select Group Nodes"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupFrame, "Frame Group"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupAddSelection, "Add Selection to Group"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupRemoveSelection, "Remove Selection from Group"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupDelete, "Delete Group")
+                PanelCommandDescriptor.Create(SurfaceCommand_GroupSelectMembers, "Select Group Nodes", "engine.command.group_select_members"),
+                PanelCommandDescriptor.Create(SurfaceCommand_GroupFrame, "Frame Group", "engine.command.group_frame"),
+                PanelCommandDescriptor.Create(SurfaceCommand_GroupAddSelection, "Add Selection to Group", "engine.command.group_add_selection_to_context_group"),
+                PanelCommandDescriptor.Create(SurfaceCommand_GroupRemoveSelection, "Remove Selection from Group", "engine.command.group_remove_selection_from_context_group"),
+                PanelCommandDescriptor.Create(SurfaceCommand_GroupDelete, "Delete Group", "engine.command.group_delete_context_group")
             }
             .Where(descriptor => descriptor is not null)
             .Cast<PanelCommandDescriptor>()
@@ -1143,6 +1143,24 @@ namespace Constellate.Renderer.OpenTK.Controls
                         new FrameSelectionPayload([_activeLinkSourceId, _activeLinkTargetId], 1.35f));
                     return true;
 
+                case SurfaceCommand_NudgeNodeLeft:
+                    return TryApplyLinkEndpointTransformFromContextSurface(new NVec3(-0.12f, 0f, 0f), 1f);
+
+                case SurfaceCommand_NudgeNodeRight:
+                    return TryApplyLinkEndpointTransformFromContextSurface(new NVec3(0.12f, 0f, 0f), 1f);
+
+                case SurfaceCommand_NudgeNodeUp:
+                    return TryApplyLinkEndpointTransformFromContextSurface(new NVec3(0f, 0.08f, 0f), 1f);
+
+                case SurfaceCommand_NudgeNodeDown:
+                    return TryApplyLinkEndpointTransformFromContextSurface(new NVec3(0f, -0.08f, 0f), 1f);
+
+                case SurfaceCommand_NodeGrow:
+                    return TryApplyLinkEndpointTransformFromContextSurface(NVec3.Zero, 1.15f);
+
+                case SurfaceCommand_NodeShrink:
+                    return TryApplyLinkEndpointTransformFromContextSurface(NVec3.Zero, 1f / 1.15f);
+
                 case SurfaceCommand_LinkUnlink:
                     SendCommand(
                         CommandNames.Unlink,
@@ -1335,6 +1353,22 @@ namespace Constellate.Renderer.OpenTK.Controls
             SendCommand(
                 CommandNames.UpdateEntities,
                 new UpdateEntitiesPayload(new[] { update }));
+        }
+
+        private bool TryApplyLinkEndpointTransformFromContextSurface(NVec3 positionDelta, float scaleMultiplier)
+        {
+            if (string.IsNullOrWhiteSpace(_activeLinkSourceId) ||
+                string.IsNullOrWhiteSpace(_activeLinkTargetId))
+            {
+                return false;
+            }
+
+            ApplyNodeTransformFromContextSurface(_activeLinkSourceId, positionDelta, scaleMultiplier);
+            if (!string.Equals(_activeLinkSourceId, _activeLinkTargetId, StringComparison.Ordinal))
+            {
+                ApplyNodeTransformFromContextSurface(_activeLinkTargetId, positionDelta, scaleMultiplier);
+            }
+            return true;
         }
 
         private void CreateNodeAtBackgroundAnchorPoint()
