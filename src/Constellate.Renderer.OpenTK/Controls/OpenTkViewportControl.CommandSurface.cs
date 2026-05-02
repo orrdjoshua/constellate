@@ -66,6 +66,154 @@ namespace Constellate.Renderer.OpenTK.Controls
         private string? _activeLinkTargetId;
         private string? _activeGroupId;
 
+        private static PanelCommandDescriptor CreateCommandDescriptor(string commandId, string displayLabel, string catalogCapabilityId)
+        {
+            return PanelCommandDescriptor.Create(commandId, displayLabel, catalogCapabilityId)
+                ?? throw new InvalidOperationException($"Unable to create panel command descriptor for '{commandId}'.");
+        }
+
+        private static PanelCommandDescriptor[] BuildNodeTransformCommandDescriptors()
+        {
+            return
+            [
+                CreateCommandDescriptor(SurfaceCommand_NudgeNodeLeft, "Nudge Left", "engine.command.nudge_focused_left"),
+                CreateCommandDescriptor(SurfaceCommand_NudgeNodeRight, "Nudge Right", "engine.command.nudge_focused_right"),
+                CreateCommandDescriptor(SurfaceCommand_NudgeNodeUp, "Nudge Up", "engine.command.nudge_focused_up"),
+                CreateCommandDescriptor(SurfaceCommand_NudgeNodeDown, "Nudge Down", "engine.command.nudge_focused_down"),
+                CreateCommandDescriptor(SurfaceCommand_NodeGrow, "Grow Node", "engine.command.grow_focused_node"),
+                CreateCommandDescriptor(SurfaceCommand_NodeShrink, "Shrink Node", "engine.command.shrink_focused_node")
+            ];
+        }
+
+        private static PanelCommandDescriptor[] BuildAllNodePaneletteCommandDescriptors()
+        {
+            return
+            [
+                CreateCommandDescriptor(SurfaceCommand_AttachMetadataPanelettesForAllNodes, "Attach Metadata Panelettes (All Nodes)", "engine.command.attach_metadata_panelettes_for_all_nodes"),
+                CreateCommandDescriptor(SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes, "Attach Detailed Metadata Panelettes (All Nodes)", "engine.command.attach_detail_metadata_panelettes_for_all_nodes"),
+                CreateCommandDescriptor(SurfaceCommand_AttachLabelPanelettesForAllNodes, "Attach Label Panelettes (All Nodes)", "engine.command.attach_label_panelettes_for_all_nodes"),
+                CreateCommandDescriptor(SurfaceCommand_ClearPanelettesForAllNodes, "Remove Panelettes (All Nodes)", "engine.command.clear_panelettes_for_all_nodes")
+            ];
+        }
+
+        private static PanelCommandDescriptor[] BuildInteractionModeCommandDescriptors()
+        {
+            return
+            [
+                CreateCommandDescriptor(SurfaceCommand_SetModeNavigate, "Set Mode: Navigate", "engine.command.activate_navigate_mode"),
+                CreateCommandDescriptor(SurfaceCommand_SetModeMarquee, "Set Mode: Marquee", "engine.command.activate_marquee_mode"),
+                CreateCommandDescriptor(SurfaceCommand_SetModeMove, "Set Mode: Move", "engine.command.activate_move_mode")
+            ];
+        }
+
+        private static PanelCommandDescriptor[] BuildNodeContextCommandDescriptors()
+        {
+            var commands = new List<PanelCommandDescriptor>
+            {
+                CreateCommandDescriptor(CommandNames.CenterOnNode, "Center on Node", "engine.command.center_focused_node"),
+                CreateCommandDescriptor(CommandNames.Select, "Select", "engine.command.select_node_context_target"),
+                CreateCommandDescriptor(CommandNames.Focus, "Focus", "engine.command.focus_node_context_target"),
+                CreateCommandDescriptor(CommandNames.EnterNode, "Enter Node", "engine.command.enter_node_context_target"),
+                CreateCommandDescriptor(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette", "engine.command.attach_metadata_panelette_for_node"),
+                CreateCommandDescriptor(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette", "engine.command.attach_label_panelette_for_node"),
+                CreateCommandDescriptor(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette", "engine.command.attach_detail_metadata_panelette_for_node"),
+                CreateCommandDescriptor(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette", "engine.command.clear_panelette_for_node")
+            };
+
+            commands.AddRange(BuildNodeTransformCommandDescriptors());
+            return commands.ToArray();
+        }
+
+        private static PanelCommandDescriptor[] BuildLinkContextCommandDescriptors()
+        {
+            var commands = new List<PanelCommandDescriptor>
+            {
+                CreateCommandDescriptor(SurfaceCommand_LinkSelectSource, "Select Source", "engine.command.link_select_source"),
+                CreateCommandDescriptor(SurfaceCommand_LinkSelectTarget, "Select Target", "engine.command.link_select_target"),
+                CreateCommandDescriptor(SurfaceCommand_LinkFrameEndpoints, "Frame Endpoints", "engine.command.link_frame_endpoints")
+            };
+
+            commands.AddRange(BuildNodeTransformCommandDescriptors());
+            commands.Add(CreateCommandDescriptor(SurfaceCommand_LinkUnlink, "Unlink", "engine.command.link_unlink_context"));
+            return commands.ToArray();
+        }
+
+        private static PanelCommandDescriptor[] BuildGroupContextCommandDescriptors()
+        {
+            return
+            [
+                CreateCommandDescriptor(SurfaceCommand_GroupSelectMembers, "Select Group Nodes", "engine.command.group_select_members"),
+                CreateCommandDescriptor(SurfaceCommand_GroupFrame, "Frame Group", "engine.command.group_frame"),
+                CreateCommandDescriptor(SurfaceCommand_GroupAddSelection, "Add Selection to Group", "engine.command.group_add_selection_to_context_group"),
+                CreateCommandDescriptor(SurfaceCommand_GroupRemoveSelection, "Remove Selection from Group", "engine.command.group_remove_selection_from_context_group"),
+                CreateCommandDescriptor(SurfaceCommand_GroupDelete, "Delete Group", "engine.command.group_delete_context_group")
+            ];
+        }
+
+        private static PanelCommandDescriptor[] BuildBackgroundContextCommandDescriptors(bool hasEnteredNode)
+        {
+            var commands = new List<PanelCommandDescriptor>
+            {
+                CreateCommandDescriptor(SurfaceCommand_CreateNodeAtPointer, "Create Node Here", "engine.command.create_node_at_pointer"),
+                CreateCommandDescriptor(CommandNames.ClearFocus, "Clear Focus", "engine.command.clear_focus"),
+                CreateCommandDescriptor(CommandNames.ClearSelection, "Clear Selection", "engine.command.clear_selection"),
+                CreateCommandDescriptor(CommandNames.HomeView, "Home View", "engine.command.home_view"),
+                CreateCommandDescriptor(CommandNames.FrameSelection, "Frame Selection", "engine.command.frame_selection")
+            };
+
+            if (hasEnteredNode)
+            {
+                commands.Add(CreateCommandDescriptor(SurfaceCommand_ExitNodeContext, "Exit Node Context", "engine.command.exit_node_context"));
+            }
+
+            commands.Add(CreateCommandDescriptor(SurfaceCommand_SaveBookmark, "Save Bookmark", "engine.command.save_bookmark"));
+            commands.Add(CreateCommandDescriptor(SurfaceCommand_RestoreBookmark, "Restore Bookmark", "engine.command.restore_latest_bookmark"));
+            commands.AddRange(BuildInteractionModeCommandDescriptors());
+            commands.AddRange(BuildAllNodePaneletteCommandDescriptors());
+            return commands.ToArray();
+        }
+
+        private static PanelCommandSurfaceMetadata CreateContextSurfaceMetadata(
+            string surfaceName,
+            string surfaceGroup,
+            PanelCommandDescriptor[] commands)
+        {
+            return new PanelCommandSurfaceMetadata(
+                SurfaceName: surfaceName,
+                SurfaceGroup: surfaceGroup,
+                Commands: commands,
+                SurfaceSource: "engine");
+        }
+
+        private void OpenBackgroundCommandSurface(
+            Point point,
+            BackgroundSurfaceKind kind,
+            PanelCommandSurfaceMetadata metadata,
+            string? activeLinkSourceId = null,
+            string? activeLinkTargetId = null,
+            string? activeGroupId = null)
+        {
+            ClearBackgroundCommandSurface(invalidate: false);
+
+            _backgroundSurfaceKind = kind;
+            _activeLinkSourceId = activeLinkSourceId;
+            _activeLinkTargetId = activeLinkTargetId;
+            _activeGroupId = activeGroupId;
+            _backgroundCommandAnchorPoint = point;
+
+            LayoutBackgroundCommandSurface(
+                point,
+                metadata,
+                new Rect(Bounds.Size),
+                out _backgroundCommandOverlayRect,
+                out _backgroundCommandCommandRects);
+
+            _backgroundCommandSurfaceMetadata = metadata;
+            _backgroundCommandIndex = 0;
+            _hasBackgroundCommandSurface = true;
+            InvalidateVisual();
+        }
+
         private bool TryOpenOrAdvancePanelCommandSurface(Point point)
         {
             if (!TryHitTestPanelSurface(point, out var panel, out var semantics) ||
@@ -74,8 +222,6 @@ namespace Constellate.Renderer.OpenTK.Controls
             {
                 return false;
             }
-
-            ClearBackgroundCommandSurface(invalidate: false);
 
             SendCommand(CommandNames.FocusPanel, new FocusPanelPayload(panel.NodeId, panel.ViewRef));
 
@@ -100,26 +246,7 @@ namespace Constellate.Renderer.OpenTK.Controls
 
             ClearBackgroundCommandSurface(invalidate: false);
 
-            var commandDescriptors = new[]
-            {
-                PanelCommandDescriptor.Create(CommandNames.CenterOnNode, "Center on Node", "engine.command.center_focused_node"),
-                PanelCommandDescriptor.Create(CommandNames.Select, "Select", "engine.command.select_node_context_target"),
-                PanelCommandDescriptor.Create(CommandNames.Focus, "Focus", "engine.command.focus_node_context_target"),
-                PanelCommandDescriptor.Create(CommandNames.EnterNode, "Enter Node", "engine.command.enter_node_context_target"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPaneletteForNode, "Attach Metadata Panelette", "engine.command.attach_metadata_panelette_for_node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPaneletteForNode, "Attach Label Panelette", "engine.command.attach_label_panelette_for_node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPaneletteForNode, "Attach Detailed Metadata Panelette", "engine.command.attach_detail_metadata_panelette_for_node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_ClearPaneletteForNode, "Remove Panelette", "engine.command.clear_panelette_for_node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left", "engine.command.nudge_focused_left"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right", "engine.command.nudge_focused_right"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up", "engine.command.nudge_focused_up"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down", "engine.command.nudge_focused_down"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node", "engine.command.grow_focused_node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node", "engine.command.shrink_focused_node")
-            }
-            .Where(descriptor => descriptor is not null)
-            .Cast<PanelCommandDescriptor>()
-            .ToArray();
+            var commandDescriptors = BuildNodeContextCommandDescriptors();
 
             if (commandDescriptors.Length == 0)
             {
@@ -215,22 +342,7 @@ namespace Constellate.Renderer.OpenTK.Controls
             _activeLinkTargetId = bestTargetId;
             _activeGroupId = null;
 
-            var commandDescriptors = new[]
-            {
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectSource, "Select Source", "engine.command.link_select_source"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkSelectTarget, "Select Target", "engine.command.link_select_target"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkFrameEndpoints, "Frame Endpoints", "engine.command.link_frame_endpoints"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeLeft, "Nudge Left", "engine.command.nudge_focused_left"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeRight, "Nudge Right"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeUp, "Nudge Up"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NudgeNodeDown, "Nudge Down"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeGrow, "Grow Node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_NodeShrink, "Shrink Node"),
-                PanelCommandDescriptor.Create(SurfaceCommand_LinkUnlink, "Unlink", "engine.command.link_unlink_context")
-            }
-            .Where(descriptor => descriptor is not null)
-            .Cast<PanelCommandDescriptor>()
-            .ToArray();
+            var commandDescriptors = BuildLinkContextCommandDescriptors();
 
             if (commandDescriptors.Length == 0)
             {
@@ -394,49 +506,19 @@ namespace Constellate.Renderer.OpenTK.Controls
                 return false;
             }
 
-            ClearBackgroundCommandSurface(invalidate: false);
-
-            _backgroundSurfaceKind = BackgroundSurfaceKind.Group;
-            _activeGroupId = bestGroupId;
-            _activeLinkSourceId = null;
-            _activeLinkTargetId = null;
-
-            var commandDescriptors = new[]
-            {
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupSelectMembers, "Select Group Nodes", "engine.command.group_select_members"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupFrame, "Frame Group", "engine.command.group_frame"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupAddSelection, "Add Selection to Group", "engine.command.group_add_selection_to_context_group"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupRemoveSelection, "Remove Selection from Group", "engine.command.group_remove_selection_from_context_group"),
-                PanelCommandDescriptor.Create(SurfaceCommand_GroupDelete, "Delete Group", "engine.command.group_delete_context_group")
-            }
-            .Where(descriptor => descriptor is not null)
-            .Cast<PanelCommandDescriptor>()
-            .ToArray();
+            var commandDescriptors = BuildGroupContextCommandDescriptors();
 
             if (commandDescriptors.Length == 0)
             {
                 return false;
             }
 
-            var metadata = new PanelCommandSurfaceMetadata(
-                SurfaceName: "group.primary",
-                SurfaceGroup: "group",
-                Commands: commandDescriptors,
-                SurfaceSource: "engine");
-
-            _backgroundCommandAnchorPoint = point;
-
-            LayoutBackgroundCommandSurface(
+            var metadata = CreateContextSurfaceMetadata("group.primary", "group", commandDescriptors);
+            OpenBackgroundCommandSurface(
                 point,
+                BackgroundSurfaceKind.Group,
                 metadata,
-                new Rect(Bounds.Size),
-                out _backgroundCommandOverlayRect,
-                out _backgroundCommandCommandRects);
-
-            _backgroundCommandSurfaceMetadata = metadata;
-            _backgroundCommandIndex = 0;
-            _hasBackgroundCommandSurface = true;
-            InvalidateVisual();
+                activeGroupId: bestGroupId);
             return true;
         }
 
@@ -778,56 +860,15 @@ namespace Constellate.Renderer.OpenTK.Controls
         {
             var hasEnteredNode = EngineServices.ShellScene.GetEnteredNodeId() is not null;
 
-            var commandDescriptors = new[]
-            {
-                PanelCommandDescriptor.Create(SurfaceCommand_CreateNodeAtPointer, "Create Node Here"),
-                PanelCommandDescriptor.Create(CommandNames.ClearFocus, "Clear Focus"),
-                PanelCommandDescriptor.Create(CommandNames.ClearSelection, "Clear Selection"),
-                PanelCommandDescriptor.Create(CommandNames.HomeView, "Home View"),
-                PanelCommandDescriptor.Create(CommandNames.FrameSelection, "Frame Selection"),
-                hasEnteredNode ? PanelCommandDescriptor.Create(SurfaceCommand_ExitNodeContext, "Exit Node Context") : null,
-                PanelCommandDescriptor.Create(SurfaceCommand_SaveBookmark, "Save Bookmark"),
-                PanelCommandDescriptor.Create(SurfaceCommand_RestoreBookmark, "Restore Bookmark"),
-                PanelCommandDescriptor.Create(SurfaceCommand_SetModeNavigate, "Set Mode: Navigate"),
-                PanelCommandDescriptor.Create(SurfaceCommand_SetModeMarquee, "Set Mode: Marquee"),
-                PanelCommandDescriptor.Create(SurfaceCommand_SetModeMove, "Set Mode: Move"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachMetadataPanelettesForAllNodes, "Attach Metadata Panelettes (All Nodes)"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachDetailMetadataPanelettesForAllNodes, "Attach Detailed Metadata Panelettes (All Nodes)"),
-                PanelCommandDescriptor.Create(SurfaceCommand_AttachLabelPanelettesForAllNodes, "Attach Label Panelettes (All Nodes)"),
-                PanelCommandDescriptor.Create(SurfaceCommand_ClearPanelettesForAllNodes, "Remove Panelettes (All Nodes)")
-            }
-            .Where(descriptor => descriptor is not null)
-            .Cast<PanelCommandDescriptor>()
-            .ToArray();
+            var commandDescriptors = BuildBackgroundContextCommandDescriptors(hasEnteredNode);
 
             if (commandDescriptors.Length == 0)
             {
                 return false;
             }
 
-            _backgroundCommandAnchorPoint = point;
-
-            var metadata = new PanelCommandSurfaceMetadata(
-                SurfaceName: "background.primary",
-                SurfaceGroup: "background",
-                Commands: commandDescriptors,
-                SurfaceSource: "engine");
-
-            LayoutBackgroundCommandSurface(
-                point,
-                metadata,
-                new Rect(Bounds.Size),
-                out _backgroundCommandOverlayRect,
-                out _backgroundCommandCommandRects);
-
-            _backgroundCommandSurfaceMetadata = metadata;
-            _backgroundCommandIndex = 0;
-            _hasBackgroundCommandSurface = true;
-            _backgroundSurfaceKind = BackgroundSurfaceKind.Background;
-            _activeLinkSourceId = null;
-            _activeLinkTargetId = null;
-            _activeGroupId = null;
-            InvalidateVisual();
+            var metadata = CreateContextSurfaceMetadata("background.primary", "background", commandDescriptors);
+            OpenBackgroundCommandSurface(point, BackgroundSurfaceKind.Background, metadata);
             return true;
         }
 

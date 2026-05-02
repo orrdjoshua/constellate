@@ -1332,6 +1332,45 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             BindingTargetRef: "StateSelector:HardcodedSurfaceAuditNextTargetsSummary"),
 
         new(
+            "engine.state.shell_command_catalog_candidate_summary",
+            "Shell Command Catalog Candidate Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of which still-hardcoded shell/workspace commands are the best immediate shared 2D pane/catalog migration candidates.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ShellCommandCatalogCandidateSummary"),
+
+        new(
+            "engine.state.shell_command_native_chrome_summary",
+            "Shell Command Native Chrome Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of shell mechanics that should likely remain shell-native chrome rather than reusable pane-definition truth for now.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ShellCommandNativeChromeSummary"),
+
+        new(
+            "engine.state.shell_command_future_capability_summary",
+            "Shell Command Future Capability Summary",
+            PaneCapabilityKind.StateSelector,
+            PaneCapabilitySourceDomain.WorkspaceState,
+            PaneCapabilityAuthority.ReadOnly,
+            PaneCapabilityLifetime.CurrentSnapshot,
+            PaneCapabilityContext.GlobalProject,
+            [PaneProjectionForm.Card, PaneProjectionForm.Editor],
+            "Read-only summary of shell command surfaces that should stay in the audit as future authoring/plugin capability seams rather than immediate 2D-pane migration targets.",
+            OwnerKind: "Engine",
+            BindingTargetRef: "StateSelector:ShellCommandFutureCapabilitySummary"),
+
+        new(
             "engine.state.viewport_command_surface_audit_summary",
             "Viewport Command Surface Audit Summary",
             PaneCapabilityKind.StateSelector,
@@ -3055,6 +3094,27 @@ public sealed class SeededPaneCatalog : IPaneCatalog
                             new PaneElementBindingDescriptor(
                                 PaneElementBindingTargetKind.StateSelector,
                                 "engine.state.main_window_shell_chrome_audit_summary")),
+                        new(
+                            "shell_hardcoded_surface_audit.catalog_candidates",
+                            PaneElementKind.PropertyEditor,
+                            "Immediate Shared 2D Candidates",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.shell_command_catalog_candidate_summary")),
+                        new(
+                            "shell_hardcoded_surface_audit.shell_native_boundary",
+                            PaneElementKind.PropertyEditor,
+                            "Likely Shell-Native Chrome",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.shell_command_native_chrome_summary")),
+                        new(
+                            "shell_hardcoded_surface_audit.future_capability_boundary",
+                            PaneElementKind.PropertyEditor,
+                            "Future Authoring / Capability Seams",
+                            new PaneElementBindingDescriptor(
+                                PaneElementBindingTargetKind.StateSelector,
+                                "engine.state.shell_command_future_capability_summary")),
                         new(
                             "shell_hardcoded_surface_audit.structure",
                             PaneElementKind.ProjectionStatusView,

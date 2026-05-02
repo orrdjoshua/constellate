@@ -398,6 +398,15 @@ public sealed partial class MainWindowViewModel
     public string HardcodedSurfaceAuditNextTargetsSummary =>
         "Nearest follow-on targets: surface halo/focus/selection settings through shared runtime, reduce parent-pane header command clutter, and decide whether the shell resource-detail overlay remains final chrome or moves behind an explicit authored/admin surface.";
 
+    public string ShellCommandCatalogCandidateSummary =>
+        "Immediate shared 2D pane/workspace candidates now look like parent split/slide controls, create-child, parent/child minimize-restore-destroy actions, child rehost moves, layout reset/save/restore, rename-pane posture, and the pane lifecycle/appearance actions already partly migrating through the shared runtime. These are discrete shell/workspace commands and should move before more pointer-specific viewport context extraction.";
+
+    public string ShellCommandNativeChromeSummary =>
+        "Likely shell-native chrome for now remains MainWindow corner affordances, overlay resize grips, drag-shadow layers, overlay layout and hit-target composition, parent-header drag affordances, and the shell-visible resource-detail summary overlay. These still look like final shell mechanics rather than reusable pane-definition truth.";
+
+    public string ShellCommandFutureCapabilitySummary =>
+        "Future authoring/plugin capability seams now include add/remove command-bar-button flows, richer command-surface composition editing, and deeper pane/workspace chrome customization that still lacks a real shared authoring model. Keep these audited, but do not force early shared 2D-pane parity yet.";
+
     public string ViewportCommandSurfaceAuditSummary =>
         "OpenTkViewportControl.CommandSurface.cs still owns hardcoded background / node / link / group context-surface command inventories, including panelette attach/clear/promote actions, create-node-at-pointer, bookmark and mode actions, transform nudges/grow-shrink, and link/group context actions.";
 
