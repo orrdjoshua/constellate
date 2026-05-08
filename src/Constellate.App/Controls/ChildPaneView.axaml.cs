@@ -13,6 +13,7 @@ using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using System.Linq;
 
 namespace Constellate.App.Controls
@@ -279,7 +280,7 @@ namespace Constellate.App.Controls
             _boundResourceContextSubtitleText.Text = _boundResourceContextReadout.IsVisible
                 ? _windowViewModel?.ActiveResourceDetailSurfaceSubtitle ?? string.Empty
                 : string.Empty;
-
+            
             if (isCurrentShellPane && hasActiveResourceDetailSurface && isPrimaryConsumerPane)
             {
                 _emptyChildPaneBodyText.Text = "Current shell pane is consuming the active resource detail binding.";
@@ -298,13 +299,45 @@ namespace Constellate.App.Controls
             }
         }
 
-        private void OnLoadExistingPaneClick(object? sender, RoutedEventArgs e)
+        private async void OnLoadExistingPaneClick(object? sender, RoutedEventArgs e)
         {
             if (_model is null ||
                 _windowViewModel is null ||
                 _paneDefinitionPicker?.SelectedItem is not PaneDefinitionDescriptor definition)
             {
                 return;
+            }
+
+            var hostWindow = ResolveHostWindow();
+            if (hostWindow is null)
+            {
+                return;
+            }
+
+            var loadDecision = await PaneDefinitionConfirmationDialog.ShowLoadWarningAsync(
+                hostWindow,
+                _model,
+                definition,
+                canUpdateCurrentDefinition: CanUpdateCurrentDefinition(_model));
+
+            switch (loadDecision)
+            {
+                case PaneDefinitionLoadWarningDecision.Cancel:
+                    return;
+
+                case PaneDefinitionLoadWarningDecision.SaveAsNewThenLoad:
+                    if (!_windowViewModel.TrySaveChildPaneAsNewDefinition(_model.Id))
+                    {
+                        return;
+                    }
+                    break;
+
+                case PaneDefinitionLoadWarningDecision.UpdateCurrentDefinitionThenLoad:
+                    if (!_windowViewModel.TryUpdateChildPaneCurrentDefinition(_model.Id))
+                    {
+                        return;
+                    }
+                    break;
             }
 
             if (_windowViewModel.TryApplyPaneDefinitionToChildPane(_model.Id, definition.PaneDefinitionId))
@@ -326,6 +359,49 @@ namespace Constellate.App.Controls
             }
         }
 
+        private void OnToggleAuthorModeClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryToggleChildPaneAuthorMode(_model.Id);
+        }
+
+        private void OnAuthorModeBadgePointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_model is null ||
+                _windowViewModel is null ||
+                !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            _windowViewModel.TryToggleChildPaneAuthorMode(_model.Id);
+            e.Handled = true;
+        }
+
+        private void OnTogglePaneDefinitionPanelClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryToggleChildPaneDefinitionPanelVisibility(_model.Id);
+        }
+
+        private void OnResetCanvasViewportClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryResetChildPaneCanvasViewport(_model.Id);
+        }
+
         private void OnInlineRenameKeyDown(object? sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -339,6 +415,46 @@ namespace Constellate.App.Controls
             {
                 _windowViewModel.TryCancelPaneRename(_model.Id);
                 e.Handled = true;
+            }
+        }
+
+        private async void OnSaveAsNewDefinitionClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            if (!ShouldWarnAboutDefinitionOverwrite(_model))
+            {
+                _windowViewModel.TrySaveChildPaneAsNewDefinition(_model.Id);
+                return;
+            }
+
+            var hostWindow = ResolveHostWindow();
+            var currentDefinition = ResolveCurrentPaneDefinition();
+            if (hostWindow is null || currentDefinition is null)
+            {
+                return;
+            }
+
+            var saveDecision = await PaneDefinitionConfirmationDialog.ShowOverwriteWarningAsync(
+                hostWindow,
+                _model,
+                currentDefinition);
+
+            switch (saveDecision)
+            {
+                case PaneDefinitionSaveWarningDecision.Cancel:
+                    return;
+
+                case PaneDefinitionSaveWarningDecision.UpdateCurrentDefinition:
+                    _windowViewModel.TryUpdateChildPaneCurrentDefinition(_model.Id);
+                    return;
+
+                case PaneDefinitionSaveWarningDecision.SaveAsNewDefinition:
+                    _windowViewModel.TrySaveChildPaneAsNewDefinition(_model.Id);
+                    return;
             }
         }
 
@@ -383,10 +499,84 @@ namespace Constellate.App.Controls
 
         private void Body_OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            if (!ReferenceEquals(e.Source, sender))
+            {
+                return;
+            }
+
+            if (_model?.IsAuthorMode == true)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
             if (PaneChromeInputHelper.TryBeginPressedPaneDrag(this, sender, e))
             {
                 e.Handled = true;
             }
+        }
+
+        private void OnBodyPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null || !_model.IsAuthorMode)
+            {
+                return;
+            }
+
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                var zoomDelta = e.Delta.Y > 0 ? 0.10 : -0.10;
+                if (_windowViewModel.TryZoomChildPaneCanvasViewport(_model.Id, zoomDelta))
+                {
+                    e.Handled = true;
+                }
+
+                return;
+            }
+        }
+
+        private Window? ResolveHostWindow()
+        {
+            return TopLevel.GetTopLevel(this) as Window;
+        }
+
+        private PaneDefinitionDescriptor? ResolveCurrentPaneDefinition()
+        {
+            if (_model is null || string.IsNullOrWhiteSpace(_model.DefinitionId))
+            {
+                return null;
+            }
+
+            var definition = _windowViewModel?.SeededPaneDefinitions.FirstOrDefault(candidate =>
+                string.Equals(candidate.PaneDefinitionId, _model.DefinitionId, StringComparison.Ordinal));
+            if (definition is not null)
+            {
+                return definition;
+            }
+
+            return new SeededPaneCatalog().FindPaneDefinition(_model.DefinitionId!);
+        }
+
+        private static bool CanUpdateCurrentDefinition(ChildPaneDescriptor pane)
+        {
+            return pane.IsDefinitionBacked && !string.IsNullOrWhiteSpace(pane.DefinitionId);
+        }
+
+        private static bool ShouldWarnAboutDefinitionOverwrite(ChildPaneDescriptor pane)
+        {
+            if (!CanUpdateCurrentDefinition(pane))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                pane.Title.Trim(),
+                pane.EffectiveDefinitionLabel.Trim(),
+                StringComparison.Ordinal);
         }
 
         private void Header_OnPointerEntered(object? sender, PointerEventArgs e)

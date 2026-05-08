@@ -35,6 +35,113 @@ public enum ChildPaneLocalOverrideAxis
     Appearance
 }
 
+public sealed record ChildPaneCanvasViewportState(
+    double PanX = 0,
+    double PanY = 0,
+    double Zoom = 1.0,
+    double ViewportWidth = 0,
+    double ViewportHeight = 0)
+{
+    public static ChildPaneCanvasViewportState Default => new();
+
+    public double NormalizedZoom =>
+        Math.Clamp(Zoom, 0.25, 4.0);
+
+    public ChildPaneCanvasViewportState Normalized =>
+        this with
+        {
+            Zoom = NormalizedZoom,
+            ViewportWidth = Math.Max(0, ViewportWidth),
+            ViewportHeight = Math.Max(0, ViewportHeight)
+        };
+
+    public string Summary =>
+        $"Canvas viewport: pan=({PanX:0.#}, {PanY:0.#}) · zoom={NormalizedZoom:0.##}x";
+
+    public ChildPaneCanvasViewportState WithPan(double deltaX, double deltaY)
+    {
+        var normalized = Normalized;
+        return normalized with
+        {
+            PanX = normalized.PanX + deltaX,
+            PanY = normalized.PanY + deltaY
+        };
+    }
+
+    public ChildPaneCanvasViewportState WithZoomDelta(double deltaZoom)
+    {
+        var normalized = Normalized;
+        return normalized with
+        {
+            Zoom = Math.Clamp(normalized.Zoom + deltaZoom, 0.25, 4.0)
+        };
+    }
+}
+
+public sealed record ChildPaneCanvasElementPreviewPlacement(
+    double X,
+    double Y,
+    double? Width = null,
+    double? Height = null)
+{
+    public ChildPaneCanvasElementPreviewPlacement WithPosition(double x, double y)
+    {
+        return this with
+        {
+            X = Math.Max(0, x),
+            Y = Math.Max(0, y)
+        };
+    }
+
+    public ChildPaneCanvasElementPreviewPlacement WithSize(double width, double height)
+    {
+        return this with
+        {
+            Width = Math.Max(120, width),
+            Height = Math.Max(64, height)
+        };
+    }
+
+    public double ResolveWidth(double fallbackWidth) =>
+        Width is > 0 ? Width.Value : fallbackWidth;
+
+    public double ResolveHeight(double fallbackHeight) =>
+        Height is > 0 ? Height.Value : fallbackHeight;
+}
+
+public sealed record ChildPaneCanvasAuthoringState(
+    ChildPaneCanvasViewportState Viewport,
+    IReadOnlyDictionary<string, ChildPaneCanvasElementPreviewPlacement> ElementPlacements,
+    string? SelectedElementInstanceId)
+{
+    public int AuthoredElementOverrideCount =>
+        ElementPlacements.Count;
+
+    public bool HasAuthoredElementOverrides =>
+        AuthoredElementOverrideCount > 0;
+
+    public bool HasSelection =>
+        !string.IsNullOrWhiteSpace(SelectedElementInstanceId);
+
+    public string Summary =>
+        HasAuthoredElementOverrides
+            ? $"Pane-instance canvas working copy: {AuthoredElementOverrideCount} local element override(s){(HasSelection ? $" · selected {SelectedElementInstanceId}" : string.Empty)}"
+            : HasSelection
+                ? $"Pane-instance canvas working copy: no local element overrides yet · selected {SelectedElementInstanceId}"
+                : "Pane-instance canvas working copy: no local element overrides yet.";
+
+    public ChildPaneCanvasElementPreviewPlacement? TryGetElementPlacement(string? elementInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(elementInstanceId) ||
+            !ElementPlacements.TryGetValue(elementInstanceId.Trim(), out var placement))
+        {
+            return null;
+        }
+
+        return placement;
+    }
+}
+
 public sealed record ChildPaneAuthoredValues(
     string Title,
     string Description,
@@ -396,7 +503,12 @@ public sealed record ChildPaneDescriptor(
     string? BaseAppearanceVariant = null,
     string? Description = null,
     string? BaseDescription = null,
-    bool IsInlineRenaming = false)
+    bool IsInlineRenaming = false,
+    bool IsAuthorMode = false,
+    bool ShowPaneDefinitionPanel = false,
+    ChildPaneCanvasViewportState? CanvasViewport = null,
+    IReadOnlyDictionary<string, ChildPaneCanvasElementPreviewPlacement>? CanvasElementPreviewPlacements = null,
+    string? SelectedCanvasElementInstanceId = null)
 {
     public ChildPaneResourceContext? EffectiveResourceContext =>
         ResourceContext ??
@@ -512,6 +624,52 @@ public sealed record ChildPaneDescriptor(
 
     public string EffectiveAppearanceVariant =>
         NormalizeAppearanceVariant(AppearanceVariant);
+
+    public ChildPaneCanvasViewportState EffectiveCanvasViewport =>
+        (CanvasViewport ?? ChildPaneCanvasViewportState.Default).Normalized;
+
+    public ChildPaneCanvasAuthoringState CanvasAuthoringState =>
+        new(
+            EffectiveCanvasViewport,
+            CanvasElementPreviewPlacements ?? new Dictionary<string, ChildPaneCanvasElementPreviewPlacement>(StringComparer.Ordinal),
+            SelectedCanvasElementInstanceId);
+
+    public string PaneAuthorModeBadgeLabel =>
+        IsAuthorMode ? "Author Mode" : "View Mode";
+
+    public string PaneAuthorModeActionLabel =>
+        IsAuthorMode ? "Exit Author Mode" : "Enter Author Mode";
+
+    public string PaneDefinitionVisibilityToggleLabel =>
+        ShowPaneDefinitionPanel ? "Hide Pane Definitions" : "Show Pane Definitions";
+
+    public string PaneCanvasViewportSummary =>
+        EffectiveCanvasViewport.Summary;
+
+    public bool HasSelectedCanvasElement =>
+        !string.IsNullOrWhiteSpace(SelectedCanvasElementInstanceId);
+
+    public string PaneCanvasAuthoringStateSummary =>
+        CanvasAuthoringState.Summary;
+
+    public string PaneCanvasSelectionSummary =>
+        HasSelectedCanvasElement
+            ? $"Selected element: {SelectedCanvasElementInstanceId}"
+            : "No canvas element selected.";
+
+    public string PaneCanvasInteractionHint =>
+        IsAuthorMode
+            ? "Author mode suppresses live pane-content interaction. Click authored elements to select them, drag a selected preview to move it, and use the selected element's bottom-right grip to resize it. Use Ctrl+Wheel to zoom the canvas viewport, Wheel to pan vertically, and Shift+Wheel to pan horizontally."
+            : "View mode keeps live pane content active. Enter author mode to begin pane-body composition and canvas navigation.";
+
+    public string PaneAuthorModeSurfaceBackgroundBrush =>
+        IsAuthorMode ? "#1A2D3D" : "#14212D";
+
+    public string PaneAuthorModeSurfaceBorderBrush =>
+        IsAuthorMode ? "#68B7FF" : "#355066";
+
+    public string PaneBodyBackgroundBrush =>
+        IsAuthorMode ? "#0D1620" : "#101722";
 
     public string AppearanceVariantBaseline =>
         NormalizeAppearanceVariant(BaseAppearanceVariant);
@@ -847,6 +1005,161 @@ public sealed record ChildPaneDescriptor(
             Description = currentValues.Description,
             AppearanceVariant = NormalizeAppearanceVariant(currentValues.AppearanceVariant)
         }).WithRecomputedLocalModifications();
+    }
+
+    public ChildPaneDescriptor WithAuthorMode(bool isAuthorMode)
+    {
+        return this with
+        {
+            IsAuthorMode = isAuthorMode
+        };
+    }
+
+    public ChildPaneDescriptor ToggleAuthorMode()
+    {
+        return this with
+        {
+            IsAuthorMode = !IsAuthorMode
+        };
+    }
+
+    public ChildPaneDescriptor WithPaneDefinitionPanelVisibility(bool isVisible)
+    {
+        return this with
+        {
+            ShowPaneDefinitionPanel = isVisible
+        };
+    }
+
+    public ChildPaneDescriptor TogglePaneDefinitionPanelVisibility()
+    {
+        return this with
+        {
+            ShowPaneDefinitionPanel = !ShowPaneDefinitionPanel
+        };
+    }
+
+    public ChildPaneDescriptor WithCanvasViewport(ChildPaneCanvasViewportState viewport)
+    {
+        return this with
+        {
+            CanvasViewport = viewport.Normalized
+        };
+    }
+
+    public ChildPaneDescriptor WithCanvasViewportPanned(double deltaX, double deltaY)
+    {
+        return WithCanvasViewport(EffectiveCanvasViewport.WithPan(deltaX, deltaY));
+    }
+
+    public ChildPaneDescriptor WithCanvasViewportZoomDelta(double deltaZoom)
+    {
+        return WithCanvasViewport(EffectiveCanvasViewport.WithZoomDelta(deltaZoom));
+    }
+
+    public ChildPaneDescriptor WithCanvasViewportReset()
+    {
+        return WithCanvasViewport(ChildPaneCanvasViewportState.Default);
+    }
+
+    public ChildPaneCanvasElementPreviewPlacement? TryGetCanvasElementPreviewPlacement(string? elementInstanceId)
+    {
+        return CanvasAuthoringState.TryGetElementPlacement(elementInstanceId);
+    }
+
+    public ChildPaneDescriptor WithCanvasElementPreviewPlacement(string elementInstanceId, double x, double y)
+    {
+        if (string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return this;
+        }
+
+        var normalizedId = elementInstanceId.Trim();
+        var existingPlacement = TryGetCanvasElementPreviewPlacement(normalizedId);
+        var updatedPlacement = existingPlacement is null
+            ? new ChildPaneCanvasElementPreviewPlacement(Math.Max(0, x), Math.Max(0, y))
+            : existingPlacement.WithPosition(x, y);
+
+        return WithCanvasElementPreviewPlacementState(normalizedId, updatedPlacement);
+    }
+
+    public ChildPaneDescriptor WithCanvasElementPreviewSize(
+        string elementInstanceId,
+        double width,
+        double height,
+        double fallbackX,
+        double fallbackY)
+    {
+        if (string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return this;
+        }
+
+        var normalizedId = elementInstanceId.Trim();
+        var existingPlacement = TryGetCanvasElementPreviewPlacement(normalizedId);
+        var updatedPlacement = (existingPlacement ?? new ChildPaneCanvasElementPreviewPlacement(
+                Math.Max(0, fallbackX),
+                Math.Max(0, fallbackY)))
+            .WithSize(width, height);
+
+        return WithCanvasElementPreviewPlacementState(normalizedId, updatedPlacement);
+    }
+
+    public ChildPaneDescriptor WithCanvasElementPreviewPlacementState(
+        string elementInstanceId,
+        ChildPaneCanvasElementPreviewPlacement previewPlacement)
+    {
+        if (string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return this;
+        }
+
+        var normalizedId = elementInstanceId.Trim();
+        var normalizedPlacement = previewPlacement with
+        {
+            X = Math.Max(0, previewPlacement.X),
+            Y = Math.Max(0, previewPlacement.Y),
+            Width = previewPlacement.Width is double width
+                ? Math.Max(120, width)
+                : null,
+            Height = previewPlacement.Height is double height
+                ? Math.Max(64, height)
+                : null
+        };
+        var placements = CanvasElementPreviewPlacements is null
+            ? new Dictionary<string, ChildPaneCanvasElementPreviewPlacement>(StringComparer.Ordinal)
+            : new Dictionary<string, ChildPaneCanvasElementPreviewPlacement>(CanvasElementPreviewPlacements, StringComparer.Ordinal);
+
+        if (placements.TryGetValue(normalizedId, out var existingPlacement) &&
+            Equals(existingPlacement, normalizedPlacement))
+        {
+            return this;
+        }
+
+        placements[normalizedId] = normalizedPlacement;
+
+        return this with
+        {
+            CanvasElementPreviewPlacements = placements
+        };
+    }
+
+    public ChildPaneDescriptor WithSelectedCanvasElement(string? elementInstanceId)
+    {
+        return this with
+        {
+            SelectedCanvasElementInstanceId = string.IsNullOrWhiteSpace(elementInstanceId)
+                ? null
+                : elementInstanceId.Trim()
+        };
+    }
+
+    public ChildPaneDescriptor ClearSelectedCanvasElement()
+    {
+        return this with
+        {
+            SelectedCanvasElementInstanceId = null
+        };
     }
 
     public ChildPaneDescriptor WithBaselineAuthoredValues(ChildPaneAuthoredValues baselineValues, bool hasSavedInstanceState)

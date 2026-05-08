@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Constellate.Core.Capabilities.Panes;
@@ -15,10 +16,13 @@ namespace Constellate.App.Controls;
 
 internal static class PaneDefinitionRuntimeBuilder
 {
-    private static readonly IPaneCatalog PaneCatalog = new SeededPaneCatalog();
     private static readonly IReadOnlyDictionary<string, PaneCapabilityDescriptor> CapabilityIndex =
-        PaneCatalog.GetCapabilityDescriptors()
-            .ToDictionary(capability => capability.CapabilityId, StringComparer.Ordinal);
+        new SeededPaneCatalog()
+            .GetCapabilityDescriptors()
+            .ToDictionary(
+                capability => capability.CapabilityId,
+                capability => capability,
+                StringComparer.Ordinal);
 
     public static Control Build(
         ChildPaneDescriptor pane,
@@ -27,6 +31,11 @@ internal static class PaneDefinitionRuntimeBuilder
     {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(definition);
+
+        if (pane.IsAuthorMode)
+        {
+            return BuildAuthorModeCanvasSurface(pane, definition, windowViewModel);
+        }
 
         var contentStack = new StackPanel
         {
@@ -49,12 +58,381 @@ internal static class PaneDefinitionRuntimeBuilder
         };
     }
 
+    private static Control BuildAuthorModeCanvasSurface(
+        ChildPaneDescriptor pane,
+        PaneDefinitionDescriptor definition,
+        MainWindowViewModel? windowViewModel)
+    {
+        var surface = ChildPaneCanvasAuthoringProjector.Project(definition, pane);
+        var canvas = new Canvas
+        {
+            Width = surface.Width,
+            Height = surface.Height
+        };
+
+        if (windowViewModel is not null)
+        {
+            canvas.PointerPressed += (_, e) =>
+            {
+                if (e.Handled)
+                {
+                    return;
+                }
+
+                if (windowViewModel.TryClearChildPaneCanvasElementSelection(pane.Id))
+                {
+                    e.Handled = true;
+                }
+            };
+        }
+
+        foreach (var element in surface.Elements.OrderBy(item => item.ZIndex))
+        {
+            var previewCard = BuildAuthorModeCanvasCard(pane, element, windowViewModel);
+            Canvas.SetLeft(previewCard, element.X);
+            Canvas.SetTop(previewCard, element.Y);
+            canvas.Children.Add(previewCard);
+        }
+
+        var stack = new StackPanel
+        {
+            Spacing = 8
+        };
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = pane.PaneAuthorModeBadgeLabel,
+            FontSize = 10,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = ParseBrush("#8FD2FF")
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = surface.Summary,
+            FontSize = 10,
+            Foreground = ParseBrush("#BFD3E4"),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        stack.Children.Add(new Border
+        {
+            Background = ParseBrush("#0C141C"),
+            BorderBrush = ParseBrush("#355066"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8),
+            Child = canvas
+        });
+
+        return new Border
+        {
+            Background = ParseBrush("#0F1B25"),
+            BorderBrush = ParseBrush("#355066"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10),
+            Child = stack
+        };
+    }
+
+    private static Control BuildAuthorModeCanvasCard(
+        ChildPaneDescriptor pane,
+        ChildPaneCanvasElementInstance element,
+        MainWindowViewModel? windowViewModel)
+    {
+        var content = new StackPanel
+        {
+            Spacing = 2
+        };
+
+        content.Children.Add(new TextBlock
+        {
+            Text = element.DisplayLabel,
+            Foreground = ParseBrush("#F3F8FD"),
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        content.Children.Add(new TextBlock
+        {
+            Text = element.ElementKind.ToString(),
+            Foreground = ParseBrush("#9DD1F0"),
+            FontSize = 10
+        });
+
+        content.Children.Add(new TextBlock
+        {
+            Text = element.BindingLabel,
+            Foreground = ParseBrush("#BFD3E4"),
+            FontSize = 9,
+            TextWrapping = TextWrapping.Wrap,
+            MaxHeight = Math.Max(18, element.Height - 48)
+        });
+
+        var isSelected = string.Equals(
+            pane.SelectedCanvasElementInstanceId,
+            element.InstanceId,
+            StringComparison.Ordinal);
+
+        var layoutRoot = new Grid();
+        layoutRoot.Children.Add(content);
+
+        var resizeGrip = new Border
+        {
+            Width = 12,
+            Height = 12,
+            Background = ParseBrush(isSelected ? "#7DD3FC" : "#355066"),
+            BorderBrush = ParseBrush("#0F1B25"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            IsVisible = isSelected,
+            Cursor = new Cursor(StandardCursorType.BottomRightCorner)
+        };
+        layoutRoot.Children.Add(resizeGrip);
+
+        var border = new Border
+        {
+            Width = element.Width,
+            Height = element.Height,
+            Background = ParseBrush(isSelected ? "#20364A" : "#162535"),
+            BorderBrush = ParseBrush(isSelected ? "#7DD3FC" : "#4A6378"),
+            BorderThickness = new Thickness(isSelected ? 2 : 1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8),
+            Child = layoutRoot,
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
+
+        if (windowViewModel is not null)
+        {
+            Point? dragOrigin = null;
+            double dragStartLeft = element.X;
+            double dragStartTop = element.Y;
+            var dragMoved = false;
+            Point? resizeOrigin = null;
+            double resizeStartWidth = element.Width;
+            double resizeStartHeight = element.Height;
+            var resizeMoved = false;
+
+            ToolTip.SetTip(border, $"Select {element.DisplayLabel} and drag to move it");
+            border.PointerPressed += (_, e) =>
+            {
+                if (!e.GetCurrentPoint(border).Properties.IsLeftButtonPressed)
+                {
+                    return;
+                }
+
+                windowViewModel.TrySelectChildPaneCanvasElement(pane.Id, element.InstanceId);
+
+                if (border.Parent is not Canvas canvas)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                dragOrigin = e.GetPosition(canvas);
+                dragStartLeft = Canvas.GetLeft(border);
+                dragStartTop = Canvas.GetTop(border);
+
+                if (double.IsNaN(dragStartLeft))
+                {
+                    dragStartLeft = element.X;
+                }
+
+                if (double.IsNaN(dragStartTop))
+                {
+                    dragStartTop = element.Y;
+                }
+
+                dragMoved = false;
+                e.Pointer.Capture(border);
+                e.Handled = true;
+            };
+
+            border.PointerMoved += (_, e) =>
+            {
+                if (dragOrigin is null ||
+                    border.Parent is not Canvas canvas ||
+                    !ReferenceEquals(e.Pointer.Captured, border))
+                {
+                    return;
+                }
+
+                var currentPosition = e.GetPosition(canvas);
+                var offsetX = currentPosition.X - dragOrigin.Value.X;
+                var offsetY = currentPosition.Y - dragOrigin.Value.Y;
+
+                if (!dragMoved &&
+                    Math.Abs(offsetX) < 0.5 &&
+                    Math.Abs(offsetY) < 0.5)
+                {
+                    return;
+                }
+
+                dragMoved = true;
+                Canvas.SetLeft(border, Math.Max(0, dragStartLeft + offsetX));
+                Canvas.SetTop(border, Math.Max(0, dragStartTop + offsetY));
+                e.Handled = true;
+            };
+
+            border.PointerReleased += (_, e) =>
+            {
+                if (dragOrigin is null || !ReferenceEquals(e.Pointer.Captured, border))
+                {
+                    return;
+                }
+
+                e.Pointer.Capture(null);
+
+                var finalLeft = Canvas.GetLeft(border);
+                var finalTop = Canvas.GetTop(border);
+
+                if (double.IsNaN(finalLeft))
+                {
+                    finalLeft = dragStartLeft;
+                }
+
+                if (double.IsNaN(finalTop))
+                {
+                    finalTop = dragStartTop;
+                }
+
+                if (dragMoved)
+                {
+                    windowViewModel.TrySetChildPaneCanvasElementPreviewPlacement(
+                        pane.Id,
+                        element.InstanceId,
+                        finalLeft,
+                        finalTop);
+                    e.Handled = true;
+                }
+
+                dragOrigin = null;
+                dragMoved = false;
+            };
+
+            border.PointerCaptureLost += (_, _) =>
+            {
+                dragOrigin = null;
+                dragMoved = false;
+            };
+
+            ToolTip.SetTip(resizeGrip, $"Resize {element.DisplayLabel}");
+            resizeGrip.PointerPressed += (_, e) =>
+            {
+                if (!e.GetCurrentPoint(resizeGrip).Properties.IsLeftButtonPressed)
+                {
+                    return;
+                }
+
+                windowViewModel.TrySelectChildPaneCanvasElement(pane.Id, element.InstanceId);
+
+                if (border.Parent is not Canvas canvas)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                resizeOrigin = e.GetPosition(canvas);
+                resizeStartWidth = border.Width;
+                resizeStartHeight = border.Height;
+                resizeMoved = false;
+                e.Pointer.Capture(resizeGrip);
+                e.Handled = true;
+            };
+
+            resizeGrip.PointerMoved += (_, e) =>
+            {
+                if (resizeOrigin is null ||
+                    border.Parent is not Canvas canvas ||
+                    !ReferenceEquals(e.Pointer.Captured, resizeGrip))
+                {
+                    return;
+                }
+
+                var currentPosition = e.GetPosition(canvas);
+                var offsetX = currentPosition.X - resizeOrigin.Value.X;
+                var offsetY = currentPosition.Y - resizeOrigin.Value.Y;
+
+                if (!resizeMoved &&
+                    Math.Abs(offsetX) < 0.5 &&
+                    Math.Abs(offsetY) < 0.5)
+                {
+                    return;
+                }
+
+                resizeMoved = true;
+                border.Width = Math.Max(120, resizeStartWidth + offsetX);
+                border.Height = Math.Max(64, resizeStartHeight + offsetY);
+                e.Handled = true;
+            };
+
+            resizeGrip.PointerReleased += (_, e) =>
+            {
+                if (resizeOrigin is null || !ReferenceEquals(e.Pointer.Captured, resizeGrip))
+                {
+                    return;
+                }
+
+                e.Pointer.Capture(null);
+
+                var finalWidth = Math.Max(120, border.Width);
+                var finalHeight = Math.Max(64, border.Height);
+                var currentLeft = Canvas.GetLeft(border);
+                var currentTop = Canvas.GetTop(border);
+
+                if (double.IsNaN(currentLeft))
+                {
+                    currentLeft = element.X;
+                }
+
+                if (double.IsNaN(currentTop))
+                {
+                    currentTop = element.Y;
+                }
+
+                if (resizeMoved)
+                {
+                    windowViewModel.TrySetChildPaneCanvasElementPreviewSize(
+                        pane.Id,
+                        element.InstanceId,
+                        finalWidth,
+                        finalHeight,
+                        currentLeft,
+                        currentTop);
+                    e.Handled = true;
+                }
+
+                resizeOrigin = null;
+                resizeMoved = false;
+            };
+
+            resizeGrip.PointerCaptureLost += (_, _) =>
+            {
+                resizeOrigin = null;
+                resizeMoved = false;
+            };
+        }
+
+        return border;
+    }
+
     private static Control BuildElement(
         ChildPaneDescriptor pane,
         PaneDefinitionDescriptor definition,
         PaneElementDescriptor element,
         MainWindowViewModel? windowViewModel)
     {
+        if (element.Binding is { TargetKind: PaneElementBindingTargetKind.Capability } &&
+            !CanCapabilityBindToElement(element, out var incompatibleCapability, out var supportedHostClasses))
+        {
+            return BuildIncompatibleCapabilityCard(element, incompatibleCapability, supportedHostClasses);
+        }
+
         return element.ElementKind switch
         {
             PaneElementKind.DefinitionHeader => BuildDefinitionHeader(pane, definition),
@@ -70,13 +448,18 @@ internal static class PaneDefinitionRuntimeBuilder
             PaneElementKind.ResourceBrowser or
             PaneElementKind.TreeBrowser or
             PaneElementKind.TableBrowser => BuildCatalogListSurface(
+                pane,
                 element,
                 ResolveCatalogSurfaceTitle(element),
                 ResolveCatalogSurfaceLines(element, windowViewModel)),
             PaneElementKind.RuntimeActivityPanel or
             PaneElementKind.EventFeed or
             PaneElementKind.StreamConsole or
-            PaneElementKind.TaskMonitor => BuildCatalogListSurface(element, "Runtime Activity", GetRuntimeActivityLines(windowViewModel)),
+            PaneElementKind.TaskMonitor => BuildCatalogListSurface(
+                pane,
+                element,
+                "Runtime Activity",
+                GetRuntimeActivityLines(windowViewModel)),
             PaneElementKind.ArchiveBrowser or
             PaneElementKind.MetricsReadout or
             PaneElementKind.ProjectionStatusView or
@@ -145,6 +528,15 @@ internal static class PaneDefinitionRuntimeBuilder
             FontSize = 14,
             FontWeight = FontWeight.SemiBold,
             Foreground = ParseBrush("#F3F8FD")
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = pane.PaneAuthorModeBadgeLabel,
+            FontSize = 10,
+            Foreground = pane.IsAuthorMode
+                ? ParseBrush("#8FD2FF")
+                : ParseBrush("#BFD3E4")
         });
 
         stack.Children.Add(new TextBlock
@@ -224,6 +616,13 @@ internal static class PaneDefinitionRuntimeBuilder
             Content = element.DisplayLabel,
             HorizontalAlignment = HorizontalAlignment.Left
         };
+
+        if (pane.IsAuthorMode)
+        {
+            button.IsEnabled = false;
+            ToolTip.SetTip(button, $"Author-mode preview · {element.Binding?.TargetRef ?? element.DisplayLabel}");
+            return button;
+        }
 
         var command = ResolveCommand(element.Binding, windowViewModel);
         if (command is null)
@@ -320,24 +719,34 @@ internal static class PaneDefinitionRuntimeBuilder
         var stringFormat = string.IsNullOrWhiteSpace(element.DisplayLabel)
             ? null
             : $"{element.DisplayLabel}: {{0}}";
-        var binding = CreateResolvedTextBinding(element, pane, windowViewModel, stringFormat);
-        if (binding is not null)
+
+        if (pane.IsAuthorMode)
         {
-            textBlock.Bind(TextBlock.TextProperty, binding);
+            textBlock.Text = string.IsNullOrWhiteSpace(element.DisplayLabel)
+                ? "Status Badge"
+                : element.DisplayLabel;
         }
         else
         {
-            var resolvedValue = ResolveBoundText(pane, element, windowViewModel);
-            var singleLineValue = string.IsNullOrWhiteSpace(resolvedValue)
-                ? element.DisplayLabel
-                : resolvedValue.Split(
-                        [Environment.NewLine],
-                        StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault() ?? resolvedValue;
+            var binding = CreateResolvedTextBinding(element, pane, windowViewModel, stringFormat);
+            if (binding is not null)
+            {
+                textBlock.Bind(TextBlock.TextProperty, binding);
+            }
+            else
+            {
+                var resolvedValue = ResolveBoundText(pane, element, windowViewModel);
+                var singleLineValue = string.IsNullOrWhiteSpace(resolvedValue)
+                    ? element.DisplayLabel
+                    : resolvedValue.Split(
+                            [Environment.NewLine],
+                            StringSplitOptions.RemoveEmptyEntries)
+                        .FirstOrDefault() ?? resolvedValue;
 
-            textBlock.Text = string.IsNullOrWhiteSpace(element.DisplayLabel)
-                ? singleLineValue
-                : $"{element.DisplayLabel}: {singleLineValue}";
+                textBlock.Text = string.IsNullOrWhiteSpace(element.DisplayLabel)
+                    ? singleLineValue
+                    : $"{element.DisplayLabel}: {singleLineValue}";
+            }
         }
 
         return new Border
@@ -358,8 +767,8 @@ internal static class PaneDefinitionRuntimeBuilder
     {
         var placeholder = TryGetBehaviorSetting(element, "placeholder") ??
             (string.IsNullOrWhiteSpace(element.DisplayLabel)
-            ? "Filter / search surface"
-            : element.DisplayLabel);
+                ? "Filter / search surface"
+                : element.DisplayLabel);
 
         var stack = new StackPanel
         {
@@ -376,7 +785,8 @@ internal static class PaneDefinitionRuntimeBuilder
         stack.Children.Add(new TextBox
         {
             PlaceholderText = placeholder,
-            Width = 220
+            Width = 220,
+            IsEnabled = !pane.IsAuthorMode
         });
 
         if (element.Binding is not null)
@@ -642,6 +1052,124 @@ internal static class PaneDefinitionRuntimeBuilder
         return stack;
     }
 
+    private static bool CanCapabilityBindToElement(
+        PaneElementDescriptor element,
+        out PaneCapabilityDescriptor? capability,
+        out IReadOnlyList<PaneCapabilityHostClass> supportedHostClasses)
+    {
+        capability = null;
+        supportedHostClasses = ResolveElementCompatibleHostClasses(element);
+
+        if (element.Binding is not { TargetKind: PaneElementBindingTargetKind.Capability } ||
+            string.IsNullOrWhiteSpace(element.Binding.TargetRef) ||
+            !CapabilityIndex.TryGetValue(element.Binding.TargetRef, out var resolvedCapability))
+        {
+            return true;
+        }
+
+        capability = resolvedCapability;
+        var capabilityHostClasses = resolvedCapability.EffectiveCompatibleHostClasses;
+        if (supportedHostClasses.Count == 0 || capabilityHostClasses.Count == 0)
+        {
+            return true;
+        }
+
+        return supportedHostClasses.Any(capabilityHostClasses.Contains);
+    }
+
+    private static IReadOnlyList<PaneCapabilityHostClass> ResolveElementCompatibleHostClasses(
+        PaneElementDescriptor element)
+    {
+        if (element.CompatibleCapabilityHostClasses is { Count: > 0 })
+        {
+            return element.CompatibleCapabilityHostClasses;
+        }
+
+        return element.ElementKind switch
+        {
+            PaneElementKind.Button => [PaneCapabilityHostClass.InvocationHost],
+            PaneElementKind.CommandBar => [PaneCapabilityHostClass.CommandBarHost, PaneCapabilityHostClass.InvocationHost],
+            PaneElementKind.TextBlock => [PaneCapabilityHostClass.TextDisplayHost],
+            PaneElementKind.LabelValueField => [PaneCapabilityHostClass.TextDisplayHost, PaneCapabilityHostClass.InspectorHost],
+            PaneElementKind.TextEditor => [PaneCapabilityHostClass.TextInputHost, PaneCapabilityHostClass.TextDisplayHost],
+            PaneElementKind.PropertyEditor or PaneElementKind.ProjectionStatusView or PaneElementKind.Section or PaneElementKind.InspectorGroup =>
+                [PaneCapabilityHostClass.InspectorHost, PaneCapabilityHostClass.TextDisplayHost],
+            PaneElementKind.ListBrowser or PaneElementKind.ResourceBrowser or PaneElementKind.CommandBrowser or PaneElementKind.CapabilityBrowser =>
+                [PaneCapabilityHostClass.CollectionBrowserHost],
+            PaneElementKind.TreeBrowser => [PaneCapabilityHostClass.TreeBrowserHost],
+            PaneElementKind.TableBrowser => [PaneCapabilityHostClass.TableBrowserHost],
+            PaneElementKind.RuntimeActivityPanel or PaneElementKind.EventFeed or PaneElementKind.StreamConsole or PaneElementKind.TaskMonitor =>
+                [PaneCapabilityHostClass.StreamViewerHost],
+            PaneElementKind.ArchiveBrowser => [PaneCapabilityHostClass.ArchiveViewerHost],
+            PaneElementKind.StatusBadge => [PaneCapabilityHostClass.StatusBadgeHost],
+            PaneElementKind.MetricsReadout => [PaneCapabilityHostClass.MetricsHost],
+            _ => Array.Empty<PaneCapabilityHostClass>()
+        };
+    }
+
+    private static Control BuildIncompatibleCapabilityCard(
+        PaneElementDescriptor element,
+        PaneCapabilityDescriptor? capability,
+        IReadOnlyList<PaneCapabilityHostClass> supportedHostClasses)
+    {
+        var capabilityLabel = capability is null
+            ? element.Binding?.TargetRef ?? "unknown capability"
+            : $"{capability.DisplayLabel} ({capability.CapabilityId})";
+        var supportedClassesText = supportedHostClasses.Count == 0
+            ? "none declared"
+            : string.Join(", ", supportedHostClasses);
+        var capabilityClassesText = capability?.EffectiveCompatibleHostClasses is { Count: > 0 } capabilityClasses
+            ? string.Join(", ", capabilityClasses)
+            : "none declared";
+
+        var stack = new StackPanel
+        {
+            Spacing = 2
+        };
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"Incompatible capability binding: {element.ElementKind}",
+            Foreground = ParseBrush("#FFE5B8"),
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"{capabilityLabel} cannot currently bind to '{element.DisplayLabel}'.",
+            Foreground = ParseBrush("#D4E3EF"),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"Element host classes: {supportedClassesText}",
+            Foreground = ParseBrush("#D4E3EF"),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"Capability host classes: {capabilityClassesText}",
+            Foreground = ParseBrush("#D4E3EF"),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        return new Border
+        {
+            Background = ParseBrush("#332514"),
+            BorderBrush = ParseBrush("#8C6933"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8),
+            Child = stack
+        };
+    }
+
     private static string? TryGetBehaviorSetting(PaneElementDescriptor element, string key)
     {
         if (element.BehaviorSettings is null ||
@@ -713,19 +1241,22 @@ internal static class PaneDefinitionRuntimeBuilder
                     },
 
             PaneElementBindingTargetKind.RuntimeFeed when windowViewModel is not null =>
-                new Binding(nameof(MainWindowViewModel.LastActivitySummary))
+                new Binding("LastActivitySummary")
                 {
                     Source = windowViewModel
                 },
 
             PaneElementBindingTargetKind.ArchiveView when windowViewModel is not null =>
-                new Binding(nameof(MainWindowViewModel.CommandHistorySummary))
+                new Binding("CommandHistorySummary")
                 {
                     Source = windowViewModel
                 },
 
             PaneElementBindingTargetKind.ResourceContext =>
-                new Binding(nameof(ChildPaneDescriptor.PaneBoundResourceReadoutSubtitle)),
+                new Binding("PaneBoundResourceReadoutSubtitle")
+                {
+                    Source = pane
+                },
 
             _ => null
         };
@@ -742,22 +1273,22 @@ internal static class PaneDefinitionRuntimeBuilder
     {
         return targetRef switch
         {
-            "pane.instance.working_copy_status" => nameof(ChildPaneDescriptor.PaneWorkingCopyStatusSummary),
-            "pane.instance.source_summary" => nameof(ChildPaneDescriptor.PaneWorkingCopySourceSummary),
-            "pane.instance.definition_sync_summary" => nameof(ChildPaneDescriptor.PaneWorkingCopyDefinitionSyncSummary),
-            "pane.instance.local_state_summary" => nameof(ChildPaneDescriptor.PaneWorkingCopyLocalStateSummary),
-            "pane.instance.override_summary" => nameof(ChildPaneDescriptor.PaneLocalOverrideSummary),
-            "pane.instance.lifecycle_summary" => nameof(ChildPaneDescriptor.PaneLifecycleActionSummary),
-            "pane.instance.current_authored_summary" => nameof(ChildPaneDescriptor.PaneCurrentAuthoredSummary),
-            "pane.instance.baseline_authored_summary" => nameof(ChildPaneDescriptor.PaneBaselineAuthoredSummary),
-            "pane.instance.authored_value_status" => nameof(ChildPaneDescriptor.PaneAuthoredValueStatusSummary),
-            "pane.instance.title_summary" => nameof(ChildPaneDescriptor.PaneTitleSummary),
-            "pane.instance.description_summary" => nameof(ChildPaneDescriptor.PaneDescriptionSummary),
-            "pane.instance.appearance_current_summary" => nameof(ChildPaneDescriptor.PaneAppearanceCurrentValueSummary),
-            "pane.instance.appearance_baseline_summary" => nameof(ChildPaneDescriptor.PaneAppearanceBaselineValueSummary),
-            "pane.instance.appearance_summary" => nameof(ChildPaneDescriptor.PaneAppearanceSummary),
-            "pane.instance.definition_summary" => nameof(ChildPaneDescriptor.PaneDefinitionChooserSourceSummary),
-            "pane.instance.definition_action_summary" => nameof(ChildPaneDescriptor.PaneDefinitionChooserActionSummary),
+            "pane.instance.working_copy_status" => "PaneWorkingCopyStatusSummary",
+            "pane.instance.source_summary" => "PaneWorkingCopySourceSummary",
+            "pane.instance.definition_sync_summary" => "PaneWorkingCopyDefinitionSyncSummary",
+            "pane.instance.local_state_summary" => "PaneWorkingCopyLocalStateSummary",
+            "pane.instance.override_summary" => "PaneLocalOverrideSummary",
+            "pane.instance.lifecycle_summary" => "PaneLifecycleActionSummary",
+            "pane.instance.current_authored_summary" => "PaneCurrentAuthoredSummary",
+            "pane.instance.baseline_authored_summary" => "PaneBaselineAuthoredSummary",
+            "pane.instance.authored_value_status" => "PaneAuthoredValueStatusSummary",
+            "pane.instance.title_summary" => "PaneTitleSummary",
+            "pane.instance.description_summary" => "PaneDescriptionSummary",
+            "pane.instance.appearance_current_summary" => "PaneAppearanceCurrentValueSummary",
+            "pane.instance.appearance_baseline_summary" => "PaneAppearanceBaselineValueSummary",
+            "pane.instance.appearance_summary" => "PaneAppearanceSummary",
+            "pane.instance.definition_summary" => "PaneDefinitionChooserSourceSummary",
+            "pane.instance.definition_action_summary" => "PaneDefinitionChooserActionSummary",
             _ => null
         };
     }
@@ -766,38 +1297,49 @@ internal static class PaneDefinitionRuntimeBuilder
     {
         return targetRef switch
         {
-            "engine.state.current_selection" => nameof(MainWindowViewModel.SelectionSummary),
-            "engine.state.focus_summary" => nameof(MainWindowViewModel.FocusSummary),
-            "engine.state.interaction_mode" => nameof(MainWindowViewModel.InteractionModeSummary),
-            "engine.state.group_summary" => nameof(MainWindowViewModel.GroupSummary),
-            "engine.state.link_summary" => nameof(MainWindowViewModel.LinkSummary),
-            "engine.state.bookmark_summary" => nameof(MainWindowViewModel.BookmarkSummary),
-            "engine.state.panel_summary" => nameof(MainWindowViewModel.PanelSummary),
-            "engine.state.seeded_pane_catalog_summary" => nameof(MainWindowViewModel.SeededPaneCatalogSummary),
-            "engine.state.seeded_pane_catalog_primary_label" => nameof(MainWindowViewModel.SeededPaneCatalogPrimaryLabel),
-            "engine.state.focus_origin" => nameof(MainWindowViewModel.FocusOriginSummary),
-            "engine.state.view_summary" => nameof(MainWindowViewModel.ViewSummary),
-            "engine.state.view_details" => nameof(MainWindowViewModel.ViewDetails),
-            "engine.state.bookmark_details" => nameof(MainWindowViewModel.BookmarkDetails),
-            "engine.state.group_details" => nameof(MainWindowViewModel.GroupDetails),
-            "engine.state.panel_details" => nameof(MainWindowViewModel.PanelDetails),
-            "engine.state.link_details" => nameof(MainWindowViewModel.LinkDetails),
-            "engine.state.focused_transform_summary" => nameof(MainWindowViewModel.FocusedTransformSummary),
-            "engine.state.focused_transform_details" => nameof(MainWindowViewModel.FocusedTransformDetails),
-            "engine.state.pane_structure" => nameof(MainWindowViewModel.PaneStructureSummary),
-            "engine.state.navigation_history" => nameof(MainWindowViewModel.NavigationHistorySummary),
-            "engine.state.command_history" => nameof(MainWindowViewModel.CommandHistorySummary),
-            "engine.state.action_readiness" => nameof(MainWindowViewModel.ActionReadinessSummary),
-            "engine.state.visual_semantics_settings_summary" => nameof(MainWindowViewModel.VisualSemanticsSettingsSummary),
-            "engine.state.render_surface_settings_summary" => nameof(MainWindowViewModel.RenderSurfaceSettingsSummary),
-            "engine.state.settings_surface_audit_summary" => nameof(MainWindowViewModel.SettingsSurfaceAuditSummary),
-            "engine.state.parent_shell_control_audit_summary" => nameof(MainWindowViewModel.ParentShellControlAuditSummary),
-            "engine.state.main_window_shell_chrome_audit_summary" => nameof(MainWindowViewModel.MainWindowShellChromeAuditSummary),
-            "engine.state.hardcoded_surface_audit_next_targets_summary" => nameof(MainWindowViewModel.HardcodedSurfaceAuditNextTargetsSummary),
-            "engine.state.interaction_semantics" => nameof(MainWindowViewModel.InteractionSemanticsSummary),
-            "engine.state.interaction_mode_badge" => nameof(MainWindowViewModel.InteractionModeBadgeLabel),
-            "engine.state.pane_catalog_definition_details" => nameof(MainWindowViewModel.PaneCatalogDefinitionDetails),
-            "engine.state.workspace_catalog_details" => nameof(MainWindowViewModel.WorkspaceCatalogDetails),
+            "engine.state.current_selection" => "SelectionSummary",
+            "engine.state.focus_summary" => "FocusSummary",
+            "engine.state.interaction_mode" => "InteractionModeSummary",
+            "engine.state.group_summary" => "GroupSummary",
+            "engine.state.link_summary" => "LinkSummary",
+            "engine.state.bookmark_summary" => "BookmarkSummary",
+            "engine.state.panel_summary" => "PanelSummary",
+            "engine.state.seeded_pane_catalog_summary" => "SeededPaneCatalogSummary",
+            "engine.state.seeded_pane_catalog_primary_label" => "SeededPaneCatalogPrimaryLabel",
+            "engine.state.focus_origin" => "FocusOriginSummary",
+            "engine.state.view_summary" => "ViewSummary",
+            "engine.state.view_details" => "ViewDetails",
+            "engine.state.bookmark_details" => "BookmarkDetails",
+            "engine.state.group_details" => "GroupDetails",
+            "engine.state.panel_details" => "PanelDetails",
+            "engine.state.link_details" => "LinkDetails",
+            "engine.state.focused_transform_summary" => "FocusedTransformSummary",
+            "engine.state.focused_transform_details" => "FocusedTransformDetails",
+            "engine.state.pane_structure" => "PaneStructureSummary",
+            "engine.state.navigation_history" => "NavigationHistorySummary",
+            "engine.state.command_history" => "CommandHistorySummary",
+            "engine.state.action_readiness" => "ActionReadinessSummary",
+            "engine.state.visual_semantics_settings_summary" => "VisualSemanticsSettingsSummary",
+            "engine.state.render_surface_settings_summary" => "RenderSurfaceSettingsSummary",
+            "engine.state.settings_surface_audit_summary" => "SettingsSurfaceAuditSummary",
+            "engine.state.parent_shell_control_audit_summary" => "ParentShellControlAuditSummary",
+            "engine.state.main_window_shell_chrome_audit_summary" => "MainWindowShellChromeAuditSummary",
+            "engine.state.hardcoded_surface_audit_next_targets_summary" => "HardcodedSurfaceAuditNextTargetsSummary",
+            "engine.state.interaction_semantics" => "InteractionSemanticsSummary",
+            "engine.state.interaction_mode_badge" => "InteractionModeBadgeLabel",
+            "engine.state.pane_catalog_definition_details" => "PaneCatalogDefinitionDetails",
+            "engine.state.workspace_catalog_details" => "WorkspaceCatalogDetails",
+            "engine.state.shell_command_catalog_candidate_summary" => "ShellCommandCatalogCandidateSummary",
+            "engine.state.shell_command_native_chrome_summary" => "ShellCommandNativeChromeSummary",
+            "engine.state.shell_command_future_capability_summary" => "ShellCommandFutureCapabilitySummary",
+            "engine.state.viewport_command_surface_audit_summary" => "ViewportCommandSurfaceAuditSummary",
+            "engine.state.renderer_viewport_registry_gap_summary" => "RendererViewportRegistryGapSummary",
+            "engine.state.shell_native_chrome_boundary_summary" => "ShellNativeChromeBoundarySummary",
+            "engine.state.renderer_parity_next_targets_summary" => "RendererParityNextTargetsSummary",
+            "engine.state.active_panel_command_surface_state_summary" => "ActivePanelCommandSurfaceStateSummary",
+            "engine.state.renderer_halo_and_group_effect_summary" => "RendererHaloAndGroupEffectSummary",
+            "engine.state.projected_hit_testing_boundary_summary" => "ProjectedHitTestingBoundarySummary",
+            "engine.state.renderer_migration_boundary_summary" => "RendererMigrationBoundarySummary",
             _ => null
         };
     }
@@ -873,14 +1415,22 @@ internal static class PaneDefinitionRuntimeBuilder
             textBox.FontFamily = new FontFamily("Consolas");
         }
 
-        var binding = CreateResolvedTextBinding(element, pane, windowViewModel);
-        if (binding is not null)
+        if (pane.IsAuthorMode)
         {
-            textBox.Bind(TextBox.TextProperty, binding);
+            textBox.IsEnabled = false;
+            textBox.Text = BuildAuthorModePreviewText(element);
         }
         else
         {
-            textBox.Text = ResolveBoundText(pane, element, windowViewModel);
+            var binding = CreateResolvedTextBinding(element, pane, windowViewModel);
+            if (binding is not null)
+            {
+                textBox.Bind(TextBox.TextProperty, binding);
+            }
+            else
+            {
+                textBox.Text = ResolveBoundText(pane, element, windowViewModel);
+            }
         }
 
         stack.Children.Add(textBox);
@@ -1110,6 +1660,7 @@ internal static class PaneDefinitionRuntimeBuilder
     }
 
     private static Control BuildCatalogListSurface(
+        ChildPaneDescriptor pane,
         PaneElementDescriptor element,
         string title,
         IReadOnlyList<string> lines)
@@ -1134,7 +1685,17 @@ internal static class PaneDefinitionRuntimeBuilder
             FontWeight = FontWeight.SemiBold
         });
 
-        if (lines.Count == 0)
+        if (pane.IsAuthorMode)
+        {
+            stack.Children.Add(new TextBlock
+            {
+                Text = $"Author-mode preview. {lines.Count} live item(s) suppressed while composing the pane body.",
+                Foreground = ParseBrush("#9DB3C5"),
+                FontSize = 10,
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+        else if (lines.Count == 0)
         {
             stack.Children.Add(new TextBlock
             {
@@ -1166,6 +1727,16 @@ internal static class PaneDefinitionRuntimeBuilder
             Padding = new Thickness(8),
             Child = stack
         };
+    }
+
+    private static string BuildAuthorModePreviewText(PaneElementDescriptor element)
+    {
+        if (element.Binding is null)
+        {
+            return $"Author-mode preview for '{element.DisplayLabel}'.{Environment.NewLine}No live binding is configured.";
+        }
+
+        return $"Author-mode preview for '{element.DisplayLabel}'.{Environment.NewLine}Live content suppressed: {element.Binding.TargetKind} · {element.Binding.TargetRef}";
     }
 
     private static Control BuildUnsupportedElementCard(PaneElementDescriptor element)
@@ -1413,6 +1984,139 @@ internal static class PaneDefinitionRuntimeBuilder
                     "_interactionModeBadgeLabel")
                 ?? "Navigate",
 
+            "engine.state.visual_semantics_settings_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "VisualSemanticsSettingsSummary",
+                    "_visualSemanticsSettingsSummary")
+                ?? "Visual semantics settings summary unavailable.",
+
+            "engine.state.render_surface_settings_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "RenderSurfaceSettingsSummary",
+                    "_renderSurfaceSettingsSummary")
+                ?? "Render surface settings summary unavailable.",
+
+            "engine.state.settings_surface_audit_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "SettingsSurfaceAuditSummary",
+                    "_settingsSurfaceAuditSummary")
+                ?? "Settings surface audit summary unavailable.",
+
+            "engine.state.parent_shell_control_audit_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ParentShellControlAuditSummary",
+                    "_parentShellControlAuditSummary")
+                ?? "Parent shell control audit summary unavailable.",
+
+            "engine.state.main_window_shell_chrome_audit_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "MainWindowShellChromeAuditSummary",
+                    "_mainWindowShellChromeAuditSummary")
+                ?? "Main window shell chrome audit summary unavailable.",
+
+            "engine.state.hardcoded_surface_audit_next_targets_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "HardcodedSurfaceAuditNextTargetsSummary",
+                    "_hardcodedSurfaceAuditNextTargetsSummary")
+                ?? "Hardcoded-surface audit next targets unavailable.",
+
+            "engine.state.pane_catalog_definition_details" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "PaneCatalogDefinitionDetails",
+                    "_paneCatalogDefinitionDetails")
+                ?? "Pane catalog definition details unavailable.",
+
+            "engine.state.workspace_catalog_details" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "WorkspaceCatalogDetails",
+                    "_workspaceCatalogDetails")
+                ?? "Workspace catalog details unavailable.",
+
+            "engine.state.shell_command_catalog_candidate_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ShellCommandCatalogCandidateSummary",
+                    "_shellCommandCatalogCandidateSummary")
+                ?? "Shell command catalog candidate summary unavailable.",
+
+            "engine.state.shell_command_native_chrome_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ShellCommandNativeChromeSummary",
+                    "_shellCommandNativeChromeSummary")
+                ?? "Shell command native chrome summary unavailable.",
+
+            "engine.state.shell_command_future_capability_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ShellCommandFutureCapabilitySummary",
+                    "_shellCommandFutureCapabilitySummary")
+                ?? "Shell command future capability summary unavailable.",
+
+            "engine.state.viewport_command_surface_audit_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ViewportCommandSurfaceAuditSummary",
+                    "_viewportCommandSurfaceAuditSummary")
+                ?? "Viewport command surface audit summary unavailable.",
+
+            "engine.state.renderer_viewport_registry_gap_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "RendererViewportRegistryGapSummary",
+                    "_rendererViewportRegistryGapSummary")
+                ?? "Renderer viewport registry gap summary unavailable.",
+
+            "engine.state.shell_native_chrome_boundary_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ShellNativeChromeBoundarySummary",
+                    "_shellNativeChromeBoundarySummary")
+                ?? "Shell native chrome boundary summary unavailable.",
+
+            "engine.state.renderer_parity_next_targets_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "RendererParityNextTargetsSummary",
+                    "_rendererParityNextTargetsSummary")
+                ?? "Renderer parity next targets summary unavailable.",
+
+            "engine.state.active_panel_command_surface_state_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ActivePanelCommandSurfaceStateSummary",
+                    "_activePanelCommandSurfaceStateSummary")
+                ?? "Active panel command surface state summary unavailable.",
+
+            "engine.state.renderer_halo_and_group_effect_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "RendererHaloAndGroupEffectSummary",
+                    "_rendererHaloAndGroupEffectSummary")
+                ?? "Renderer halo and group effect summary unavailable.",
+
+            "engine.state.projected_hit_testing_boundary_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "ProjectedHitTestingBoundarySummary",
+                    "_projectedHitTestingBoundarySummary")
+                ?? "Projected hit-testing boundary summary unavailable.",
+
+            "engine.state.renderer_migration_boundary_summary" =>
+                ResolveFirstStringMember(
+                    windowViewModel,
+                    "RendererMigrationBoundarySummary",
+                    "_rendererMigrationBoundarySummary")
+                ?? "Renderer migration boundary summary unavailable.",
+
             _ => targetRef
         };
     }
@@ -1428,62 +2132,62 @@ internal static class PaneDefinitionRuntimeBuilder
 
         var propertyName = binding.TargetRef switch
         {
-            "engine.command.focus_first_node" => nameof(MainWindowViewModel.FocusFirstNodeCommand),
-            "engine.command.select_first_node" => nameof(MainWindowViewModel.SelectFirstNodeCommand),
-            "engine.command.focus_first_panel" => nameof(MainWindowViewModel.FocusFirstPanelCommand),
-            "engine.command.select_first_panel" => nameof(MainWindowViewModel.SelectFirstPanelCommand),
-            "engine.command.home_view" => nameof(MainWindowViewModel.HomeViewCommand),
-            "engine.command.frame_selection" => nameof(MainWindowViewModel.FrameSelectionCommand),
-            "engine.command.center_focused_node" => nameof(MainWindowViewModel.CenterFocusedNodeCommand),
-            "engine.command.clear_selection" => nameof(MainWindowViewModel.ClearSelectionCommand),
-            "engine.command.activate_navigate_mode" => nameof(MainWindowViewModel.ActivateNavigateModeCommand),
-            "engine.command.activate_move_mode" => nameof(MainWindowViewModel.ActivateMoveModeCommand),
-            "engine.command.activate_marquee_mode" => nameof(MainWindowViewModel.ActivateMarqueeModeCommand),
-            "engine.command.create_child_pane" => nameof(MainWindowViewModel.CreateChildPaneCommand),
-            "engine.command.pane_save_instance_only" => nameof(MainWindowViewModel.SaveChildPaneInstanceOnlyCommand),
-            "engine.command.pane_save_as_new_definition" => nameof(MainWindowViewModel.SaveChildPaneAsNewDefinitionCommand),
-            "engine.command.pane_detach_from_definition" => nameof(MainWindowViewModel.DetachChildPaneFromDefinitionCommand),
-            "engine.command.pane_revert_to_definition" => nameof(MainWindowViewModel.RevertChildPaneToDefinitionCommand),
-            "engine.command.pane_apply_default_appearance" => nameof(MainWindowViewModel.ApplyChildPaneDefaultAppearanceCommand),
-            "engine.command.pane_apply_cool_appearance" => nameof(MainWindowViewModel.ApplyChildPaneCoolAppearanceCommand),
-            "engine.command.pane_apply_warm_appearance" => nameof(MainWindowViewModel.ApplyChildPaneWarmAppearanceCommand),
-            "engine.command.pane_reset_appearance" => nameof(MainWindowViewModel.ResetChildPaneAppearanceVariantCommand),
-            "engine.command.create_demo_node" => nameof(MainWindowViewModel.CreateDemoNodeCommand),
-            "engine.command.delete_focused_node" => nameof(MainWindowViewModel.DeleteFocusedNodeCommand),
-            "engine.command.group_selection" => nameof(MainWindowViewModel.GroupSelectionCommand),
-            "engine.command.connect_focused_node" => nameof(MainWindowViewModel.ConnectFocusedNodeCommand),
-            "engine.command.unlink_focused_node" => nameof(MainWindowViewModel.UnlinkFocusedNodeCommand),
-            "engine.command.save_bookmark" => nameof(MainWindowViewModel.SaveBookmarkCommand),
-            "engine.command.restore_latest_bookmark" => nameof(MainWindowViewModel.RestoreLatestBookmarkCommand),
-            "engine.command.clear_links" => nameof(MainWindowViewModel.ClearLinksCommand),
-            "engine.command.nudge_focused_left" => nameof(MainWindowViewModel.NudgeFocusedLeftCommand),
-            "engine.command.nudge_focused_right" => nameof(MainWindowViewModel.NudgeFocusedRightCommand),
-            "engine.command.nudge_focused_up" => nameof(MainWindowViewModel.NudgeFocusedUpCommand),
-            "engine.command.nudge_focused_down" => nameof(MainWindowViewModel.NudgeFocusedDownCommand),
-            "engine.command.nudge_focused_forward" => nameof(MainWindowViewModel.NudgeFocusedForwardCommand),
-            "engine.command.nudge_focused_back" => nameof(MainWindowViewModel.NudgeFocusedBackCommand),
-            "engine.command.grow_focused_node" => nameof(MainWindowViewModel.GrowFocusedNodeCommand),
-            "engine.command.shrink_focused_node" => nameof(MainWindowViewModel.ShrinkFocusedNodeCommand),
-            "engine.command.apply_triangle_primitive" => nameof(MainWindowViewModel.ApplyTrianglePrimitiveCommand),
-            "engine.command.apply_square_primitive" => nameof(MainWindowViewModel.ApplySquarePrimitiveCommand),
-            "engine.command.apply_diamond_primitive" => nameof(MainWindowViewModel.ApplyDiamondPrimitiveCommand),
-            "engine.command.apply_pentagon_primitive" => nameof(MainWindowViewModel.ApplyPentagonPrimitiveCommand),
-            "engine.command.apply_hexagon_primitive" => nameof(MainWindowViewModel.ApplyHexagonPrimitiveCommand),
-            "engine.command.apply_cube_primitive" => nameof(MainWindowViewModel.ApplyCubePrimitiveCommand),
-            "engine.command.apply_tetrahedron_primitive" => nameof(MainWindowViewModel.ApplyTetrahedronPrimitiveCommand),
-            "engine.command.apply_sphere_primitive" => nameof(MainWindowViewModel.ApplySpherePrimitiveCommand),
-            "engine.command.apply_box_primitive" => nameof(MainWindowViewModel.ApplyBoxPrimitiveCommand),
-            "engine.command.apply_blue_appearance" => nameof(MainWindowViewModel.ApplyBlueAppearanceCommand),
-            "engine.command.apply_violet_appearance" => nameof(MainWindowViewModel.ApplyVioletAppearanceCommand),
-            "engine.command.apply_green_appearance" => nameof(MainWindowViewModel.ApplyGreenAppearanceCommand),
-            "engine.command.increase_opacity" => nameof(MainWindowViewModel.IncreaseOpacityCommand),
-            "engine.command.decrease_opacity" => nameof(MainWindowViewModel.DecreaseOpacityCommand),
-            "engine.command.apply_background_deep_space" => nameof(MainWindowViewModel.ApplyBackgroundDeepSpaceCommand),
-            "engine.command.apply_background_dusk" => nameof(MainWindowViewModel.ApplyBackgroundDuskCommand),
-            "engine.command.apply_background_paper" => nameof(MainWindowViewModel.ApplyBackgroundPaperCommand),
-            "engine.command.attach_demo_panel" => nameof(MainWindowViewModel.AttachDemoPanelCommand),
-            "engine.command.attach_label_panelette" => nameof(MainWindowViewModel.AttachLabelPaneletteCommand),
-            "engine.command.attach_detail_metadata_panelette" => nameof(MainWindowViewModel.AttachDetailMetadataPaneletteCommand),
+            "engine.command.focus_first_node" => "FocusFirstNodeCommand",
+            "engine.command.select_first_node" => "SelectFirstNodeCommand",
+            "engine.command.focus_first_panel" => "FocusFirstPanelCommand",
+            "engine.command.select_first_panel" => "SelectFirstPanelCommand",
+            "engine.command.home_view" => "HomeViewCommand",
+            "engine.command.frame_selection" => "FrameSelectionCommand",
+            "engine.command.center_focused_node" => "CenterFocusedNodeCommand",
+            "engine.command.clear_selection" => "ClearSelectionCommand",
+            "engine.command.activate_navigate_mode" => "ActivateNavigateModeCommand",
+            "engine.command.activate_move_mode" => "ActivateMoveModeCommand",
+            "engine.command.activate_marquee_mode" => "ActivateMarqueeModeCommand",
+            "engine.command.create_child_pane" => "CreateChildPaneCommand",
+            "engine.command.pane_save_instance_only" => "SaveChildPaneInstanceOnlyCommand",
+            "engine.command.pane_save_as_new_definition" => "SaveChildPaneAsNewDefinitionCommand",
+            "engine.command.pane_detach_from_definition" => "DetachChildPaneFromDefinitionCommand",
+            "engine.command.pane_revert_to_definition" => "RevertChildPaneToDefinitionCommand",
+            "engine.command.pane_apply_default_appearance" => "ApplyChildPaneDefaultAppearanceCommand",
+            "engine.command.pane_apply_cool_appearance" => "ApplyChildPaneCoolAppearanceCommand",
+            "engine.command.pane_apply_warm_appearance" => "ApplyChildPaneWarmAppearanceCommand",
+            "engine.command.pane_reset_appearance" => "ResetChildPaneAppearanceVariantCommand",
+            "engine.command.create_demo_node" => "CreateDemoNodeCommand",
+            "engine.command.delete_focused_node" => "DeleteFocusedNodeCommand",
+            "engine.command.group_selection" => "GroupSelectionCommand",
+            "engine.command.connect_focused_node" => "ConnectFocusedNodeCommand",
+            "engine.command.unlink_focused_node" => "UnlinkFocusedNodeCommand",
+            "engine.command.save_bookmark" => "SaveBookmarkCommand",
+            "engine.command.restore_latest_bookmark" => "RestoreLatestBookmarkCommand",
+            "engine.command.clear_links" => "ClearLinksCommand",
+            "engine.command.nudge_focused_left" => "NudgeFocusedLeftCommand",
+            "engine.command.nudge_focused_right" => "NudgeFocusedRightCommand",
+            "engine.command.nudge_focused_up" => "NudgeFocusedUpCommand",
+            "engine.command.nudge_focused_down" => "NudgeFocusedDownCommand",
+            "engine.command.nudge_focused_forward" => "NudgeFocusedForwardCommand",
+            "engine.command.nudge_focused_back" => "NudgeFocusedBackCommand",
+            "engine.command.grow_focused_node" => "GrowFocusedNodeCommand",
+            "engine.command.shrink_focused_node" => "ShrinkFocusedNodeCommand",
+            "engine.command.apply_triangle_primitive" => "ApplyTrianglePrimitiveCommand",
+            "engine.command.apply_square_primitive" => "ApplySquarePrimitiveCommand",
+            "engine.command.apply_diamond_primitive" => "ApplyDiamondPrimitiveCommand",
+            "engine.command.apply_pentagon_primitive" => "ApplyPentagonPrimitiveCommand",
+            "engine.command.apply_hexagon_primitive" => "ApplyHexagonPrimitiveCommand",
+            "engine.command.apply_cube_primitive" => "ApplyCubePrimitiveCommand",
+            "engine.command.apply_tetrahedron_primitive" => "ApplyTetrahedronPrimitiveCommand",
+            "engine.command.apply_sphere_primitive" => "ApplySpherePrimitiveCommand",
+            "engine.command.apply_box_primitive" => "ApplyBoxPrimitiveCommand",
+            "engine.command.apply_blue_appearance" => "ApplyBlueAppearanceCommand",
+            "engine.command.apply_violet_appearance" => "ApplyVioletAppearanceCommand",
+            "engine.command.apply_green_appearance" => "ApplyGreenAppearanceCommand",
+            "engine.command.increase_opacity" => "IncreaseOpacityCommand",
+            "engine.command.decrease_opacity" => "DecreaseOpacityCommand",
+            "engine.command.apply_background_deep_space" => "ApplyBackgroundDeepSpaceCommand",
+            "engine.command.apply_background_dusk" => "ApplyBackgroundDuskCommand",
+            "engine.command.apply_background_paper" => "ApplyBackgroundPaperCommand",
+            "engine.command.attach_demo_panel" => "AttachDemoPanelCommand",
+            "engine.command.attach_label_panelette" => "AttachLabelPaneletteCommand",
+            "engine.command.attach_detail_metadata_panelette" => "AttachDetailMetadataPaneletteCommand",
             _ => null
         };
 
@@ -1545,8 +2249,8 @@ internal static class PaneDefinitionRuntimeBuilder
             "_lastActivitySummary");
 
         return string.IsNullOrWhiteSpace(lastActivity)
-            ? new[] { "Runtime activity summary unavailable." }
-            : new[] { lastActivity };
+            ? ["Runtime activity summary unavailable."]
+            : [lastActivity];
     }
 
     private static IReadOnlyList<string> GetPaneCatalogLines(
@@ -1562,7 +2266,7 @@ internal static class PaneDefinitionRuntimeBuilder
                 .ToArray();
         }
 
-        return new[] { "No pane definitions available." };
+        return ["No pane definitions available."];
     }
 
     private static IReadOnlyList<string> GetWorkspaceCatalogLines(
@@ -1578,7 +2282,7 @@ internal static class PaneDefinitionRuntimeBuilder
                 .ToArray();
         }
 
-        return new[] { "No workspace definitions available." };
+        return ["No workspace definitions available."];
     }
 
     private static IReadOnlyList<string> GetArchiveHistoryLines(
@@ -1592,7 +2296,7 @@ internal static class PaneDefinitionRuntimeBuilder
 
         if (history.Count == 0)
         {
-            return new[] { "History is currently empty." };
+            return ["History is currently empty."];
         }
 
         return history
@@ -1617,7 +2321,7 @@ internal static class PaneDefinitionRuntimeBuilder
             {
                 return string.IsNullOrWhiteSpace(singleLine)
                     ? Array.Empty<string>()
-                    : new[] { singleLine };
+                    : [singleLine];
             }
 
             if (memberValue is not IEnumerable enumerable)

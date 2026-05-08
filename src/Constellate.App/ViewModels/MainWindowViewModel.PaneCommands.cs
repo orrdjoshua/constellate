@@ -412,6 +412,182 @@ public sealed partial class MainWindowViewModel
                TrySetChildPaneAppearanceVariant(childPaneId, existing.AppearanceVariantBaseline);
     }
 
+    public bool TrySetChildPaneAuthorMode(string childPaneId, bool isAuthorMode)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.IsAuthorMode == isAuthorMode
+                ? null
+                : existing.WithAuthorMode(isAuthorMode));
+    }
+
+    public bool TryToggleChildPaneAuthorMode(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing => existing.ToggleAuthorMode());
+    }
+
+    public bool TrySetChildPaneDefinitionPanelVisibility(string childPaneId, bool isVisible)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.ShowPaneDefinitionPanel == isVisible
+                ? null
+                : existing.WithPaneDefinitionPanelVisibility(isVisible));
+    }
+
+    public bool TryToggleChildPaneDefinitionPanelVisibility(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing => existing.TogglePaneDefinitionPanelVisibility());
+    }
+
+    public bool TryPanChildPaneCanvasViewport(string childPaneId, double deltaX, double deltaY)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        if (Math.Abs(deltaX) < 0.001 && Math.Abs(deltaY) < 0.001)
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithCanvasViewportPanned(deltaX, deltaY));
+    }
+
+    public bool TryZoomChildPaneCanvasViewport(string childPaneId, double deltaZoom)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || Math.Abs(deltaZoom) < 0.001)
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithCanvasViewportZoomDelta(deltaZoom));
+    }
+
+    public bool TryResetChildPaneCanvasViewport(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithCanvasViewportReset());
+    }
+
+    public bool TrySetChildPaneCanvasElementPreviewPlacement(
+        string childPaneId,
+        string? elementInstanceId,
+        double x,
+        double y)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.WithCanvasElementPreviewPlacement(elementInstanceId, x, y));
+    }
+
+    public bool TrySetChildPaneCanvasElementPreviewSize(
+        string childPaneId,
+        string? elementInstanceId,
+        double width,
+        double height,
+        double fallbackX,
+        double fallbackY)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return false;
+        }
+
+        var existingPane = FindChildPaneById(childPaneId);
+        if (existingPane is null)
+        {
+            return false;
+        }
+
+        PaneDefinitionDescriptor? resolvedDefinition = null;
+        if (!string.IsNullOrWhiteSpace(existingPane.DefinitionId))
+        {
+            resolvedDefinition = SeededPaneDefinitions.FirstOrDefault(definition =>
+                string.Equals(definition.PaneDefinitionId, existingPane.DefinitionId, StringComparison.Ordinal));
+
+            if (resolvedDefinition is null &&
+                EngineServices.TryGetPaneDefinition(existingPane.DefinitionId, out var engineDefinition))
+            {
+                resolvedDefinition = engineDefinition;
+            }
+        }
+
+        var projectedElement = resolvedDefinition is null
+            ? null
+            : ChildPaneCanvasAuthoringProjector.Project(resolvedDefinition, existingPane)
+                .Elements
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.InstanceId, elementInstanceId, StringComparison.Ordinal));
+
+        var anchorX = projectedElement?.X ?? Math.Max(0, fallbackX);
+        var anchorY = projectedElement?.Y ?? Math.Max(0, fallbackY);
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithCanvasElementPreviewSize(
+                elementInstanceId,
+                width,
+                height,
+                anchorX,
+                anchorY));
+    }
+
+    public bool TrySelectChildPaneCanvasElement(string childPaneId, string? elementInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            string.Equals(existing.SelectedCanvasElementInstanceId, elementInstanceId, StringComparison.Ordinal)
+                ? null
+                : existing.WithSelectedCanvasElement(elementInstanceId));
+    }
+
+    public bool TryClearChildPaneCanvasElementSelection(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        return TryUpdateChildPane(childPaneId, existing =>
+            existing.HasSelectedCanvasElement
+                ? existing.ClearSelectedCanvasElement()
+                : null);
+    }
+
     public bool TrySaveChildPaneAsNewDefinition(string childPaneId)
     {
         if (string.IsNullOrWhiteSpace(childPaneId))
@@ -487,6 +663,37 @@ public sealed partial class MainWindowViewModel
 
         return TryUpdateChildPane(childPaneId, current =>
             current.WithPromotedDefinition(newDefinition));
+    }
+
+    public bool TryUpdateChildPaneCurrentDefinition(string childPaneId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId))
+        {
+            return false;
+        }
+
+        var existing = FindChildPaneById(childPaneId);
+        if (existing is null ||
+            !existing.IsDefinitionBacked ||
+            string.IsNullOrWhiteSpace(existing.DefinitionId) ||
+            !EngineServices.TryGetPaneDefinition(existing.DefinitionId, out var currentDefinition))
+        {
+            return false;
+        }
+
+        var updatedDefinition = currentDefinition with
+        {
+            DisplayLabel = string.IsNullOrWhiteSpace(existing.Title)
+                ? currentDefinition.DisplayLabel
+                : existing.Title.Trim(),
+            Description = string.IsNullOrWhiteSpace(existing.EffectiveDescription)
+                ? null
+                : existing.EffectiveDescription
+        };
+
+        EngineServices.SavePaneDefinition(updatedDefinition);
+        RefreshPaneDefinitionCatalogSnapshot();
+        return TryUpdateChildPane(childPaneId, current => current.WithLoadedDefinition(updatedDefinition));
     }
 
     public bool TryDetachChildPaneFromDefinition(string childPaneId)

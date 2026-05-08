@@ -62,7 +62,8 @@ public sealed record PaneElementDescriptor(
     PaneElementBindingDescriptor? Binding = null,
     IReadOnlyList<PaneElementDescriptor>? Children = null,
     IReadOnlyDictionary<string, string>? VisualSettings = null,
-    IReadOnlyDictionary<string, string>? BehaviorSettings = null);
+    IReadOnlyDictionary<string, string>? BehaviorSettings = null,
+    IReadOnlyList<PaneCapabilityHostClass>? CompatibleCapabilityHostClasses = null);
 
 public sealed record PaneDefinitionDescriptor(
     string PaneDefinitionId,
