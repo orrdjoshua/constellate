@@ -269,6 +269,22 @@
             <MenuItem Header="{Binding PaneDefinitionVisibilityToggleLabel}"
                       Click="OnTogglePaneDefinitionPanelClick" />
             <Separator />
+            <MenuItem Header="Add Element"
+                      IsVisible="{Binding IsAuthorMode}">
+              <MenuItem Header="Text Block"
+                        Click="OnAddCanvasTextBlockElementClick" />
+              <MenuItem Header="Button"
+                        Click="OnAddCanvasButtonElementClick" />
+              <MenuItem Header="Label / Value"
+                        Click="OnAddCanvasLabelValueElementClick" />
+              <MenuItem Header="Notes / Editor"
+                        Click="OnAddCanvasTextEditorElementClick" />
+              <MenuItem Header="Command Bar"
+                        Click="OnAddCanvasCommandBarElementClick" />
+              <MenuItem Header="Status Badge"
+                        Click="OnAddCanvasStatusBadgeElementClick" />
+            </MenuItem>
+            <Separator IsVisible="{Binding IsAuthorMode}" />
             <MenuItem Header="Save Instance Only"
                       Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).SaveChildPaneInstanceOnlyCommand}"
                       CommandParameter="{Binding Id}"
@@ -363,9 +379,9 @@
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="8"
-                    IsVisible="{Binding HasDefinitionIdentity}">
+                    IsVisible="{Binding HasRealizedPaneContentSurface}">
               <StackPanel Spacing="6">
-                <TextBlock Text="Realized Pane Definition"
+                <TextBlock Text="{Binding PaneRealizedSurfaceTitle}"
                            Foreground="#A9DDF9"
                            FontSize="10"/>
                 <ContentControl x:Name="RealizedPaneDefinitionHost"/>

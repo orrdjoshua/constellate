@@ -198,16 +198,28 @@ namespace Constellate.App.Controls
 
         private void SyncRealizedPaneDefinitionHost()
         {
-            if (_realizedPaneDefinitionHost is null)
+            if (_realizedPaneDefinitionHost is null || _model is null)
             {
                 return;
             }
 
             var definition = ResolvePaneDefinition();
-            _realizedPaneDefinitionHost.Content = definition is null || _model is null
-                ? null
-                : PaneDefinitionRuntimeBuilder.Build(_model, definition, _windowViewModel);
-            _realizedPaneDefinitionHost.IsVisible = definition is not null;
+            if (definition is not null)
+            {
+                _realizedPaneDefinitionHost.Content = PaneDefinitionRuntimeBuilder.Build(_model, definition, _windowViewModel);
+                _realizedPaneDefinitionHost.IsVisible = true;
+                return;
+            }
+
+            if (_model.IsAuthorMode)
+            {
+                _realizedPaneDefinitionHost.Content = PaneDefinitionRuntimeBuilder.BuildBlankAuthorModeCanvasSurface(_model, _windowViewModel);
+                _realizedPaneDefinitionHost.IsVisible = true;
+                return;
+            }
+
+            _realizedPaneDefinitionHost.Content = null;
+            _realizedPaneDefinitionHost.IsVisible = false;
         }
 
         private void SyncInlineRenameEditor()
@@ -390,6 +402,46 @@ namespace Constellate.App.Controls
             }
 
             _windowViewModel.TryToggleChildPaneDefinitionPanelVisibility(_model.Id);
+        }
+
+        private void OnAddCanvasTextBlockElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.TextBlock);
+        }
+
+        private void OnAddCanvasButtonElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.Button);
+        }
+
+        private void OnAddCanvasLabelValueElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.LabelValueField);
+        }
+
+        private void OnAddCanvasTextEditorElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.TextEditor);
+        }
+
+        private void OnAddCanvasCommandBarElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.CommandBar);
+        }
+
+        private void OnAddCanvasStatusBadgeElementClick(object? sender, RoutedEventArgs e)
+        {
+            TryAddCanvasElement(PaneElementKind.StatusBadge);
+        }
+
+        private void TryAddCanvasElement(PaneElementKind elementKind)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryAddChildPaneLocalCanvasElement(_model.Id, elementKind);
         }
 
         private void OnResetCanvasViewportClick(object? sender, RoutedEventArgs e)

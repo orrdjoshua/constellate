@@ -64,6 +64,22 @@ internal static class PaneDefinitionRuntimeBuilder
         MainWindowViewModel? windowViewModel)
     {
         var surface = ChildPaneCanvasAuthoringProjector.Project(definition, pane);
+        return BuildAuthorModeCanvasSurfaceCore(pane, surface, windowViewModel);
+    }
+
+    internal static Control BuildBlankAuthorModeCanvasSurface(
+        ChildPaneDescriptor pane,
+        MainWindowViewModel? windowViewModel)
+    {
+        var surface = ChildPaneCanvasAuthoringProjector.Project(null, pane);
+        return BuildAuthorModeCanvasSurfaceCore(pane, surface, windowViewModel);
+    }
+
+    private static Control BuildAuthorModeCanvasSurfaceCore(
+        ChildPaneDescriptor pane,
+        ChildPaneCanvasSurfaceModel surface,
+        MainWindowViewModel? windowViewModel)
+    {
         var canvas = new Canvas
         {
             Width = surface.Width,
@@ -94,6 +110,18 @@ internal static class PaneDefinitionRuntimeBuilder
             canvas.Children.Add(previewCard);
         }
 
+        var canvasHost = new Grid
+        {
+            Width = surface.Width,
+            Height = surface.Height
+        };
+        canvasHost.Children.Add(canvas);
+
+        if (surface.Elements.Count == 0)
+        {
+            canvasHost.Children.Add(BuildEmptyAuthorModeCanvasPrompt(pane));
+        }
+
         var stack = new StackPanel
         {
             Spacing = 8
@@ -115,6 +143,8 @@ internal static class PaneDefinitionRuntimeBuilder
             TextWrapping = TextWrapping.Wrap
         });
 
+        stack.Children.Add(BuildAuthorModeQuickInsertBar(pane, windowViewModel));
+
         stack.Children.Add(new Border
         {
             Background = ParseBrush("#0C141C"),
@@ -122,7 +152,7 @@ internal static class PaneDefinitionRuntimeBuilder
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(8),
-            Child = canvas
+            Child = canvasHost
         });
 
         return new Border
@@ -132,6 +162,92 @@ internal static class PaneDefinitionRuntimeBuilder
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(10),
+            Child = stack
+        };
+    }
+
+    private static Control BuildAuthorModeQuickInsertBar(
+        ChildPaneDescriptor pane,
+        MainWindowViewModel? windowViewModel)
+    {
+        var wrap = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal
+        };
+
+        foreach (var entry in PaneAuthoringCatalog.GetElementEntries())
+        {
+            var button = new Button
+            {
+                Content = $"+ {entry.DisplayLabel}",
+                IsEnabled = windowViewModel is not null
+            };
+
+            ToolTip.SetTip(button, entry.Description);
+            button.Click += (_, _) => windowViewModel?.TryAddChildPaneLocalCanvasElement(
+                pane.Id,
+                entry.ElementKind);
+            wrap.Children.Add(button);
+        }
+
+        return new Border
+        {
+            Background = ParseBrush("#13212C"),
+            BorderBrush = ParseBrush("#355066"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8),
+            Child = wrap
+        };
+    }
+
+    private static Control BuildEmptyAuthorModeCanvasPrompt(ChildPaneDescriptor pane)
+    {
+        var stack = new StackPanel
+        {
+            Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Blank Authored Canvas",
+            Foreground = ParseBrush("#D6ECFA"),
+            FontSize = 13,
+            FontWeight = FontWeight.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = pane.PaneCanvasEmptyStateSummary,
+            Foreground = ParseBrush("#BFD3E4"),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = 320
+        });
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Use the quick-add strip above or the author-mode body context menu to place the first element.",
+            Foreground = ParseBrush("#9DB3C5"),
+            FontSize = 10,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = 320
+        });
+
+        return new Border
+        {
+            Background = ParseBrush("#13212C"),
+            BorderBrush = ParseBrush("#355066"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(12),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
             Child = stack
         };
     }

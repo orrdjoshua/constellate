@@ -32,7 +32,8 @@ public enum ChildPaneLocalOverrideAxis
 {
     Title,
     Description,
-    Appearance
+    Appearance,
+    CanvasComposition
 }
 
 public sealed record ChildPaneCanvasViewportState(
@@ -270,6 +271,7 @@ public sealed record ChildPaneAuthoredState(
             ChildPaneLocalOverrideAxis.Title => "Title",
             ChildPaneLocalOverrideAxis.Description => "Description",
             ChildPaneLocalOverrideAxis.Appearance => "Appearance",
+            ChildPaneLocalOverrideAxis.CanvasComposition => "Canvas",
             _ => "Unknown"
         };
     }
@@ -463,6 +465,7 @@ public sealed record ChildPaneWorkingCopyState(
             ChildPaneLocalOverrideAxis.Title => "Title",
             ChildPaneLocalOverrideAxis.Description => "Description",
             ChildPaneLocalOverrideAxis.Appearance => "Appearance",
+            ChildPaneLocalOverrideAxis.CanvasComposition => "Canvas",
             _ => "Unknown"
         };
     }
@@ -482,7 +485,6 @@ public sealed record ChildPaneDescriptor(
     double FloatingHeight = 160,
     string? ParentId = null,
     int FloatingZIndex = 0,
-    // Authoritative fixed-dimension size (pixels) for docked layout; when 0, view will migrate from prior ratio.
     double FixedSizePixels = 0.0,
     double FloatingWidthFull = 0.0,
     double FloatingHeightFull = 0.0,
@@ -508,6 +510,7 @@ public sealed record ChildPaneDescriptor(
     bool ShowPaneDefinitionPanel = false,
     ChildPaneCanvasViewportState? CanvasViewport = null,
     IReadOnlyDictionary<string, ChildPaneCanvasElementPreviewPlacement>? CanvasElementPreviewPlacements = null,
+    IReadOnlyList<ChildPaneCanvasElementInstance>? LocalCanvasElements = null,
     string? SelectedCanvasElementInstanceId = null)
 {
     public ChildPaneResourceContext? EffectiveResourceContext =>
@@ -558,6 +561,7 @@ public sealed record ChildPaneDescriptor(
             : "(empty child pane)";
 
     public bool ShouldShowDefaultEmptyBodyText =>
+        !IsAuthorMode &&
         !HasDefinitionIdentity &&
         !HasDirectBoundResourceContextPresentation;
 
@@ -628,11 +632,31 @@ public sealed record ChildPaneDescriptor(
     public ChildPaneCanvasViewportState EffectiveCanvasViewport =>
         (CanvasViewport ?? ChildPaneCanvasViewportState.Default).Normalized;
 
+    public IReadOnlyList<ChildPaneCanvasElementInstance> EffectiveLocalCanvasElements =>
+        LocalCanvasElements ?? Array.Empty<ChildPaneCanvasElementInstance>();
+
     public ChildPaneCanvasAuthoringState CanvasAuthoringState =>
         new(
             EffectiveCanvasViewport,
             CanvasElementPreviewPlacements ?? new Dictionary<string, ChildPaneCanvasElementPreviewPlacement>(StringComparer.Ordinal),
             SelectedCanvasElementInstanceId);
+
+    public int LocalCanvasElementCount =>
+        EffectiveLocalCanvasElements.Count;
+
+    public bool HasLocalCanvasElements =>
+        LocalCanvasElementCount > 0;
+
+    public bool HasLocalCanvasChanges =>
+        HasLocalCanvasElements || CanvasAuthoringState.HasAuthoredElementOverrides;
+
+    public bool HasRealizedPaneContentSurface =>
+        HasDefinitionIdentity || IsAuthorMode;
+
+    public string PaneRealizedSurfaceTitle =>
+        HasDefinitionIdentity
+            ? "Realized Pane Definition"
+            : "Authoring Canvas";
 
     public string PaneAuthorModeBadgeLabel =>
         IsAuthorMode ? "Author Mode" : "View Mode";
@@ -650,16 +674,25 @@ public sealed record ChildPaneDescriptor(
         !string.IsNullOrWhiteSpace(SelectedCanvasElementInstanceId);
 
     public string PaneCanvasAuthoringStateSummary =>
-        CanvasAuthoringState.Summary;
+        HasLocalCanvasChanges
+            ? $"{CanvasAuthoringState.Summary} · local elements={LocalCanvasElementCount}"
+            : CanvasAuthoringState.Summary;
 
     public string PaneCanvasSelectionSummary =>
         HasSelectedCanvasElement
             ? $"Selected element: {SelectedCanvasElementInstanceId}"
-            : "No canvas element selected.";
+            : HasLocalCanvasElements
+                ? "No canvas element selected."
+                : "No canvas element selected. Use quick add or the author-mode body context menu to place the first element.";
+
+    public string PaneCanvasEmptyStateSummary =>
+        HasLocalCanvasElements
+            ? $"Authored canvas contains {LocalCanvasElementCount} local element(s)."
+            : "Blank authored canvas. Add the first raw element directly, then move and resize it inside the pane body.";
 
     public string PaneCanvasInteractionHint =>
         IsAuthorMode
-            ? "Author mode suppresses live pane-content interaction. Click authored elements to select them, drag a selected preview to move it, and use the selected element's bottom-right grip to resize it. Use Ctrl+Wheel to zoom the canvas viewport, Wheel to pan vertically, and Shift+Wheel to pan horizontally."
+            ? "Author mode suppresses live pane-content interaction. Use the quick-add strip or author-mode body context menu to place elements, click authored elements to select them, drag a selected preview to move it, and use the selected element's bottom-right grip to resize it. Use Ctrl+Wheel to zoom the canvas viewport, Wheel to pan vertically, and Shift+Wheel to pan horizontally."
             : "View mode keeps live pane content active. Enter author mode to begin pane-body composition and canvas navigation.";
 
     public string PaneAuthorModeSurfaceBackgroundBrush =>
@@ -743,17 +776,20 @@ public sealed record ChildPaneDescriptor(
         HasLocalAppearanceOverride;
 
     public bool HasAnyLocalOverride =>
-        AuthoredState.HasAnyLocalOverride;
+        LocalOverrideAxes.Count > 0;
 
     public int LocalOverrideAxisCount =>
-        AuthoredState.OverrideAxisCount;
+        LocalOverrideAxes.Count;
+
+    public IReadOnlyList<ChildPaneLocalOverrideAxis> LocalOverrideAxes =>
+        BuildLocalOverrideAxes();
 
     public ChildPaneWorkingCopyState WorkingCopyState =>
         new(
             SourcePosture,
             DefinitionSyncPosture,
             HasSavedInstanceState,
-            AuthoredState.ActiveOverrideAxes);
+            LocalOverrideAxes);
 
     public string PaneWorkingCopyStatusSummary =>
         WorkingCopyState.StatusSummary;
@@ -920,6 +956,7 @@ public sealed record ChildPaneDescriptor(
             ChildPaneSourcePosture.FromDefinition => HasLocalModifications
                 ? $"Based on: {EffectiveDefinitionLabel} · local changes"
                 : $"Based on: {EffectiveDefinitionLabel}",
+
             ChildPaneSourcePosture.DetachedFromDefinition => HasDefinitionIdentity
                 ? HasLocalModifications
                     ? $"Detached from: {EffectiveDefinitionLabel} · local changes"
@@ -931,9 +968,8 @@ public sealed record ChildPaneDescriptor(
                     : HasSavedInstanceState
                         ? "Detached local pane · saved locally"
                         : "Detached local pane",
-            ChildPaneSourcePosture.CreatedLocalOnly => HasLocalModifications
-                ? string.Empty
-                : string.Empty,
+
+            ChildPaneSourcePosture.CreatedLocalOnly => string.Empty,
             _ => string.Empty
         };
 
@@ -962,7 +998,8 @@ public sealed record ChildPaneDescriptor(
     {
         return !string.Equals(currentValues.Title, BaselineAuthoredValues.Title, StringComparison.Ordinal) ||
                !string.Equals(currentValues.Description, BaselineAuthoredValues.Description, StringComparison.Ordinal) ||
-               !string.Equals(currentValues.AppearanceVariant, BaselineAuthoredValues.AppearanceVariant, StringComparison.Ordinal);
+               !string.Equals(currentValues.AppearanceVariant, BaselineAuthoredValues.AppearanceVariant, StringComparison.Ordinal) ||
+               HasLocalCanvasChanges;
     }
 
     public ChildPaneDescriptor WithRequestedLocalTitle(string? requestedTitle)
@@ -1162,6 +1199,23 @@ public sealed record ChildPaneDescriptor(
         };
     }
 
+    public ChildPaneDescriptor WithAddedLocalCanvasElement(ChildPaneCanvasElementInstance element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        var nextElements = LocalCanvasElements is null
+            ? new List<ChildPaneCanvasElementInstance>()
+            : new List<ChildPaneCanvasElementInstance>(LocalCanvasElements);
+        nextElements.Add(element);
+
+        return (this with
+        {
+            IsAuthorMode = true,
+            LocalCanvasElements = nextElements,
+            SelectedCanvasElementInstanceId = element.InstanceId
+        }).WithRecomputedLocalModifications();
+    }
+
     public ChildPaneDescriptor WithBaselineAuthoredValues(ChildPaneAuthoredValues baselineValues, bool hasSavedInstanceState)
     {
         return (this with
@@ -1234,7 +1288,10 @@ public sealed record ChildPaneDescriptor(
             BoundViewRef = null,
             BoundResourceTitle = null,
             BoundResourceDisplayLabel = null,
-            ResourceContext = null
+            ResourceContext = null,
+            CanvasElementPreviewPlacements = null,
+            LocalCanvasElements = null,
+            SelectedCanvasElementInstanceId = null
         }).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
@@ -1258,7 +1315,10 @@ public sealed record ChildPaneDescriptor(
             BoundViewRef = null,
             BoundResourceTitle = null,
             BoundResourceDisplayLabel = null,
-            ResourceContext = null
+            ResourceContext = null,
+            CanvasElementPreviewPlacements = null,
+            LocalCanvasElements = null,
+            SelectedCanvasElementInstanceId = null
         }).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
@@ -1296,6 +1356,19 @@ public sealed record ChildPaneDescriptor(
         {
             IsInlineRenaming = true
         };
+    }
+
+    private ChildPaneLocalOverrideAxis[] BuildLocalOverrideAxes()
+    {
+        var axes = new List<ChildPaneLocalOverrideAxis>(AuthoredState.ActiveOverrideAxes.Count + 1);
+        axes.AddRange(AuthoredState.ActiveOverrideAxes);
+
+        if (HasLocalCanvasChanges)
+        {
+            axes.Add(ChildPaneLocalOverrideAxis.CanvasComposition);
+        }
+
+        return axes.ToArray();
     }
 
     public ChildPaneDescriptor WithInlineRenameCancelled()

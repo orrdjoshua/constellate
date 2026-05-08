@@ -30,21 +30,37 @@ public sealed record ChildPaneCanvasSurfaceModel(
 
 internal static class ChildPaneCanvasAuthoringProjector
 {
-    public static ChildPaneCanvasSurfaceModel Project(PaneDefinitionDescriptor definition, ChildPaneDescriptor? pane = null)
+    public static ChildPaneCanvasSurfaceModel Project(PaneDefinitionDescriptor? definition, ChildPaneDescriptor? pane = null)
     {
-        ArgumentNullException.ThrowIfNull(definition);
-
         var elements = new List<ChildPaneCanvasElementInstance>();
         var currentY = 24.0;
 
-        AppendElements(definition.Elements, pane, depth: 0, ref currentY, elements);
+        if (definition is not null)
+        {
+            AppendElements(definition.Elements, pane, depth: 0, ref currentY, elements);
+        }
+
+        if (pane?.EffectiveLocalCanvasElements is { Count: > 0 } localElements)
+        {
+            foreach (var localElement in localElements.OrderBy(item => item.ZIndex))
+            {
+                var previewPlacement = pane.CanvasAuthoringState.TryGetElementPlacement(localElement.InstanceId);
+                elements.Add(localElement with
+                {
+                    X = previewPlacement?.X ?? localElement.X,
+                    Y = previewPlacement?.Y ?? localElement.Y,
+                    Width = previewPlacement?.ResolveWidth(localElement.Width) ?? localElement.Width,
+                    Height = previewPlacement?.ResolveHeight(localElement.Height) ?? localElement.Height
+                });
+            }
+        }
 
         var extentWidth = elements.Count == 0
             ? 420
             : Math.Max(420, elements.Max(element => element.X + element.Width) + 24);
         var extentHeight = elements.Count == 0
             ? 220
-            : Math.Max(220, currentY);
+            : Math.Max(220, elements.Max(element => element.Y + element.Height) + 24);
 
         return new ChildPaneCanvasSurfaceModel(
             extentWidth,

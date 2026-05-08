@@ -496,6 +496,46 @@ public sealed partial class MainWindowViewModel
             existing.WithCanvasViewportReset());
     }
 
+    public bool TryAddChildPaneLocalCanvasElement(
+        string childPaneId,
+        PaneElementKind elementKind)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) ||
+            !PaneAuthoringCatalog.TryGetElementEntry(elementKind, out var entry))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var nextOrdinal = pane.LocalCanvasElementCount + 1;
+        var offsetIndex = Math.Max(0, nextOrdinal - 1);
+        var x = 48 + ((offsetIndex % 3) * 36);
+        var y = 48 + ((offsetIndex / 3) * 28);
+        var bindingLabel = entry.DefaultHostClasses.Count == 0
+            ? "Unbound local element"
+            : $"Unbound · {string.Join(", ", entry.DefaultHostClasses)}";
+
+        var element = new ChildPaneCanvasElementInstance(
+            InstanceId: $"local.canvas.{nextOrdinal}",
+            SourceElementId: entry.ElementTypeId,
+            ElementKind: entry.ElementKind,
+            DisplayLabel: entry.DisplayLabel,
+            BindingLabel: bindingLabel,
+            X: x,
+            Y: y,
+            Width: entry.DefaultWidth,
+            Height: entry.DefaultHeight,
+            ZIndex: pane.LocalCanvasElementCount,
+            Depth: 0);
+
+        return TryUpdateChildPane(childPaneId, current => current.WithAddedLocalCanvasElement(element));
+    }
+
     public bool TrySetChildPaneCanvasElementPreviewPlacement(
         string childPaneId,
         string? elementInstanceId,
