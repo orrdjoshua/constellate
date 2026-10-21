@@ -471,6 +471,12 @@ public sealed record ChildPaneWorkingCopyState(
     }
 }
 
+/// <summary>
+/// Transitional child-pane state record that already captures valuable working-copy,
+/// definition-posture, author-mode, and resource-surface semantics, but still mixes
+/// authored truth, local instance override state, canvas working state, and view-facing
+/// summary/readout helpers in one App-local type.
+/// </summary>
 public sealed record ChildPaneDescriptor(
     string Id,
     string Title,
