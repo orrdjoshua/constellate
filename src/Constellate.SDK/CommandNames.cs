@@ -8,6 +8,9 @@ namespace Constellate.SDK
     /// files also suggests this name seam is healthier than the broader payload
     /// bundles, so near-term cleanup should prefer preserving command-name stability
     /// while reducing payload overloading elsewhere.
+    /// The current consumer-spread review also shows heavy App/Core/renderer usage,
+    /// which further reinforces that command-name stability is a healthier near-term
+    /// posture than churn in this public naming seam.
     /// </summary>
     public static class CommandNames
     {
