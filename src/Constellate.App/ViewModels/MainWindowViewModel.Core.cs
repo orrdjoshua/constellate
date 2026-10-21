@@ -529,6 +529,13 @@ public sealed partial class MainWindowViewModel
             ? "Waiting for an active resource detail binding."
             : _activeResourceDetailSubtitle;
 
+    /// <summary>
+    /// Current App-side helper seam for normalizing pane resource context and binding
+    /// readback. It usefully centralizes pane-facing lookup, but its fallback path
+    /// rebuilds context only from split view-facing pane fields, which means already-
+    /// softened pane state becomes the de facto local truth unless earlier sync paths
+    /// preserve fuller canonical resource identity.
+    /// </summary>
     private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
     {
         if (pane.ResourceContext is not null)
