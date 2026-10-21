@@ -1031,7 +1031,10 @@ public sealed partial class MainWindowViewModel
     /// surface-role/view-ref binding identity plus mirrored display metadata. Search-driven
     /// review now suggests this split-field carriage is still fairly bounded to the
     /// descriptor/helper/upsert cluster, which makes this seam a good narrow cleanup point
-    /// before any broader resource/provider ambitions are widened. This works
+    /// before any broader resource/provider ambitions are widened. The first bounded
+    /// cleanup slice now preserves canonical `ResourceId` / `ResourceTypeId` farther
+    /// into `ChildPaneResourceContext` while intentionally keeping the current
+    /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. This works
     /// for today's detail-surface realization but also shows that pane lifecycle here is
     /// still keyed more by binding/view identity and mirrored readout state than by full
     /// canonical resource identity carried straight through from Core binding truth.
@@ -1042,7 +1045,9 @@ public sealed partial class MainWindowViewModel
         string surfaceRole,
         string? viewRef,
         string? resourceDisplayLabel,
-        string? resourceTitle)
+        string? resourceTitle,
+        string? resourceId = null,
+        string? resourceTypeId = null)
     {
         var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
             ? string.Empty
@@ -1061,7 +1066,15 @@ public sealed partial class MainWindowViewModel
         var normalizedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
             ? normalizedResourceTitle
             : resourceDisplayLabel.Trim();
+        var normalizedResourceId = string.IsNullOrWhiteSpace(resourceId)
+            ? null
+            : resourceId.Trim();
+        var normalizedResourceTypeId = string.IsNullOrWhiteSpace(resourceTypeId)
+            ? null
+            : resourceTypeId.Trim();
         var resourceContext = new ChildPaneResourceContext(
+            ResourceId: normalizedResourceId,
+            ResourceTypeId: normalizedResourceTypeId,
             DisplayLabel: normalizedResourceDisplayLabel,
             Title: normalizedResourceTitle,
             ViewRef: normalizedViewRef,
@@ -1192,7 +1205,9 @@ public sealed partial class MainWindowViewModel
         string surfaceRole,
         string? viewRef,
         string? resourceDisplayLabel,
-        string? resourceTitle)
+        string? resourceTitle,
+        string? resourceId = null,
+        string? resourceTypeId = null)
     {
         var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
             ? string.Empty
@@ -1208,7 +1223,9 @@ public sealed partial class MainWindowViewModel
             surfaceRole,
             normalizedViewRef,
             resourceDisplayLabel,
-            resourceTitle);
+            resourceTitle,
+            resourceId: resourceId,
+            resourceTypeId: resourceTypeId);
     }
 
     private void ReconcileResourceBoundDetailChildPanes(IEnumerable<string> expectedPaneIds)
