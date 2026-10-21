@@ -27,6 +27,12 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial remains one of the clearest App-side state aggregation and authority seams.
+    // The current split improves readability, but it does not yet fully solve ownership concentration;
+    // later convergence should keep pulling pane/workspace/product policy into narrower collaborators
+    // rather than letting this Core partial become the permanent home of mixed shell and product state.
+
     // Json + engine bridge
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { IncludeFields = true };
     private readonly IDisposable[] _eventSubscriptions;
