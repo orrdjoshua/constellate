@@ -4,7 +4,10 @@ namespace Constellate.SDK
     /// Current SDK command-name boundary for the reviewed engine surface.
     /// It is credible and usable today, but it is also still current-engine-shaped,
     /// so future SDK cleanup should preserve the naming seam while resisting
-    /// indefinite scope growth inside one flat bundle.
+    /// indefinite scope growth inside one flat bundle. Direct review of adjacent SDK
+    /// files also suggests this name seam is healthier than the broader payload
+    /// bundles, so near-term cleanup should prefer preserving command-name stability
+    /// while reducing payload overloading elsewhere.
     /// </summary>
     public static class CommandNames
     {
