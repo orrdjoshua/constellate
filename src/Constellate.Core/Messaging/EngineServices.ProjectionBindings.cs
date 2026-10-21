@@ -7,6 +7,13 @@ using Constellate.SDK;
 
 namespace Constellate.Core.Messaging
 {
+    /// <summary>
+    /// Current Core-side bridge from resource registration identity into persisted and
+    /// resolved surface-binding truth. This is a meaningful proving seam because it
+    /// already uses the narrow SDK resource-surface binding vocabulary while joining
+    /// registry metadata to target/target-id realization, though later cleanup should
+    /// reduce duplicated binding-key construction across SDK/Core/App.
+    /// </summary>
     public sealed record ResolvedResourceSurfaceBindingState(
         string ProjectionBindingId,
         string ResourceId,
