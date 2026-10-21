@@ -12,6 +12,13 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial currently owns split/slide mutation and lane-size persistence for the
+    // parent-body realization layer. That makes it an important current seam, but longer-term
+    // convergence should keep shrinking how much workspace/body truth is mutated directly from
+    // the central ViewModel and instead rely more on narrower layout/workspace collaborators
+    // with clearer durable-versus-live-state boundaries.
+
     private int GetSlideIndexForHost(string hostId)
     {
         var normalized = NormalizeHostId(hostId);
