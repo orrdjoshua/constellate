@@ -2,6 +2,12 @@ using System.Collections.Generic;
 
 namespace Constellate.App;
 
+/// <summary>
+/// Transitional App-local shell layout aggregate used to snapshot current host/minimized/slide
+/// state together with parent/child collections. It is useful for current layout save/restore
+/// flows, but it should not be mistaken for final durable workspace truth; later convergence
+/// should further separate live shell realization artifacts from reusable workspace definitions.
+/// </summary>
 public sealed record ShellLayoutDescriptor(
     string HostId,
     bool IsMinimized,
