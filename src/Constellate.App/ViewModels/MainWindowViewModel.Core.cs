@@ -578,7 +578,7 @@ public sealed partial class MainWindowViewModel
 
     private void SetActiveResourceDetailSurface(ChildPaneResourceContext? resourceContext)
     {
-        var normalizedResourceContext = resourceContext?.WithNormalizedSurfaceBinding();
+        var normalizedResourceContext = resourceContext?.WithNormalizedDetailChildPaneSurfaceState("Resource Detail");
 
         if (Equals(_activeResourceDetailSurfaceContext, normalizedResourceContext))
         {
