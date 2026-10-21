@@ -103,14 +103,20 @@ namespace Constellate.App
                 return;
             }
 
-            SetActiveResourceDetailSurface(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
-            UpsertResourceBoundDetailChildPane(
+            var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                 payload.Binding.SurfaceRole,
                 payload.Binding.ViewRef,
-                payload.ResourceDisplayLabel,
-                payload.ResourceTitle,
                 resourceId: payload.ResourceId,
-                resourceTypeId: payload.ResourceTypeId);
+                resourceTypeId: payload.ResourceTypeId,
+                displayLabel: payload.ResourceDisplayLabel,
+                title: payload.ResourceTitle);
+            if (resourceContext is null)
+            {
+                return;
+            }
+
+            SetActiveResourceDetailSurface(resourceContext);
+            UpsertResourceBoundDetailChildPane(resourceContext);
         }
 
         private void TrySyncActiveResourceDetailSurfaceFromPersistence()
@@ -137,13 +143,19 @@ namespace Constellate.App
 
             foreach (var detailBinding in detailBindings)
             {
-                UpsertResourceBoundDetailChildPane(
+                var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                     detailBinding.SurfaceRole,
                     detailBinding.ViewRef,
-                    detailBinding.ResourceDisplayLabel,
-                    detailBinding.ResourceTitle,
                     resourceId: detailBinding.ResourceId,
-                    resourceTypeId: detailBinding.ResourceTypeId);
+                    resourceTypeId: detailBinding.ResourceTypeId,
+                    displayLabel: detailBinding.ResourceDisplayLabel,
+                    title: detailBinding.ResourceTitle);
+                if (resourceContext is null)
+                {
+                    continue;
+                }
+
+                UpsertResourceBoundDetailChildPane(resourceContext);
             }
 
             var activeBindingKey = ActiveResourceDetailSurfaceBindingKey;
@@ -151,14 +163,15 @@ namespace Constellate.App
                     !string.IsNullOrWhiteSpace(activeBindingKey) &&
                     string.Equals(detailBinding.BindingKey, activeBindingKey, StringComparison.Ordinal))
                 ?? detailBindings[0];
-
-            SetActiveResourceDetailSurface(
+            var activeResourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                 activeDetailBinding.SurfaceRole,
                 activeDetailBinding.ViewRef,
-                activeDetailBinding.ResourceDisplayLabel,
-                activeDetailBinding.ResourceTitle);
+                resourceId: activeDetailBinding.ResourceId,
+                resourceTypeId: activeDetailBinding.ResourceTypeId,
+                displayLabel: activeDetailBinding.ResourceDisplayLabel,
+                title: activeDetailBinding.ResourceTitle);
+            SetActiveResourceDetailSurface(activeResourceContext);
         }
-
 
         private void SendCommand<TPayload>(string commandName, TPayload payload)
         {
@@ -250,21 +263,21 @@ namespace Constellate.App
             var resolvedResourceTitle = hasResourceTitle ? resourceTitle : null;
             var resolvedResourceId = hasResourceId ? resourceId : null;
             var resolvedResourceTypeId = hasResourceTypeId ? resourceTypeId : null;
-
-            SetActiveResourceDetailSurface(
+            var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                 surfaceRole,
                 viewRef,
-                resolvedResourceDisplayLabel,
-                resolvedResourceTitle);
-            UpsertResourceBoundDetailChildPane(
-                surfaceRole,
-                viewRef,
-                resolvedResourceDisplayLabel,
-                resolvedResourceTitle,
                 resourceId: resolvedResourceId,
-                resourceTypeId: resolvedResourceTypeId);
-        }
+                resourceTypeId: resolvedResourceTypeId,
+                displayLabel: resolvedResourceDisplayLabel,
+                title: resolvedResourceTitle);
+            if (resourceContext is null)
+            {
+                return;
+            }
 
+            SetActiveResourceDetailSurface(resourceContext);
+            UpsertResourceBoundDetailChildPane(resourceContext);
+        }
         private static bool TryResolveExplicitDetailSurfaceRole(JsonElement payload, out string surfaceRole)
         {
             surfaceRole = string.Empty;
