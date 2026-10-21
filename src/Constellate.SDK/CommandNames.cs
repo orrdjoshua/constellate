@@ -1,5 +1,11 @@
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Current SDK command-name boundary for the reviewed engine surface.
+    /// It is credible and usable today, but it is also still current-engine-shaped,
+    /// so future SDK cleanup should preserve the naming seam while resisting
+    /// indefinite scope growth inside one flat bundle.
+    /// </summary>
     public static class CommandNames
     {
         public const string CreateEntity = "CreateEntity";
