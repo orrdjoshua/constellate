@@ -1303,7 +1303,8 @@ public sealed record ChildPaneDescriptor(
     /// Keeps canonical resource-context truth primary while projecting the still-transitional
     /// split resource/readout fields as compatibility mirrors for narrower App-side callers.
     /// This gives pane upsert paths one bounded seam for carrying canonical identity forward
-    /// without open-coding the compatibility-field assignments at each call site.
+    /// without open-coding the compatibility-field assignments at each call site. Passing
+    /// `null` through the same seam also clears the mirrored compatibility fields together.
     /// </summary>
     public ChildPaneDescriptor WithCanonicalResourceContext(ChildPaneResourceContext? resourceContext)
     {
@@ -1365,15 +1366,10 @@ public sealed record ChildPaneDescriptor(
             DefinitionLabel = definition.DisplayLabel,
             DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
             HasSavedInstanceState = false,
-            SurfaceRole = null,
-            BoundViewRef = null,
-            BoundResourceTitle = null,
-            BoundResourceDisplayLabel = null,
-            ResourceContext = null,
             CanvasElementPreviewPlacements = null,
             LocalCanvasElements = null,
             SelectedCanvasElementInstanceId = null
-        }).WithBaselineAuthoredValues(authoredValues, false))
+        }).WithCanonicalResourceContext(null).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
 
@@ -1392,15 +1388,10 @@ public sealed record ChildPaneDescriptor(
             DefinitionLabel = null,
             DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
             HasSavedInstanceState = false,
-            SurfaceRole = null,
-            BoundViewRef = null,
-            BoundResourceTitle = null,
-            BoundResourceDisplayLabel = null,
-            ResourceContext = null,
             CanvasElementPreviewPlacements = null,
             LocalCanvasElements = null,
             SelectedCanvasElementInstanceId = null
-        }).WithBaselineAuthoredValues(authoredValues, false))
+        }).WithCanonicalResourceContext(null).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
 
