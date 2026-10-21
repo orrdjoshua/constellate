@@ -11,6 +11,7 @@ namespace Constellate.SDK
 
     /// <summary>
     /// RFC-040 envelope (v1.0) used for in-proc and out-of-proc messaging.
+    /// This remains one of the cleaner current public boundary seams because it stays small, stable, and transport-shaped.
     /// </summary>
     public record Envelope
     {
