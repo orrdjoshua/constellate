@@ -475,7 +475,10 @@ public sealed record ChildPaneWorkingCopyState(
 /// Transitional child-pane state record that already captures valuable working-copy,
 /// definition-posture, author-mode, and resource-surface semantics, but still mixes
 /// authored truth, local instance override state, canvas working state, and
-/// view-facing summary/readout helpers in one App-local type. Resource-bound panes
+/// view-facing summary/readout helpers in one App-local type. Search-driven review
+/// now suggests the remaining App-side split-field resource/binding usage is mostly
+/// bounded to this descriptor plus the VM helper/upsert seams, which makes that
+/// cluster a clearer narrow convergence target. Resource-bound panes
 /// also currently carry both split surface/readout fields and a ChildPaneResourceContext,
 /// which keeps the bridge practical for today's UI while highlighting a later
 /// convergence target around single-source binding/resource identity carriage.
