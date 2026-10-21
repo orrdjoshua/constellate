@@ -474,8 +474,11 @@ public sealed record ChildPaneWorkingCopyState(
 /// <summary>
 /// Transitional child-pane state record that already captures valuable working-copy,
 /// definition-posture, author-mode, and resource-surface semantics, but still mixes
-/// authored truth, local instance override state, canvas working state, and view-facing
-/// summary/readout helpers in one App-local type.
+/// authored truth, local instance override state, canvas working state, and
+/// view-facing summary/readout helpers in one App-local type. Resource-bound panes
+/// also currently carry both split surface/readout fields and a ChildPaneResourceContext,
+/// which keeps the bridge practical for today's UI while highlighting a later
+/// convergence target around single-source binding/resource identity carriage.
 /// </summary>
 public sealed record ChildPaneDescriptor(
     string Id,
