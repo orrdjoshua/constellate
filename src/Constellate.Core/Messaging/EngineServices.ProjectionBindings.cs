@@ -11,7 +11,9 @@ namespace Constellate.Core.Messaging
     /// Current Core-side bridge from resource registration identity into persisted and
     /// resolved surface-binding truth. This is a meaningful proving seam because it
     /// already uses the narrow SDK resource-surface binding vocabulary while joining
-    /// registry metadata to target/target-id realization, though later cleanup should
+    /// registry metadata to target/target-id realization. The resolved state also
+    /// preserves canonical resource identity alongside display metadata, which makes
+    /// later App-side identity softening easier to spot. Later cleanup should still
     /// reduce duplicated binding-key construction across SDK/Core/App.
     /// </summary>
     public sealed record ResolvedResourceSurfaceBindingState(
