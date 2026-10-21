@@ -92,6 +92,19 @@ public sealed record ChildPaneResourceContext(
             TargetSurfaceKind: surfaceBinding?.TargetSurfaceKind ?? NormalizeOptional(targetSurfaceKind) ?? PaneSurfaceBinding.TargetSurfaceKindChildPaneBody);
     }
 
+    public ChildPaneResourceContext WithResolvedDetailReadout(string? paneTitleFallback)
+    {
+        var normalizedPaneTitleFallback = NormalizeOptional(paneTitleFallback);
+        var resolvedTitle = ResolvePreferredValue(Title, normalizedPaneTitleFallback);
+        var resolvedDisplayLabel = ResolvePreferredValue(DisplayLabel, resolvedTitle);
+
+        return this with
+        {
+            DisplayLabel = resolvedDisplayLabel,
+            Title = resolvedTitle
+        };
+    }
+
     public ChildPaneResourceContext MergeWith(ChildPaneResourceContext? fallback)
     {
         if (fallback is null)
