@@ -1,5 +1,11 @@
 namespace Constellate.App;
 
+/// <summary>
+/// App-side junction between resource identity metadata and child-pane surface realization.
+/// It usefully packages the current resource-to-surface bridge for pane consumers, but it
+/// also reflects that part of the narrow binding vocabulary is still mirrored locally
+/// instead of being fully converged on one shared contract seam.
+/// </summary>
 public sealed record ChildPaneResourceContext(
     string? ResourceId = null,
     string? ResourceTypeId = null,
