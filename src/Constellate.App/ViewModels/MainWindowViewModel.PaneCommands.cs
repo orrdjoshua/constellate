@@ -1031,7 +1031,11 @@ public sealed partial class MainWindowViewModel
     /// surface-role/view-ref binding identity plus mirrored display metadata. Search-driven
     /// review now suggests this split-field carriage is still fairly bounded to the
     /// descriptor/helper/upsert cluster, which makes this seam a good narrow cleanup point
-    /// before any broader resource/provider ambitions are widened. The first bounded
+    /// before any broader resource/provider ambitions are widened. The latest bounded
+    /// App-side consumer search also confirms that direct split compatibility-field
+    /// reads/writes now remain inside `ChildPaneDescriptor`, while the callers in
+    /// this file primarily consume the descriptor-owned canonical normalization seam.
+    /// The first bounded
     /// cleanup slice now preserves canonical `ResourceId` / `ResourceTypeId` farther
     /// into `ChildPaneResourceContext` while intentionally keeping the current
     /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. It now
