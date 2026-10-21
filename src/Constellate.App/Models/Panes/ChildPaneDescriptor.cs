@@ -1479,11 +1479,11 @@ public sealed record ChildPaneDescriptor(
             return null;
         }
 
-        return new ChildPaneResourceContext(
-            DisplayLabel: BoundResourceDisplayLabel,
-            Title: BoundResourceTitle,
-            ViewRef: BoundViewRef,
-            SurfaceRole: SurfaceRole);
+        return ChildPaneResourceContext.CreateDetailChildPaneBody(
+            SurfaceRole,
+            BoundViewRef,
+            displayLabel: BoundResourceDisplayLabel,
+            title: BoundResourceTitle);
     }
 
     private static string BuildBoundResourceReadoutSubtitle(ChildPaneResourceContext resourceContext)
