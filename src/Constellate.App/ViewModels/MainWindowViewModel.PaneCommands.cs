@@ -1034,10 +1034,13 @@ public sealed partial class MainWindowViewModel
     /// before any broader resource/provider ambitions are widened. The first bounded
     /// cleanup slice now preserves canonical `ResourceId` / `ResourceTypeId` farther
     /// into `ChildPaneResourceContext` while intentionally keeping the current
-    /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. This works
-    /// for today's detail-surface realization but also shows that pane lifecycle here is
-    /// still keyed more by binding/view identity and mirrored readout state than by full
-    /// canonical resource identity carried straight through from Core binding truth.
+    /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. It now
+    /// also preserves existing canonical resource identity/readout values when a narrower
+    /// compatibility fallback event re-upserts the same pane without the fuller Core
+    /// binding payload. This works for today's detail-surface realization but also shows
+    /// that pane lifecycle here is still keyed more by binding/view identity and mirrored
+    /// readout state than by full canonical resource identity carried straight through
+    /// from Core binding truth.
     /// </summary>
     private void UpsertResourceBoundChildPane(
         string paneId,
@@ -1088,15 +1091,37 @@ public sealed partial class MainWindowViewModel
                 continue;
             }
 
+            var existingResourceContext = existing.EffectiveResourceContext;
+            var resolvedPaneTitle = string.IsNullOrWhiteSpace(resourceTitle)
+                ? string.IsNullOrWhiteSpace(existing.Title)
+                    ? normalizedPaneTitle
+                    : existing.Title
+                : normalizedPaneTitle;
+            var resolvedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
+                ? !string.IsNullOrWhiteSpace(existingResourceContext?.Title)
+                    ? existingResourceContext.Title!.Trim()
+                    : normalizedResourceTitle
+                : normalizedResourceTitle;
+            var resolvedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
+                ? !string.IsNullOrWhiteSpace(existingResourceContext?.DisplayLabel)
+                    ? existingResourceContext.DisplayLabel!.Trim()
+                    : normalizedResourceDisplayLabel
+                : normalizedResourceDisplayLabel;
+            var resolvedResourceContext = (resourceContext with
+            {
+                Title = resolvedResourceTitle,
+                DisplayLabel = resolvedResourceDisplayLabel
+            }).MergeWith(existingResourceContext);
+
             ChildPanes[i] = existing with
             {
-                Title = normalizedPaneTitle,
+                Title = resolvedPaneTitle,
                 IsMinimized = false,
                 SurfaceRole = surfaceRole,
                 BoundViewRef = normalizedViewRef,
-                BoundResourceTitle = normalizedResourceTitle,
-                BoundResourceDisplayLabel = normalizedResourceDisplayLabel,
-                ResourceContext = resourceContext
+                BoundResourceTitle = resolvedResourceTitle,
+                BoundResourceDisplayLabel = resolvedResourceDisplayLabel,
+                ResourceContext = resolvedResourceContext
             };
 
             RaiseChildPaneCollectionsChanged();
