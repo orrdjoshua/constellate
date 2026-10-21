@@ -146,10 +146,7 @@ public sealed partial class MainWindowViewModel
     // Activity + history
     private string _lastActivitySummary = "Last Activity: app started";
     private readonly Queue<string> _commandHistory = new();
-    private string _activeResourceDetailSurfaceRole = string.Empty;
-    private string _activeResourceDetailViewRef = string.Empty;
-    private string _activeResourceDetailTitle = string.Empty;
-    private string _activeResourceDetailSubtitle = string.Empty;
+    private ChildPaneResourceContext? _activeResourceDetailSurfaceContext;
 
     // Optional saved layout (session-local)
     private ShellLayoutDescriptor? _savedLayout;
@@ -503,31 +500,25 @@ public sealed partial class MainWindowViewModel
     public int ParentPaneCount => ParentPaneModels.Count;
 
     public bool HasActiveResourceDetailSurface =>
-        !string.IsNullOrWhiteSpace(_activeResourceDetailViewRef);
+        _activeResourceDetailSurfaceContext?.SurfaceBinding is not null;
 
     public string ActiveResourceDetailSurfaceRole =>
-        _activeResourceDetailSurfaceRole;
+        _activeResourceDetailSurfaceContext?.SurfaceBinding?.SurfaceRole ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceViewRef =>
-        _activeResourceDetailViewRef;
+        _activeResourceDetailSurfaceContext?.SurfaceBinding?.ViewRef ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceBindingKey =>
-        PaneSurfaceBinding.CreateResourceSurface(
-            _activeResourceDetailSurfaceRole,
-            _activeResourceDetailViewRef)?.BindingKey ?? string.Empty;
+        _activeResourceDetailSurfaceContext?.BindingKey ?? string.Empty;
 
     public string ActiveResourceDetailPrimaryPaneId =>
         GetActiveResourceDetailPrimaryPaneId();
 
     public string ActiveResourceDetailSurfaceTitle =>
-        string.IsNullOrWhiteSpace(_activeResourceDetailTitle)
-            ? "Resource Detail"
-            : _activeResourceDetailTitle;
+        _activeResourceDetailSurfaceContext?.ReadoutTitle ?? "Resource Detail";
 
     public string ActiveResourceDetailSurfaceSubtitle =>
-        string.IsNullOrWhiteSpace(_activeResourceDetailSubtitle)
-            ? "Waiting for an active resource detail binding."
-            : _activeResourceDetailSubtitle;
+        _activeResourceDetailSurfaceContext?.ReadoutSubtitle ?? "Waiting for an active resource detail binding.";
 
     /// <summary>
     /// Current App-side helper seam for normalizing pane resource context and binding
@@ -581,28 +572,23 @@ public sealed partial class MainWindowViewModel
 
     private void SetActiveResourceDetailSurface(ChildPaneResourceContext? resourceContext)
     {
-        var normalizedBinding = resourceContext?.SurfaceBinding;
-        var normalizedSurfaceRole = normalizedBinding?.SurfaceRole ?? string.Empty;
-        var normalizedViewRef = normalizedBinding?.ViewRef ?? string.Empty;
-        var normalizedTitle = string.IsNullOrWhiteSpace(normalizedViewRef)
-            ? string.Empty
-            : resourceContext?.ReadoutTitle ?? "Resource Detail";
-        var normalizedSubtitle = string.IsNullOrWhiteSpace(normalizedViewRef)
-            ? string.Empty
-            : resourceContext?.ReadoutSubtitle ?? "Waiting for an active resource detail binding.";
+        var normalizedBinding = resourceContext?.SurfaceBinding;        
+        var normalizedResourceContext = normalizedBinding is null
+            ? null
+            : resourceContext with
+            {
+                SurfaceRole = normalizedBinding.SurfaceRole,
+                ViewRef = normalizedBinding.ViewRef,
+                ProjectionMode = normalizedBinding.ProjectionMode,
+                TargetSurfaceKind = normalizedBinding.TargetSurfaceKind
+            };
 
-        if (_activeResourceDetailSurfaceRole == normalizedSurfaceRole &&
-            _activeResourceDetailViewRef == normalizedViewRef &&
-            _activeResourceDetailTitle == normalizedTitle &&
-            _activeResourceDetailSubtitle == normalizedSubtitle)
+        if (Equals(_activeResourceDetailSurfaceContext, normalizedResourceContext))
         {
             return;
         }
 
-        _activeResourceDetailSurfaceRole = normalizedSurfaceRole;
-        _activeResourceDetailViewRef = normalizedViewRef;
-        _activeResourceDetailTitle = normalizedTitle;
-        _activeResourceDetailSubtitle = normalizedSubtitle;
+        _activeResourceDetailSurfaceContext = normalizedResourceContext;
         OnPropertyChanged(nameof(HasActiveResourceDetailSurface));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceRole));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceBindingKey));
