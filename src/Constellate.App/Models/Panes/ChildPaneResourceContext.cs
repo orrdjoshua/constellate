@@ -25,6 +25,42 @@ public sealed record ChildPaneResourceContext(
 
     public string BindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
 
+    public static ChildPaneResourceContext? CreateDetailChildPaneBody(
+        string? surfaceRole,
+        string? viewRef,
+        string? displayLabel = null,
+        string? title = null,
+        string? resourceId = null,
+        string? resourceTypeId = null,
+        string? projectionMode = PaneSurfaceBinding.ProjectionModeDetail,
+        string? targetSurfaceKind = PaneSurfaceBinding.TargetSurfaceKindChildPaneBody)
+    {
+        var surfaceBinding = PaneSurfaceBinding.CreateResourceSurface(
+            surfaceRole,
+            viewRef,
+            projectionMode,
+            targetSurfaceKind);
+
+        if (surfaceBinding is null &&
+            string.IsNullOrWhiteSpace(resourceId) &&
+            string.IsNullOrWhiteSpace(resourceTypeId) &&
+            string.IsNullOrWhiteSpace(displayLabel) &&
+            string.IsNullOrWhiteSpace(title))
+        {
+            return null;
+        }
+
+        return new ChildPaneResourceContext(
+            ResourceId: NormalizeOptional(resourceId),
+            ResourceTypeId: NormalizeOptional(resourceTypeId),
+            DisplayLabel: NormalizeOptional(displayLabel),
+            Title: NormalizeOptional(title),
+            ViewRef: surfaceBinding?.ViewRef ?? NormalizeOptional(viewRef),
+            SurfaceRole: surfaceBinding?.SurfaceRole ?? NormalizeOptional(surfaceRole),
+            ProjectionMode: surfaceBinding?.ProjectionMode ?? NormalizeOptional(projectionMode) ?? PaneSurfaceBinding.ProjectionModeDetail,
+            TargetSurfaceKind: surfaceBinding?.TargetSurfaceKind ?? NormalizeOptional(targetSurfaceKind) ?? PaneSurfaceBinding.TargetSurfaceKindChildPaneBody);
+    }
+
     public ChildPaneResourceContext MergeWith(ChildPaneResourceContext? fallback)
     {
         if (fallback is null)
@@ -52,5 +88,12 @@ public sealed record ChildPaneResourceContext(
             : string.IsNullOrWhiteSpace(fallback)
                 ? null
                 : fallback.Trim();
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
     }
 }
