@@ -98,6 +98,11 @@
 
     <panes:PaneChrome.CommandBarContent>
       <Grid>
+        <!-- Commentary/parity note:
+             These header controls expose real current shell substrate (split counts, slide
+             selection, pane creation/minimize/destroy actions), but they also still reflect
+             transitional product-policy ergonomics rather than final polished parent-pane chrome.
+             Later convergence should preserve the capability while refining how it is surfaced. -->
         <!-- Full command bar for expanded panes (now scrolled by header-level ScrollViewer) -->
         <StackPanel Orientation="Horizontal"
                     Spacing="10"
