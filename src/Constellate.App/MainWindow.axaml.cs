@@ -3,8 +3,11 @@ using Avalonia.Markup.Xaml;
 
 namespace Constellate.App
 {
-    // Thin MainWindow code-behind: constructor and top-level bridge initialization only.
-    // Shared shell/gesture state now lives in MainWindow.SharedState.cs.
+    // Commentary/parity note:
+    // This code-behind is intentionally a thin bootstrap seam for top-level shell initialization.
+    // Shared shell/gesture state now lives in the companion partials, and future convergence
+    // should preserve that direction rather than letting MainWindow.cs regain broader product
+    // or shell-policy ownership.
     public partial class MainWindow : Window
     {
         public MainWindow()
