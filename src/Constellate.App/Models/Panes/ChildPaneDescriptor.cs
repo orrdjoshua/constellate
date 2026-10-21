@@ -525,6 +525,12 @@ public sealed record ChildPaneDescriptor(
     IReadOnlyList<ChildPaneCanvasElementInstance>? LocalCanvasElements = null,
     string? SelectedCanvasElementInstanceId = null)
 {
+    /// <summary>
+    /// Current descriptor-level App-side normalization result for resource-bound pane
+    /// identity and surface participation. It prefers the fuller canonical
+    /// `ResourceContext` when present and falls back to the split legacy fields only
+    /// for compatibility with still-transitional App-side callers.
+    /// </summary>
     public ChildPaneResourceContext? EffectiveResourceContext =>
         ResourceContext ??
         CreateFallbackResourceContext();
