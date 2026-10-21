@@ -1071,7 +1071,7 @@ public sealed partial class MainWindowViewModel
             title: resourceTitle,
             resourceId: resourceId,
             resourceTypeId: resourceTypeId)?
-            .WithResolvedDetailReadout(normalizedPaneTitle);
+            .WithNormalizedDetailChildPaneSurfaceState(normalizedPaneTitle);
         if (resourceContext is null)
         {
             return;
@@ -1093,7 +1093,7 @@ public sealed partial class MainWindowViewModel
                 : normalizedPaneTitle;
             var resolvedResourceContext = resourceContext
                 .MergeWith(existingResourceContext)
-                .WithResolvedDetailReadout(resolvedPaneTitle);
+                .WithNormalizedDetailChildPaneSurfaceState(resolvedPaneTitle);
 
             ChildPanes[i] = existing
                 .WithCanonicalResourceContext(resolvedResourceContext) with
