@@ -1076,13 +1076,17 @@ public sealed partial class MainWindowViewModel
         var normalizedResourceTypeId = string.IsNullOrWhiteSpace(resourceTypeId)
             ? null
             : resourceTypeId.Trim();
-        var resourceContext = new ChildPaneResourceContext(
-            ResourceId: normalizedResourceId,
-            ResourceTypeId: normalizedResourceTypeId,
-            DisplayLabel: normalizedResourceDisplayLabel,
-            Title: normalizedResourceTitle,
-            ViewRef: normalizedViewRef,
-            SurfaceRole: surfaceRole);
+        var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+            surfaceRole,
+            normalizedViewRef,
+            displayLabel: normalizedResourceDisplayLabel,
+            title: normalizedResourceTitle,
+            resourceId: normalizedResourceId,
+            resourceTypeId: normalizedResourceTypeId);
+        if (resourceContext is null)
+        {
+            return;
+        }
 
         for (var i = 0; i < ChildPanes.Count; i++)
         {
