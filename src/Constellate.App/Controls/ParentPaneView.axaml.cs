@@ -16,6 +16,12 @@ namespace Constellate.App.Controls
 {
     public partial class ParentPaneView : UserControl
     {
+        // Commentary/parity note:
+        // This code-behind is a concrete App-side attachment seam between parent-pane models,
+        // live shell gesture hosting, and current layout behavior. It is a reasonable place for
+        // view-level coordination, but future convergence should keep pushing topology and policy
+        // ownership toward narrower layout/model services rather than letting it accumulate here.
+
         private const double SlideScrollThreshold = 2.0;
         private double _pendingHorizontalSlideDelta;
         private double _pendingVerticalSlideDelta;
