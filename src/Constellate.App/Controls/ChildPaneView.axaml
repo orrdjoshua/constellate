@@ -323,6 +323,11 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Auto">
           <StackPanel Spacing="8">
+            <!-- Commentary/parity note:
+                 This body still carries some transitional proof-target/admin posture
+                 (definition chooser, warnings, helper readouts) even though it is also the
+                 concrete host for real child-pane lifecycle, author-mode, and bound-resource
+                 presentation. Later UX cleanup should preserve the semantics while reducing the clutter. -->
             <Border Background="#13202C"
                     BorderBrush="#2F4A5F"
                     BorderThickness="1"
