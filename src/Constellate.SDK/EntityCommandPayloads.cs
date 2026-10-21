@@ -4,6 +4,13 @@ using System.Numerics;
 
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Current broad SDK payload bundle for present engine messaging.
+    /// It is useful for today's public boundary, but it mixes multiple domains and is a likely
+    /// later decomposition target into narrower families such as entity lifecycle,
+    /// panel/surface, selection/focus, hierarchy/navigation, and view/camera bridge payloads.
+    /// Near-term cleanup should preserve compatibility while resisting further bundle growth.
+    /// </summary>
     public sealed record NodeAppearancePayload(
         string? Primitive = null,
         string? FillColor = null,
