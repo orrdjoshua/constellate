@@ -1037,10 +1037,11 @@ public sealed partial class MainWindowViewModel
     /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. It now
     /// also preserves existing canonical resource identity/readout values when a narrower
     /// compatibility fallback event re-upserts the same pane without the fuller Core
-    /// binding payload. This works for today's detail-surface realization but also shows
-    /// that pane lifecycle here is still keyed more by binding/view identity and mirrored
-    /// readout state than by full canonical resource identity carried straight through
-    /// from Core binding truth.
+    /// binding payload, and now routes split compatibility-field mirroring through the
+    /// descriptor seam instead of open-coding those assignments locally. This works for
+    /// today's detail-surface realization but also shows that pane lifecycle here is still
+    /// keyed more by binding/view identity and mirrored readout state than by full
+    /// canonical resource identity carried straight through from Core binding truth.
     /// </summary>
     private void UpsertResourceBoundChildPane(
         string paneId,
@@ -1113,16 +1114,12 @@ public sealed partial class MainWindowViewModel
                 DisplayLabel = resolvedResourceDisplayLabel
             }).MergeWith(existingResourceContext);
 
-            ChildPanes[i] = existing with
-            {
-                Title = resolvedPaneTitle,
-                IsMinimized = false,
-                SurfaceRole = surfaceRole,
-                BoundViewRef = normalizedViewRef,
-                BoundResourceTitle = resolvedResourceTitle,
-                BoundResourceDisplayLabel = resolvedResourceDisplayLabel,
-                ResourceContext = resolvedResourceContext
-            };
+            ChildPanes[i] = existing
+                .WithCanonicalResourceContext(resolvedResourceContext) with
+                {
+                    Title = resolvedPaneTitle,
+                    IsMinimized = false
+                };
 
             RaiseChildPaneCollectionsChanged();
             return;
@@ -1171,22 +1168,19 @@ public sealed partial class MainWindowViewModel
             ChildPanes[i] = existing with { Order = existing.Order + 1 };
         }
 
-        ChildPanes.Add(new ChildPaneDescriptor(
-            paneId,
-            normalizedPaneTitle,
-            insertOrder,
-            ContainerIndex: containerIndex,
-            IsMinimized: false,
-            SlideIndex: slideIndex,
-            PreferredSizeRatio: preferredSizeRatio,
-            ParentId: parent.Id,
-            FixedSizePixels: fixedPixels,
-            SurfaceRole: surfaceRole,
-            BoundViewRef: normalizedViewRef,
-            BoundResourceTitle: normalizedResourceTitle,
-            BoundResourceDisplayLabel: normalizedResourceDisplayLabel,
-            BaseTitle: normalizedPaneTitle,
-            ResourceContext: resourceContext));
+        ChildPanes.Add(
+            new ChildPaneDescriptor(
+                paneId,
+                normalizedPaneTitle,
+                insertOrder,
+                ContainerIndex: containerIndex,
+                IsMinimized: false,
+                SlideIndex: slideIndex,
+                PreferredSizeRatio: preferredSizeRatio,
+                ParentId: parent.Id,
+                FixedSizePixels: fixedPixels,
+                BaseTitle: normalizedPaneTitle)
+            .WithCanonicalResourceContext(resourceContext));
 
         RaiseChildPaneCollectionsChanged();
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
