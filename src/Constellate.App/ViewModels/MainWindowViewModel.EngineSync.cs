@@ -90,7 +90,9 @@ namespace Constellate.App
         /// `ListResolvedResourceSurfaceBindings(...)` refresh both converge on the
         /// same pane-upsert path here, but they currently forward only surface/view
         /// identity plus mirrored display metadata instead of the fuller canonical
-        /// resource identity already available at the Core seam.
+        /// resource identity already available at the Core seam. The first bounded
+        /// cleanup slice now starts preserving that fuller identity deeper into the
+        /// App realization path while keeping the current pane-id strategy stable.
         /// </summary>
         private void TryTrackResourceSurfaceBinding(ResourceSurfaceBindingChangedPayload payload)
         {
@@ -102,7 +104,13 @@ namespace Constellate.App
             }
 
             SetActiveResourceDetailSurface(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
-            UpsertResourceBoundDetailChildPane(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
+            UpsertResourceBoundDetailChildPane(
+                payload.Binding.SurfaceRole,
+                payload.Binding.ViewRef,
+                payload.ResourceDisplayLabel,
+                payload.ResourceTitle,
+                resourceId: payload.ResourceId,
+                resourceTypeId: payload.ResourceTypeId);
         }
 
         private void TrySyncActiveResourceDetailSurfaceFromPersistence()
@@ -133,7 +141,9 @@ namespace Constellate.App
                     detailBinding.SurfaceRole,
                     detailBinding.ViewRef,
                     detailBinding.ResourceDisplayLabel,
-                    detailBinding.ResourceTitle);
+                    detailBinding.ResourceTitle,
+                    resourceId: detailBinding.ResourceId,
+                    resourceTypeId: detailBinding.ResourceTypeId);
             }
 
             var activeBindingKey = ActiveResourceDetailSurfaceBindingKey;
