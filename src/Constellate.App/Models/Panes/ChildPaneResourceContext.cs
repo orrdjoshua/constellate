@@ -25,6 +25,37 @@ public sealed record ChildPaneResourceContext(
 
     public string BindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
 
+    public string ReadoutTitle =>
+        !string.IsNullOrWhiteSpace(Title)
+            ? Title!
+            : !string.IsNullOrWhiteSpace(DisplayLabel)
+                ? DisplayLabel!
+                : "Bound Resource";
+
+    public string ReadoutSubtitle
+    {
+        get
+        {
+            var subtitle = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(SurfaceRole))
+            {
+                subtitle = SurfaceRole!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ViewRef))
+            {
+                subtitle = string.IsNullOrWhiteSpace(subtitle)
+                    ? ViewRef!
+                    : $"{subtitle} · {ViewRef}";
+            }
+
+            return string.IsNullOrWhiteSpace(subtitle)
+                ? "Pane is bound to a resource context."
+                : subtitle;
+        }
+    }
+
     public static ChildPaneResourceContext? CreateDetailChildPaneBody(
         string? surfaceRole,
         string? viewRef,
