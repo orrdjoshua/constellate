@@ -531,36 +531,19 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// Current App-side helper seam for normalizing pane resource context and binding
-    /// readback. It usefully centralizes pane-facing lookup, but its fallback path
-    /// rebuilds context only from split view-facing pane fields, which means already-
-    /// softened pane state becomes the de facto local truth unless earlier sync paths
-    /// preserve fuller canonical resource identity.
+    /// readback. It now defers to `ChildPaneDescriptor`'s own normalization path
+    /// instead of rebuilding fallback resource context locally, which keeps the
+    /// bounded convergence work centered on the descriptor/upsert seam while
+    /// preserving current compatibility behavior.
     /// </summary>
     private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
     {
-        if (pane.ResourceContext is not null)
-        {
-            return pane.ResourceContext;
-        }
-
-        if (string.IsNullOrWhiteSpace(pane.SurfaceRole) &&
-            string.IsNullOrWhiteSpace(pane.BoundViewRef) &&
-            string.IsNullOrWhiteSpace(pane.BoundResourceTitle) &&
-            string.IsNullOrWhiteSpace(pane.BoundResourceDisplayLabel))
-        {
-            return null;
-        }
-
-        return new ChildPaneResourceContext(
-            DisplayLabel: pane.BoundResourceDisplayLabel,
-            Title: pane.BoundResourceTitle,
-            ViewRef: pane.BoundViewRef,
-            SurfaceRole: pane.SurfaceRole);
+        return pane.EffectiveResourceContext;
     }
 
     private static PaneSurfaceBinding? GetPaneSurfaceBinding(ChildPaneDescriptor pane)
     {
-        return pane.SurfaceBinding ?? GetPaneEffectiveResourceContext(pane)?.SurfaceBinding;
+        return pane.SurfaceBinding;
     }
 
     private static string? GetPaneSurfaceRole(ChildPaneDescriptor pane)
