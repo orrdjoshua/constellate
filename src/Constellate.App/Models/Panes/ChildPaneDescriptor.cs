@@ -1216,6 +1216,41 @@ public sealed record ChildPaneDescriptor(
         }).WithRecomputedLocalModifications();
     }
 
+    public ChildPaneDescriptor WithUpdatedLocalCanvasElement(ChildPaneCanvasElementInstance element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (LocalCanvasElements is null || LocalCanvasElements.Count == 0)
+        {
+            return this;
+        }
+
+        var updated = false;
+        var nextElements = new List<ChildPaneCanvasElementInstance>(LocalCanvasElements.Count);
+        foreach (var existing in LocalCanvasElements)
+        {
+            if (string.Equals(existing.InstanceId, element.InstanceId, StringComparison.Ordinal))
+            {
+                nextElements.Add(element);
+                updated = true;
+            }
+            else
+            {
+                nextElements.Add(existing);
+            }
+        }
+
+        if (!updated)
+        {
+            return this;
+        }
+
+        return this with
+        {
+            LocalCanvasElements = nextElements
+        };
+    }
+
     public ChildPaneDescriptor WithBaselineAuthoredValues(ChildPaneAuthoredValues baselineValues, bool hasSavedInstanceState)
     {
         return (this with

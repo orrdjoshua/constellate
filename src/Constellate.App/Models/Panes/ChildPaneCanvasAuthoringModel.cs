@@ -17,6 +17,9 @@ public sealed record ChildPaneCanvasElementInstance(
     double Height,
     int ZIndex,
     int Depth,
+    IReadOnlyList<PaneCapabilityHostClass>? CompatibleHostClasses = null,
+    string? BoundCapabilityId = null,
+    string? BoundCapabilityLabel = null,
     bool IsLiveContentSuppressedInAuthorMode = true);
 
 public sealed record ChildPaneCanvasSurfaceModel(

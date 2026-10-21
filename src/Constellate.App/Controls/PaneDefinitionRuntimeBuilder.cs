@@ -326,6 +326,38 @@ internal static class PaneDefinitionRuntimeBuilder
 
         if (windowViewModel is not null)
         {
+            var menu = new ContextMenu();
+            var hasCompatibleHosts = element.CompatibleHostClasses is { Count: > 0 };
+
+            var bindItem = new MenuItem
+            {
+                Header = "Bind First Compatible Capability…",
+                IsEnabled = hasCompatibleHosts
+            };
+            bindItem.Click += (_, _) =>
+            {
+                windowViewModel.TryBindChildPaneCanvasElementToFirstCompatibleCapability(pane.Id, element.InstanceId);
+            };
+            menu.Items.Add(bindItem);
+
+            if (!string.IsNullOrWhiteSpace(element.BoundCapabilityId))
+            {
+                var clearItem = new MenuItem
+                {
+                    Header = "Clear Capability Binding"
+                };
+                clearItem.Click += (_, _) =>
+                {
+                    windowViewModel.TryClearChildPaneCanvasElementCapability(pane.Id, element.InstanceId);
+                };
+                menu.Items.Add(clearItem);
+            }
+
+            if (menu.Items.Count > 0)
+            {
+                border.ContextMenu = menu;
+            }
+
             Point? dragOrigin = null;
             double dragStartLeft = element.X;
             double dragStartTop = element.Y;

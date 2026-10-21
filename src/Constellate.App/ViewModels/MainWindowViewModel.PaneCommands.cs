@@ -531,7 +531,10 @@ public sealed partial class MainWindowViewModel
             Width: entry.DefaultWidth,
             Height: entry.DefaultHeight,
             ZIndex: pane.LocalCanvasElementCount,
-            Depth: 0);
+            Depth: 0,
+            CompatibleHostClasses: entry.DefaultHostClasses,
+            BoundCapabilityId: null,
+            BoundCapabilityLabel: null);
 
         return TryUpdateChildPane(childPaneId, current => current.WithAddedLocalCanvasElement(element));
     }
@@ -626,6 +629,86 @@ public sealed partial class MainWindowViewModel
             existing.HasSelectedCanvasElement
                 ? existing.ClearSelectedCanvasElement()
                 : null);
+    }
+
+    public bool TryBindChildPaneCanvasElementToFirstCompatibleCapability(string childPaneId, string elementInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null)
+        {
+            return false;
+        }
+
+        var hostClasses = element.CompatibleHostClasses ?? Array.Empty<PaneCapabilityHostClass>();
+        var capabilities = EngineServices.ListPaneCapabilities();
+
+        var candidates = hostClasses.Count == 0
+            ? capabilities
+            : capabilities
+                .Where(capability => capability.EffectiveCompatibleHostClasses.Any(hostClasses.Contains))
+                .ToArray();
+
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        var selectedCapability = candidates
+            .OrderBy(capability => capability.DisplayLabel, StringComparer.Ordinal)
+            .First();
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = selectedCapability.CapabilityId,
+            BoundCapabilityLabel = selectedCapability.DisplayLabel,
+            BindingLabel = $"Bound · {selectedCapability.DisplayLabel}"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
+    }
+
+    public bool TryClearChildPaneCanvasElementCapability(string childPaneId, string elementInstanceId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null || string.IsNullOrWhiteSpace(element.BoundCapabilityId))
+        {
+            return false;
+        }
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = null,
+            BoundCapabilityLabel = null,
+            BindingLabel = "Unbound local element"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
     }
 
     public bool TrySaveChildPaneAsNewDefinition(string childPaneId)
