@@ -5,6 +5,12 @@ using Constellate.Core.Storage;
 
 namespace Constellate.Persistence.CurrentState
 {
+    // Commentary/parity note:
+    // This store is one of the clearer current-state persistence seams because it already
+    // mirrors a fairly explicit projection-binding shape and supports list/query/upsert
+    // responsibilities cleanly. At the same time, it still keeps all truth in memory,
+    // so it should be read as a strong durability candidate rather than as a completed
+    // durable implementation of the projection-binding lane.
     public sealed class SeedEngineProjectionBindingStore : IEngineProjectionBindingStore
     {
         private readonly PersistenceBootstrapResult _bootstrapResult;
