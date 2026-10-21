@@ -9,6 +9,9 @@ namespace Constellate.SDK
     /// It is useful for today's public boundary, but it mixes multiple domains and is a likely
     /// later decomposition target into narrower families such as entity lifecycle,
     /// panel/surface, selection/focus, hierarchy/navigation, and view/camera bridge payloads.
+    /// Direct review of adjacent SDK files reinforces that this bundle, rather than
+    /// `CommandNames` or `EventNames`, is the clearer public-boundary pressure point
+    /// and should be narrowed only in response to real consumer clusters.
     /// Near-term cleanup should preserve compatibility while resisting further bundle growth.
     /// </summary>
     public sealed record NodeAppearancePayload(
