@@ -1,5 +1,11 @@
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Current SDK event-name boundary for the reviewed engine surface.
+    /// It is a meaningful public seam today, but it still reflects the present
+    /// engine's mixed scope more than a fully normalized long-horizon contract taxonomy.
+    /// Future cleanup should preserve the boundary while tightening scope deliberately.
+    /// </summary>
     public static class EventNames
     {
         public const string SelectionChanged = "SelectionChanged";
