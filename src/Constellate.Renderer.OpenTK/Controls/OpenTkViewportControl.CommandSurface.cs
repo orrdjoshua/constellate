@@ -13,6 +13,12 @@ namespace Constellate.Renderer.OpenTK.Controls
 {
     public partial class OpenTkViewportControl
     {
+        // Commentary/parity note:
+        // This partial proves that command surfaces are real, but it still locally authors much
+        // of the node/background/link/group command inventory inside the renderer. The intended
+        // long-term direction is to retain the viewport as a participant in command-surface
+        // presentation while moving more surface-policy definition toward shared descriptor,
+        // catalog, and binding pathways.
         private const string SurfaceCommand_AttachMetadataPaneletteForNode = "Engine.AttachMetadataPaneletteForNode";
         private const string SurfaceCommand_AttachLabelPaneletteForNode = "Engine.AttachLabelPaneletteForNode";
         private const string SurfaceCommand_ClearPaneletteForNode = "Engine.ClearPaneletteForNode";
