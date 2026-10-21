@@ -9,6 +9,12 @@ namespace Constellate.Persistence.Bootstrap
 {
     public sealed class SeedPersistenceScope : IEnginePersistenceScope
     {
+        // Commentary/parity note:
+        // This scope is a useful persistence-lane composition seam because it gathers the
+        // engine-facing stores behind one project-level boundary. At the same time, most of
+        // the stores currently composed here are still seed-stage implementations, so this
+        // class should be read as structural composition ahead of full durable-truth maturity,
+        // not as proof that the persistence lanes are already fully realized.
         public SeedPersistenceScope(PersistenceBootstrapResult bootstrapResult)
         {
             BootstrapResult = bootstrapResult ?? throw new ArgumentNullException(nameof(bootstrapResult));
