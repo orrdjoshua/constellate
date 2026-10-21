@@ -539,17 +539,23 @@ public sealed partial class MainWindowViewModel
 
     private static string? GetPaneSurfaceRole(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.SurfaceRole;
+        var resourceContext = GetPaneEffectiveResourceContext(pane);
+        return resourceContext?.HasSurfaceBinding == true
+            ? resourceContext.SurfaceRoleOrEmpty
+            : null;
     }
 
     private static string? GetPaneViewRef(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.ViewRef;
+        var resourceContext = GetPaneEffectiveResourceContext(pane);
+        return resourceContext?.HasSurfaceBinding == true
+            ? resourceContext.ViewRefOrEmpty
+            : null;
     }
 
     private static string GetPaneSurfaceBindingKey(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.BindingKey ?? string.Empty;
+        return GetPaneEffectiveResourceContext(pane)?.BindingKey ?? string.Empty;
     }
 
     private string GetActiveResourceDetailPrimaryPaneId()
