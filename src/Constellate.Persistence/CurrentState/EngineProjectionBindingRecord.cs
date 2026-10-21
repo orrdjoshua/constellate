@@ -3,13 +3,14 @@ using System;
 namespace Constellate.Persistence.CurrentState
 {
     /// <summary>
-    /// Thin current-state seam for durable resource-surface binding identity.
+    /// Thin current-state seam for durable resource-surface binding identity in row form.
     /// This intentionally stays separate from:
     /// - EngineNodeRecord, which should remain the world-summary/node anchor
     /// - App-side shell layout snapshots, which are session/UI layout concerns
     ///
     /// The goal is to persist the minimum truthful projection/binding identity
-    /// needed for summary/detail/monitor/command surfaces without prematurely
+    /// while keeping parity with the Core binding-state vocabulary needed for
+    /// summary/detail/monitor/command surfaces without prematurely
     /// committing to the fuller later pane-definition/workspace schema.
     /// </summary>
     public sealed record EngineProjectionBindingRecord(
