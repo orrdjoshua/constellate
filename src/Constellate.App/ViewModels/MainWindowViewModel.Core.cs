@@ -500,13 +500,13 @@ public sealed partial class MainWindowViewModel
     public int ParentPaneCount => ParentPaneModels.Count;
 
     public bool HasActiveResourceDetailSurface =>
-        _activeResourceDetailSurfaceContext?.SurfaceBinding is not null;
+        _activeResourceDetailSurfaceContext?.HasSurfaceBinding == true;
 
     public string ActiveResourceDetailSurfaceRole =>
-        _activeResourceDetailSurfaceContext?.SurfaceBinding?.SurfaceRole ?? string.Empty;
+        _activeResourceDetailSurfaceContext?.SurfaceRoleOrEmpty ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceViewRef =>
-        _activeResourceDetailSurfaceContext?.SurfaceBinding?.ViewRef ?? string.Empty;
+        _activeResourceDetailSurfaceContext?.ViewRefOrEmpty ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceBindingKey =>
         _activeResourceDetailSurfaceContext?.BindingKey ?? string.Empty;
