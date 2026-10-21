@@ -34,6 +34,12 @@ public sealed record ChildPaneResourceContext(
     public string ViewRefOrEmpty =>
         SurfaceBinding?.ViewRef ?? string.Empty;
 
+    public string ProjectionModeOrEmpty =>
+        SurfaceBinding?.ProjectionMode ?? string.Empty;
+
+    public string TargetSurfaceKindOrEmpty =>
+        SurfaceBinding?.TargetSurfaceKind ?? string.Empty;
+
     public string ReadoutTitle =>
         !string.IsNullOrWhiteSpace(Title)
             ? Title!
