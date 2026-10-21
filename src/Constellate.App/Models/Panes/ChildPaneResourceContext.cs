@@ -127,6 +127,12 @@ public sealed record ChildPaneResourceContext(
         };
     }
 
+    public ChildPaneResourceContext WithNormalizedDetailChildPaneSurfaceState(string? paneTitleFallback)
+    {
+        var normalizedSurfaceContext = WithNormalizedSurfaceBinding() ?? this;
+        return normalizedSurfaceContext.WithResolvedDetailReadout(paneTitleFallback);
+    }
+
     public ChildPaneResourceContext? WithNormalizedSurfaceBinding()
     {
         var surfaceBinding = SurfaceBinding;
