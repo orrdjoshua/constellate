@@ -1026,6 +1026,12 @@ public sealed partial class MainWindowViewModel
         return candidate;
     }
 
+    /// <summary>
+    /// Current App-side resource-detail pane upsert path. It materializes child panes from
+    /// surface-role/view-ref binding identity plus mirrored display metadata, which works
+    /// for today's detail-surface realization but also shows that pane lifecycle here is
+    /// still keyed more by binding/view identity than by full canonical resource identity.
+    /// </summary>
     private void UpsertResourceBoundChildPane(
         string paneId,
         string paneTitle,
