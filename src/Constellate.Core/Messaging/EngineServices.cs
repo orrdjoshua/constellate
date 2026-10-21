@@ -14,6 +14,12 @@ namespace Constellate.Core.Messaging
 {
     public static partial class EngineServices
     {
+        // Commentary/parity note:
+        // EngineServices is currently a transitional static engine kernel spanning bootstrap,
+        // bus wiring, scene state, catalogs, persistence access, and projection helpers.
+        // This file is a real architecture seam, but it is not intended to be the final home
+        // for all runtime authority; future refactors should keep redistributing useful behavior
+        // into narrower services without losing the shared Core vocabulary it already anchors.
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
         {
             IncludeFields = true
