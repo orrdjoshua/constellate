@@ -243,9 +243,13 @@ namespace Constellate.App
         {
             var hasResourceDisplayLabel = TryGetString(payload, "resourceDisplayLabel", out var resourceDisplayLabel);
             var hasResourceTitle = TryGetString(payload, "resourceTitle", out var resourceTitle);
+            var hasResourceId = TryGetString(payload, "resourceId", out var resourceId);
+            var hasResourceTypeId = TryGetString(payload, "resourceTypeId", out var resourceTypeId);
 
             var resolvedResourceDisplayLabel = hasResourceDisplayLabel ? resourceDisplayLabel : null;
             var resolvedResourceTitle = hasResourceTitle ? resourceTitle : null;
+            var resolvedResourceId = hasResourceId ? resourceId : null;
+            var resolvedResourceTypeId = hasResourceTypeId ? resourceTypeId : null;
 
             SetActiveResourceDetailSurface(
                 surfaceRole,
@@ -256,7 +260,9 @@ namespace Constellate.App
                 surfaceRole,
                 viewRef,
                 resolvedResourceDisplayLabel,
-                resolvedResourceTitle);
+                resolvedResourceTitle,
+                resourceId: resolvedResourceId,
+                resourceTypeId: resolvedResourceTypeId);
         }
 
         private static bool TryResolveExplicitDetailSurfaceRole(JsonElement payload, out string surfaceRole)
