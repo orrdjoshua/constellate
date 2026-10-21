@@ -24,4 +24,33 @@ public sealed record ChildPaneResourceContext(
             TargetSurfaceKind);
 
     public string BindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
+
+    public ChildPaneResourceContext MergeWith(ChildPaneResourceContext? fallback)
+    {
+        if (fallback is null)
+        {
+            return this;
+        }
+
+        return this with
+        {
+            ResourceId = ResolvePreferredValue(ResourceId, fallback.ResourceId),
+            ResourceTypeId = ResolvePreferredValue(ResourceTypeId, fallback.ResourceTypeId),
+            DisplayLabel = ResolvePreferredValue(DisplayLabel, fallback.DisplayLabel),
+            Title = ResolvePreferredValue(Title, fallback.Title),
+            ViewRef = ResolvePreferredValue(ViewRef, fallback.ViewRef),
+            SurfaceRole = ResolvePreferredValue(SurfaceRole, fallback.SurfaceRole),
+            ProjectionMode = ResolvePreferredValue(ProjectionMode, fallback.ProjectionMode),
+            TargetSurfaceKind = ResolvePreferredValue(TargetSurfaceKind, fallback.TargetSurfaceKind)
+        };
+    }
+
+    private static string? ResolvePreferredValue(string? primary, string? fallback)
+    {
+        return !string.IsNullOrWhiteSpace(primary)
+            ? primary.Trim()
+            : string.IsNullOrWhiteSpace(fallback)
+                ? null
+                : fallback.Trim();
+    }
 }
