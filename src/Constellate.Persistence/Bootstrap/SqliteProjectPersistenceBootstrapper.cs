@@ -6,6 +6,12 @@ namespace Constellate.Persistence.Bootstrap
 {
     public sealed class SqliteProjectPersistenceBootstrapper : IProjectPersistenceBootstrapper
     {
+        // Commentary/parity note:
+        // This bootstrapper already establishes the intended local-first project persistence root,
+        // but it currently proves more about directory/database posture than about durable lane
+        // realization. Later persistence work should keep this bootstrap seam narrow while moving
+        // real current-state and archive truth into the stores layered beneath it.
+
         public PersistenceBootstrapResult Bootstrap(PersistenceBootstrapOptions options)
         {
             ArgumentNullException.ThrowIfNull(options);
