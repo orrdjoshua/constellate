@@ -8,6 +8,12 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is currently a relatively thin shell-refresh / drag-shadow /
+    // layout-notification seam. That is healthier than broader pane-policy files,
+    // but longer-term convergence should still keep reducing how much live layout
+    // coordination depends on ViewModel-owned notification fan-out.
+
     public void SetParentPaneDragShadow(bool visible, double left, double top, double width, double height)
     {
         IsParentPaneDragShadowVisible = visible;
