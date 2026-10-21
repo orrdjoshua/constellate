@@ -20,6 +20,12 @@ namespace Constellate.App.Controls
 {
     public partial class ChildPaneView : UserControl
     {
+        // Commentary/parity note:
+        // This control currently acts as a transitional coordinator for pane-definition
+        // realization, inline author-mode posture, and resource-detail fallback readouts.
+        // The intended direction is to keep the ordinary child-pane experience lighter by
+        // moving more lifecycle/policy work into narrower services or runtime builders while
+        // preserving this view as the concrete host for authored pane content.
         private PaneChrome? _root;
         private ScrollViewer? _headerScroll;
         private ChildPaneDescriptor? _model;
