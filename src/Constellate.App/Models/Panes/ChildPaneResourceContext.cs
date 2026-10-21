@@ -1,3 +1,5 @@
+using System;
+
 namespace Constellate.App;
 
 /// <summary>
@@ -39,6 +41,11 @@ public sealed record ChildPaneResourceContext(
 
     public string TargetSurfaceKindOrEmpty =>
         SurfaceBinding?.TargetSurfaceKind ?? string.Empty;
+
+    public bool IsDetailChildPaneBodySurface =>
+        HasSurfaceBinding &&
+        string.Equals(ProjectionModeOrEmpty, PaneSurfaceBinding.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(TargetSurfaceKindOrEmpty, PaneSurfaceBinding.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase);
 
     public string ReadoutTitle =>
         !string.IsNullOrWhiteSpace(Title)
