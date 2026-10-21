@@ -84,6 +84,14 @@ namespace Constellate.App
             });
         }
 
+        /// <summary>
+        /// Current App-sync handoff from Core binding truth into pane realization.
+        /// Live `ResourceSurfaceBindingChanged` events and persisted
+        /// `ListResolvedResourceSurfaceBindings(...)` refresh both converge on the
+        /// same pane-upsert path here, but they currently forward only surface/view
+        /// identity plus mirrored display metadata instead of the fuller canonical
+        /// resource identity already available at the Core seam.
+        /// </summary>
         private void TryTrackResourceSurfaceBinding(ResourceSurfaceBindingChangedPayload payload)
         {
             if (!payload.IsActive ||
