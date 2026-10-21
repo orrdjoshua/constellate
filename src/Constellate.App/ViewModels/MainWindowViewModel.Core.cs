@@ -525,7 +525,10 @@ public sealed partial class MainWindowViewModel
     /// readback. It now defers to `ChildPaneDescriptor`'s own normalization path
     /// instead of rebuilding fallback resource context locally, which keeps the
     /// bounded convergence work centered on the descriptor/upsert seam while
-    /// preserving current compatibility behavior.
+    /// preserving current compatibility behavior. The latest bounded App-side
+    /// consumer search also confirms this helper remains part of a small
+    /// descriptor/helper/upsert cluster rather than a wider App-surface dependency
+    /// web.
     /// </summary>
     private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
     {
