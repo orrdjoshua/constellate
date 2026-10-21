@@ -14,6 +14,12 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is currently a migration-stage holding zone for multiple responsibilities:
+    // child-pane authoring lifecycle, definition promotion/revert flows, resource-detail pane
+    // orchestration, and proof-target workspace materialization. Useful behavior should be
+    // preserved, but longer-term refactors should keep splitting these concerns into narrower
+    // seams rather than letting this file remain the permanent pane-policy center.
     /// <summary>
     /// Legacy MVP rule retained only as a creation-time fallback.
     /// Real persisted docked child sizing now lives in ChildPaneDescriptor.FixedSizePixels.
