@@ -105,6 +105,23 @@ public sealed record ChildPaneResourceContext(
         };
     }
 
+    public ChildPaneResourceContext? WithNormalizedSurfaceBinding()
+    {
+        var surfaceBinding = SurfaceBinding;
+        if (surfaceBinding is null)
+        {
+            return null;
+        }
+
+        return this with
+        {
+            SurfaceRole = surfaceBinding.SurfaceRole,
+            ViewRef = surfaceBinding.ViewRef,
+            ProjectionMode = surfaceBinding.ProjectionMode,
+            TargetSurfaceKind = surfaceBinding.TargetSurfaceKind
+        };
+    }
+
     public ChildPaneResourceContext MergeWith(ChildPaneResourceContext? fallback)
     {
         if (fallback is null)
