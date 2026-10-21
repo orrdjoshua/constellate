@@ -1299,6 +1299,28 @@ public sealed record ChildPaneDescriptor(
         return WithBaselineAuthoredValues(CurrentAuthoredValues, hasSavedInstanceState);
     }
 
+    /// <summary>
+    /// Keeps canonical resource-context truth primary while projecting the still-transitional
+    /// split resource/readout fields as compatibility mirrors for narrower App-side callers.
+    /// This gives pane upsert paths one bounded seam for carrying canonical identity forward
+    /// without open-coding the compatibility-field assignments at each call site.
+    /// </summary>
+    public ChildPaneDescriptor WithCanonicalResourceContext(ChildPaneResourceContext? resourceContext)
+    {
+        var normalizedResourceContext = resourceContext is null
+            ? null
+            : resourceContext.MergeWith(CreateFallbackResourceContext());
+
+        return this with
+        {
+            ResourceContext = normalizedResourceContext,
+            SurfaceRole = normalizedResourceContext?.SurfaceRole,
+            BoundViewRef = normalizedResourceContext?.ViewRef,
+            BoundResourceTitle = normalizedResourceContext?.Title,
+            BoundResourceDisplayLabel = normalizedResourceContext?.DisplayLabel
+        };
+    }
+
     public ChildPaneDescriptor WithSavedInstanceOnlyState()
     {
         return SourcePosture switch
