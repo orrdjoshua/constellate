@@ -31,6 +31,12 @@ public sealed record ChildPaneCanvasSurfaceModel(
         $"Canvas surface: {Elements.Count} element instance(s) · extent {Width:0.#}×{Height:0.#}";
 }
 
+// Commentary/parity note:
+// This projector is a useful current bridge between pane-definition structure,
+// pane-local canvas working state, and author-mode preview realization. It still
+// synthesizes authored-canvas instances through App-local projection logic, so its
+// long-term role depends on stronger stable element identity and more general runtime realization.
+
 internal static class ChildPaneCanvasAuthoringProjector
 {
     public static ChildPaneCanvasSurfaceModel Project(PaneDefinitionDescriptor? definition, ChildPaneDescriptor? pane = null)
