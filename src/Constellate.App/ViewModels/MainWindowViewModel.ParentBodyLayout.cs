@@ -4,6 +4,13 @@ using Constellate.App.Infrastructure.Panes.Layout;
 
 namespace Constellate.App;
 
+// Commentary/parity note:
+// This partial is comparatively healthy because it mainly applies already-derived
+// parent-body layout projections back into live parent models. Later convergence
+// should preserve that thin application role while continuing to derive richer
+// body-layout truth from dedicated layout builders/services rather than letting
+// additional shell/product policy accumulate here.
+
 public sealed partial class MainWindowViewModel
 {
     public bool UpdateParentBodyViewport(string parentId, double width, double height)
