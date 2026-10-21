@@ -572,17 +572,7 @@ public sealed partial class MainWindowViewModel
 
     private void SetActiveResourceDetailSurface(ChildPaneResourceContext? resourceContext)
     {
-        var normalizedResourceContext = resourceContext is null
-            ? null
-            : resourceContext.SurfaceBinding is not { } normalizedBinding
-                ? null
-                : resourceContext with
-                {
-                    SurfaceRole = normalizedBinding.SurfaceRole,
-                    ViewRef = normalizedBinding.ViewRef,
-                    ProjectionMode = normalizedBinding.ProjectionMode,
-                    TargetSurfaceKind = normalizedBinding.TargetSurfaceKind
-                };
+        var normalizedResourceContext = resourceContext?.WithNormalizedSurfaceBinding();
 
         if (Equals(_activeResourceDetailSurfaceContext, normalizedResourceContext))
         {
