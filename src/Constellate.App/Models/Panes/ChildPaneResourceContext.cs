@@ -25,6 +25,15 @@ public sealed record ChildPaneResourceContext(
 
     public string BindingKey => SurfaceBinding?.BindingKey ?? string.Empty;
 
+    public bool HasSurfaceBinding =>
+        SurfaceBinding is not null;
+
+    public string SurfaceRoleOrEmpty =>
+        SurfaceBinding?.SurfaceRole ?? string.Empty;
+
+    public string ViewRefOrEmpty =>
+        SurfaceBinding?.ViewRef ?? string.Empty;
+
     public string ReadoutTitle =>
         !string.IsNullOrWhiteSpace(Title)
             ? Title!
