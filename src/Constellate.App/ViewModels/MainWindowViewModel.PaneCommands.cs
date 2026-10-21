@@ -501,7 +501,7 @@ public sealed partial class MainWindowViewModel
         PaneElementKind elementKind)
     {
         if (string.IsNullOrWhiteSpace(childPaneId) ||
-            !PaneAuthoringCatalog.TryGetElementEntry(elementKind, out var entry))
+            !EngineServices.TryGetAuthoringElementEntry(elementKind, out var entry))
         {
             return false;
         }

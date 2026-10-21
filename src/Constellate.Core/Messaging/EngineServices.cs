@@ -50,6 +50,32 @@ namespace Constellate.Core.Messaging
             return BuildPaneWorkspaceSnapshot();
         }
 
+        public static IReadOnlyList<PaneAuthoringElementCatalogEntry> ListPaneAuthoringElementEntries()
+        {
+            EnsureInitialized();
+            // v0.1 implementation: return seeded authoring entries directly.
+            // A later pass will extend this to merge DB-backed registry rows.
+            return PaneAuthoringCatalog.GetElementEntries();
+        }
+
+        public static bool TryGetAuthoringElementEntry(
+            PaneElementKind elementKind,
+            out PaneAuthoringElementCatalogEntry entry)
+        {
+            EnsureInitialized();
+            foreach (var candidate in PaneAuthoringCatalog.GetElementEntries())
+            {
+                if (candidate.ElementKind == elementKind)
+                {
+                    entry = candidate;
+                    return true;
+                }
+            }
+
+            entry = null!;
+            return false;
+        }
+
         public static bool TryGetPaneDefinition(string paneDefinitionId, out PaneDefinitionDescriptor paneDefinition)
         {
             EnsureInitialized();

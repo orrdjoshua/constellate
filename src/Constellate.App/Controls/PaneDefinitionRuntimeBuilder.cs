@@ -11,6 +11,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Constellate.Core.Capabilities.Panes;
+using Constellate.Core.Messaging;
 
 namespace Constellate.App.Controls;
 
@@ -175,7 +176,7 @@ internal static class PaneDefinitionRuntimeBuilder
             Orientation = Orientation.Horizontal
         };
 
-        foreach (var entry in PaneAuthoringCatalog.GetElementEntries())
+        foreach (var entry in EngineServices.ListPaneAuthoringElementEntries())
         {
             var button = new Button
             {
