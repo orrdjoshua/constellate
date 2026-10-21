@@ -528,12 +528,18 @@ public sealed record ChildPaneDescriptor(
     /// <summary>
     /// Current descriptor-level App-side normalization result for resource-bound pane
     /// identity and surface participation. It prefers the fuller canonical
-    /// `ResourceContext` when present and falls back to the split legacy fields only
-    /// for compatibility with still-transitional App-side callers.
+    /// `ResourceContext` when present and merges the split legacy fields only as
+    /// compatibility fallback data for still-transitional App-side callers.
     /// </summary>
-    public ChildPaneResourceContext? EffectiveResourceContext =>
-        ResourceContext ??
-        CreateFallbackResourceContext();
+    public ChildPaneResourceContext? EffectiveResourceContext
+    {
+        get
+        {
+            var fallbackResourceContext = CreateFallbackResourceContext();
+            return ResourceContext?.MergeWith(fallbackResourceContext) ??
+                   fallbackResourceContext;
+        }
+    }
 
     public PaneSurfaceBinding? SurfaceBinding =>
         EffectiveResourceContext?.SurfaceBinding ??
