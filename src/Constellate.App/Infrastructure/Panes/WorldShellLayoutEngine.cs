@@ -7,6 +7,12 @@ namespace Constellate.App.Infrastructure.Panes
 {
     public static class WorldShellLayoutEngine
     {
+        // Commentary/parity note:
+        // This engine is one of the healthier shell-geometry seams in the codebase and should
+        // remain the place where dock/residual viewport math is centralized. Future layout
+        // convergence should preserve that role while reducing topology-specific assumptions
+        // and aligning the computed shell geometry more closely with durable workspace truth.
+
         public static WorldShellLayoutResult Compute(
             Rect fullBounds,
             IEnumerable<ParentPaneModel>? parents,
