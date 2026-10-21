@@ -480,6 +480,8 @@ public sealed record ChildPaneWorkingCopyState(
 /// bounded to this descriptor plus the VM helper/upsert seams, which makes that
 /// cluster a clearer narrow convergence target. Resource-bound panes
 /// also currently carry both split surface/readout fields and a ChildPaneResourceContext,
+/// and after the current bounded convergence slice those remaining split compatibility
+/// fields should be treated as primarily owned here unless a later refactor removes them,
 /// which keeps the bridge practical for today's UI while highlighting a later
 /// convergence target around single-source binding/resource identity carriage.
 /// </summary>
