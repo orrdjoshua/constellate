@@ -1028,7 +1028,10 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>
     /// Current App-side resource-detail pane upsert path. It materializes child panes from
-    /// surface-role/view-ref binding identity plus mirrored display metadata, which works
+    /// surface-role/view-ref binding identity plus mirrored display metadata. Search-driven
+    /// review now suggests this split-field carriage is still fairly bounded to the
+    /// descriptor/helper/upsert cluster, which makes this seam a good narrow cleanup point
+    /// before any broader resource/provider ambitions are widened. This works
     /// for today's detail-surface realization but also shows that pane lifecycle here is
     /// still keyed more by binding/view identity and mirrored readout state than by full
     /// canonical resource identity carried straight through from Core binding truth.
