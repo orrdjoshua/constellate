@@ -1224,6 +1224,27 @@ public sealed partial class MainWindowViewModel
             : $"pane.{slug}";
     }
 
+    private void UpsertResourceBoundDetailChildPane(ChildPaneResourceContext resourceContext)
+    {
+        ArgumentNullException.ThrowIfNull(resourceContext);
+
+        var surfaceBinding = resourceContext.SurfaceBinding;
+        if (surfaceBinding is null)
+        {
+            return;
+        }
+
+        UpsertResourceBoundChildPane(
+            BuildResourceBoundChildPaneId(surfaceBinding.SurfaceRole, surfaceBinding.ViewRef),
+            resourceContext.ReadoutTitle,
+            surfaceBinding.SurfaceRole,
+            surfaceBinding.ViewRef,
+            resourceContext.DisplayLabel,
+            resourceContext.Title,
+            resourceId: resourceContext.ResourceId,
+            resourceTypeId: resourceContext.ResourceTypeId);
+    }
+
     private void UpsertResourceBoundDetailChildPane(
         string surfaceRole,
         string? viewRef,
@@ -1232,23 +1253,19 @@ public sealed partial class MainWindowViewModel
         string? resourceId = null,
         string? resourceTypeId = null)
     {
-        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
-            ? string.Empty
-            : viewRef.Trim();
-        if (string.IsNullOrWhiteSpace(surfaceRole) || string.IsNullOrWhiteSpace(normalizedViewRef))
+        var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+            surfaceRole,
+            viewRef,
+            resourceId: resourceId,
+            resourceTypeId: resourceTypeId,
+            displayLabel: resourceDisplayLabel,
+            title: resourceTitle);
+        if (resourceContext is null)
         {
             return;
         }
 
-        UpsertResourceBoundChildPane(
-            BuildResourceBoundChildPaneId(surfaceRole, normalizedViewRef),
-            string.IsNullOrWhiteSpace(resourceTitle) ? "Resource Detail" : resourceTitle.Trim(),
-            surfaceRole,
-            normalizedViewRef,
-            resourceDisplayLabel,
-            resourceTitle,
-            resourceId: resourceId,
-            resourceTypeId: resourceTypeId);
+        UpsertResourceBoundDetailChildPane(resourceContext);
     }
 
     private void ReconcileResourceBoundDetailChildPanes(IEnumerable<string> expectedPaneIds)
