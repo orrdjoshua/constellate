@@ -17,6 +17,12 @@ namespace Constellate.App
     /// </summary>
     public sealed class ParentPaneModel : INotifyPropertyChanged
     {
+        // Commentary/parity note:
+        // ParentPaneModel is currently a hybrid live-shell collaboration object that still
+        // mixes durable-ish layout truth, runtime realization state, and view-facing helper
+        // state. It is useful as the current shell model, but longer-term convergence should
+        // keep separating reusable workspace truth from transient realization/projection data.
+        
         private string _id = string.Empty;
         private string _title = string.Empty;
         private string _hostId = "left";
