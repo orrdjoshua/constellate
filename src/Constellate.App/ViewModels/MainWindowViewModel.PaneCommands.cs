@@ -1064,25 +1064,14 @@ public sealed partial class MainWindowViewModel
         var normalizedPaneTitle = string.IsNullOrWhiteSpace(paneTitle)
             ? "Resource Detail"
             : paneTitle.Trim();
-        var normalizedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
-            ? normalizedPaneTitle
-            : resourceTitle.Trim();
-        var normalizedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
-            ? normalizedResourceTitle
-            : resourceDisplayLabel.Trim();
-        var normalizedResourceId = string.IsNullOrWhiteSpace(resourceId)
-            ? null
-            : resourceId.Trim();
-        var normalizedResourceTypeId = string.IsNullOrWhiteSpace(resourceTypeId)
-            ? null
-            : resourceTypeId.Trim();
         var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
             surfaceRole,
             normalizedViewRef,
-            displayLabel: normalizedResourceDisplayLabel,
-            title: normalizedResourceTitle,
-            resourceId: normalizedResourceId,
-            resourceTypeId: normalizedResourceTypeId);
+            displayLabel: resourceDisplayLabel,
+            title: resourceTitle,
+            resourceId: resourceId,
+            resourceTypeId: resourceTypeId)?
+            .WithResolvedDetailReadout(normalizedPaneTitle);
         if (resourceContext is null)
         {
             return;
@@ -1102,21 +1091,9 @@ public sealed partial class MainWindowViewModel
                     ? normalizedPaneTitle
                     : existing.Title
                 : normalizedPaneTitle;
-            var resolvedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
-                ? !string.IsNullOrWhiteSpace(existingResourceContext?.Title)
-                    ? existingResourceContext.Title!.Trim()
-                    : normalizedResourceTitle
-                : normalizedResourceTitle;
-            var resolvedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
-                ? !string.IsNullOrWhiteSpace(existingResourceContext?.DisplayLabel)
-                    ? existingResourceContext.DisplayLabel!.Trim()
-                    : normalizedResourceDisplayLabel
-                : normalizedResourceDisplayLabel;
-            var resolvedResourceContext = (resourceContext with
-            {
-                Title = resolvedResourceTitle,
-                DisplayLabel = resolvedResourceDisplayLabel
-            }).MergeWith(existingResourceContext);
+            var resolvedResourceContext = resourceContext
+                .MergeWith(existingResourceContext)
+                .WithResolvedDetailReadout(resolvedPaneTitle);
 
             ChildPanes[i] = existing
                 .WithCanonicalResourceContext(resolvedResourceContext) with
