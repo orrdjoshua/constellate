@@ -542,10 +542,7 @@ public sealed record ChildPaneDescriptor(
     }
 
     public PaneSurfaceBinding? SurfaceBinding =>
-        EffectiveResourceContext?.SurfaceBinding ??
-        PaneSurfaceBinding.CreateResourceSurface(
-            SurfaceRole,
-            BoundViewRef);
+        EffectiveResourceContext?.SurfaceBinding;
 
     public bool HasDirectBoundResourceContextPresentation =>
         EffectiveResourceContext is not null;
@@ -555,28 +552,13 @@ public sealed record ChildPaneDescriptor(
         get
         {
             var resourceContext = EffectiveResourceContext;
-            if (resourceContext is null)
-            {
-                return string.Empty;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resourceContext.Title))
-            {
-                return resourceContext.Title!;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resourceContext.DisplayLabel))
-            {
-                return resourceContext.DisplayLabel!;
-            }
-
-            return "Bound Resource";
+            return resourceContext?.ReadoutTitle ?? string.Empty;
         }
     }
 
     public string PaneBoundResourceReadoutSubtitle =>
         EffectiveResourceContext is { } resourceContext
-            ? BuildBoundResourceReadoutSubtitle(resourceContext)
+            ? resourceContext.ReadoutSubtitle
             : string.Empty;
 
     public string PaneDefaultEmptyBodyText =>
@@ -1471,40 +1453,11 @@ public sealed record ChildPaneDescriptor(
 
     private ChildPaneResourceContext? CreateFallbackResourceContext()
     {
-        if (string.IsNullOrWhiteSpace(SurfaceRole) &&
-            string.IsNullOrWhiteSpace(BoundViewRef) &&
-            string.IsNullOrWhiteSpace(BoundResourceTitle) &&
-            string.IsNullOrWhiteSpace(BoundResourceDisplayLabel))
-        {
-            return null;
-        }
-
         return ChildPaneResourceContext.CreateDetailChildPaneBody(
             SurfaceRole,
             BoundViewRef,
             displayLabel: BoundResourceDisplayLabel,
             title: BoundResourceTitle);
-    }
-
-    private static string BuildBoundResourceReadoutSubtitle(ChildPaneResourceContext resourceContext)
-    {
-        var subtitle = string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(resourceContext.SurfaceRole))
-        {
-            subtitle = resourceContext.SurfaceRole!;
-        }
-
-        if (!string.IsNullOrWhiteSpace(resourceContext.ViewRef))
-        {
-            subtitle = string.IsNullOrWhiteSpace(subtitle)
-                ? resourceContext.ViewRef!
-                : $"{subtitle} · {resourceContext.ViewRef}";
-        }
-
-        return string.IsNullOrWhiteSpace(subtitle)
-            ? "Pane is bound to a resource context."
-            : subtitle;
     }
 
     private static ChildPaneAuthoredValues CreateDefinitionAuthoredValues(
