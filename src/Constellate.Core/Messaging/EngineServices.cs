@@ -211,6 +211,11 @@ namespace Constellate.Core.Messaging
             PersistenceScope.EngineStateStore.SaveSnapshot(Scene.GetSnapshot());
         }
 
+        /// <summary>
+        /// Current reference-resource foothold: native markdown records prove the combination of
+        /// registration/catalog identity, native payload creation, and detail-surface publication
+        /// without yet implying broad provider/runtime parity across the larger resource model.
+        /// </summary>
         public static MarkdownRecordResourceDescriptor CreateMarkdownRecordResource(string title, string? displayLabel = null)
         {
             EnsureInitialized();
