@@ -1,171 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Numerics;
-
 namespace Constellate.SDK
 {
     /// <summary>
-    /// Current broad SDK payload bundle for present engine messaging.
-    /// It is useful for today's public boundary, but it mixes multiple domains and is a likely
-    /// later decomposition target into narrower families such as entity lifecycle,
-    /// panel/surface, selection/focus, hierarchy/navigation, and view/camera bridge payloads.
-    /// Direct review of adjacent SDK files reinforces that this bundle, rather than
-    /// `CommandNames` or `EventNames`, is the clearer public-boundary pressure point
-    /// and should be narrowed only in response to real consumer clusters.
-    /// The latest consumer-spread review now suggests those future families are
-    /// directionally real, but also still co-consumed inside the same App command
-    /// issuance seams, Core command handlers, and renderer interaction/command-surface
-    /// files, so an immediate split here would currently be more package churn than
-    /// substantive architectural improvement.
-    /// Near-term cleanup should preserve compatibility while resisting further bundle growth.
+    /// Transitional compatibility file retained to preserve the historical SDK anchor
+    /// while the payload records themselves now live in narrower family files:
+    ///
+    /// - WorldEntityAndPanelCommandPayloads.cs
+    /// - InteractionAndNavigationCommandPayloads.cs
+    /// - ViewCameraBridgePayloads.cs
+    ///
+    /// The payload record names, namespace, and consumer-facing types remain unchanged;
+    /// only the file-family organization has been narrowed so future cleanup can reason
+    /// about the real command domains without one broad mixed bundle.
     /// </summary>
-    public sealed record NodeAppearancePayload(
-        string? Primitive = null,
-        string? FillColor = null,
-        string? OutlineColor = null,
-        float? Opacity = null);
-
-    public sealed record CreateEntityPayload(
-        string Type,
-        string? Id,
-        string? Label,
-        Vector3? Position,
-        Vector3? RotationEuler,
-        Vector3? Scale,
-        float? VisualScale,
-        float? Phase,
-        NodeAppearancePayload? Appearance = null);
-
-    public sealed record UpdateEntityPayload(
-        string Id,
-        string? Label,
-        Vector3? Position,
-        Vector3? RotationEuler,
-        Vector3? Scale,
-        float? VisualScale,
-        float? Phase,
-        NodeAppearancePayload? Appearance = null);
-
-    public sealed record UpdateEntitiesPayload(
-        IReadOnlyList<UpdateEntityPayload> Entities);
-
-    public sealed record DeleteEntityPayload(string Id);
-
-    public sealed record DeleteEntitiesPayload(
-        IReadOnlyList<string> Ids);
-
-    public sealed record SetTransformPayload(
-        string Id,
-        Vector3? Position,
-        Vector3? RotationEuler,
-        Vector3? Scale);
-
-    public sealed record FocusEntityPayload(string Id);
-
-    public sealed record FocusPanelPayload(
-        string Id,
-        string ViewRef);
-
-    public sealed record SelectEntitiesPayload(
-        IReadOnlyList<string> Ids,
-        bool Replace = true);
-
-    public sealed record SelectPanelPayload(
-        string Id,
-        string ViewRef,
-        bool Replace = true);
-
-    public sealed record PanelCommandEntryPayload(
-        string CommandId,
-        string? DisplayLabel = null);
-
-    public sealed record PanelCommandSurfaceMetadataPayload(
-        string? SurfaceName = null,
-        string? SurfaceGroup = null,
-        string? SurfaceSource = null,
-        IReadOnlyList<string>? CommandIds = null,
-        IReadOnlyList<PanelCommandEntryPayload>? Commands = null);
-
-    public sealed record AttachPanelPayload(
-        string Id,
-        string ViewRef,
-        Vector3? LocalOffset = null,
-        Vector2? Size = null,
-        string? Anchor = null,
-        bool? IsVisible = null,
-        string? SurfaceKind = null,
-        string? PaneletteKind = null,
-        int? PaneletteTier = null,
-        PanelCommandSurfaceMetadataPayload? CommandSurface = null);
-
-     public sealed record ClearPanelAttachmentPayload(
-         string Id);
-
-    public sealed record ConnectEntitiesPayload(
-        string SourceId,
-        string TargetId,
-        string? Kind = null,
-        float? Weight = null);
-
-    public sealed record UnlinkEntitiesPayload(
-        string SourceId,
-        string TargetId,
-        string? Kind = null,
-        float? Weight = null);
-
-    public sealed record GroupSelectionPayload(
-        string? Label = null);
-
-    public sealed record GroupMembershipPayload(
-        string GroupId);
-
-    public sealed record DeleteGroupPayload(
-        string GroupId);
-
-    public sealed record BookmarkSavePayload(
-        string Name);
-
-    public sealed record CenterOnNodePayload(
-        string Id,
-        float? Distance = null);
-
-    public sealed record FrameSelectionPayload(
-        IReadOnlyList<string>? Ids = null,
-        float Padding = 1.35f);
-
-    public sealed record SetInteractionModePayload(
-        string Mode);
-
-    public sealed record BookmarkRestorePayload(
-        string Name);
-
-    public sealed record EnterNodePayload(
-        string Id,
-        string? Mode = null);
-
-    public sealed record ExitNodePayload(
-        string? Id = null);
-
-    public sealed record ExpandNodePayload(
-        string Id);
-
-    public sealed record CollapseNodePayload(
-        string Id);
-
-    public sealed record CommandInvokedPayload(
-        string CommandName,
-        Guid CommandId);
-
-    // View/camera bridge payloads
-    public sealed record ViewChangedPayload(
-        float Yaw,
-        float Pitch,
-        float Distance,
-        Vector3 Target);
-
-    public sealed record ViewSetRequestedPayload(
-        float Yaw,
-        float Pitch,
-        float Distance,
-        Vector3 Target);
+    internal static class EntityCommandPayloadsFileMarker
+    {
+    }
 }
