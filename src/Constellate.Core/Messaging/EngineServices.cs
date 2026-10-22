@@ -261,6 +261,30 @@ namespace Constellate.Core.Messaging
                 .FirstOrDefault();
         }
 
+        public static string GetAuthoringRegistryHealthSummary()
+        {
+            EnsureInitialized();
+
+            var store = GetAuthoringRegistryStore();
+            if (store is null)
+            {
+                return "Authoring registry: unavailable (no active registry store).";
+            }
+
+            var writeStore = GetAuthoringRegistryWriteStore();
+            if (writeStore is null)
+            {
+                return "Authoring registry: seed-backed (read-only authoring catalog).";
+            }
+
+            if (writeStore.TryGetGenerationVersion("authoring", out var version))
+            {
+                return $"Authoring registry: DB-backed (generation {version}).";
+            }
+
+            return "Authoring registry: DB-backed (generation metadata unavailable).";
+        }
+
         private static IReadOnlyList<PaneDefinitionDescriptor> BuildPaneDefinitionSnapshot()
         {
             var definitionsById = new Dictionary<string, PaneDefinitionDescriptor>(StringComparer.Ordinal);
