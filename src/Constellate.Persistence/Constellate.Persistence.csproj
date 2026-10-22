@@ -9,4 +9,11 @@
     <ProjectReference Include="..\Constellate.Core\Constellate.Core.csproj" />
     <ProjectReference Include="..\Constellate.SDK\Constellate.SDK.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.5" />
+    <!-- Pin native SQLite packages to a patched version to address NU1903 advisory warnings -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.10" />
+  </ItemGroup>
 </Project>
