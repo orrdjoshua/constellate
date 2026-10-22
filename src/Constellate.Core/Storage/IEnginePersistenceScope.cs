@@ -20,6 +20,10 @@ namespace Constellate.Core.Storage
 
         IRuntimeArchiveStore RuntimeArchiveStore { get; }
 
+        // Optional authoring registry seam: implementations may return null until provided.
+        // Default interface member avoids forcing existing implementors to change immediately.
+        IAuthoringRegistryStore? AuthoringRegistryStore => null;
+
         void EnsureInitialized();
     }
 }

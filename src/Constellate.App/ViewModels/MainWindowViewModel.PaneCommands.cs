@@ -539,6 +539,85 @@ public sealed partial class MainWindowViewModel
         return TryUpdateChildPane(childPaneId, current => current.WithAddedLocalCanvasElement(element));
     }
 
+    public bool TryAddChildPaneCapabilityBundle(
+        string childPaneId,
+        string bundleId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(bundleId))
+        {
+            return false;
+        }
+
+        if (!EngineServices.TryGetAuthoringBundleEntry(bundleId, out var bundle))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        // Materialize bundle elements as local canvas elements with a simple grid offset layout.
+        return TryUpdateChildPane(childPaneId, current =>
+        {
+            var updated = current;
+
+            for (var i = 0; i < bundle.Elements.Count; i++)
+            {
+                var spec = bundle.Elements[i];
+
+                var nextOrdinal = updated.LocalCanvasElementCount + 1;
+                var column = i % 2;
+                var row = i / 2;
+
+                var x = 72 + (column * 40);
+                var y = 72 + (row * 32);
+
+                var bindingLabel = spec.DefaultHostClasses.Count == 0
+                    ? "Unbound local element"
+                    : $"Unbound · {string.Join(", ", spec.DefaultHostClasses)}";
+
+                string? boundCapabilityId = null;
+                string? boundCapabilityLabel = null;
+
+                if (!string.IsNullOrWhiteSpace(spec.DefaultCapabilityId))
+                {
+                    var capability = EngineServices.ListPaneCapabilities()
+                        .FirstOrDefault(candidate =>
+                            string.Equals(candidate.CapabilityId, spec.DefaultCapabilityId, StringComparison.Ordinal));
+                    if (capability is not null)
+                    {
+                        boundCapabilityId = capability.CapabilityId;
+                        boundCapabilityLabel = capability.DisplayLabel;
+                        bindingLabel = $"Bound · {capability.DisplayLabel}";
+                    }
+                }
+
+                var element = new ChildPaneCanvasElementInstance(
+                    InstanceId: $"local.canvas.{nextOrdinal}",
+                    SourceElementId: spec.ElementTypeId,
+                    ElementKind: spec.ElementKind,
+                    DisplayLabel: spec.DisplayLabel,
+                    BindingLabel: bindingLabel,
+                    X: x,
+                    Y: y,
+                    Width: spec.DefaultWidth,
+                    Height: spec.DefaultHeight,
+                    ZIndex: updated.LocalCanvasElementCount,
+                    Depth: 0,
+                    CompatibleHostClasses: spec.DefaultHostClasses,
+                    BoundCapabilityId: boundCapabilityId,
+                    BoundCapabilityLabel: boundCapabilityLabel);
+
+                updated = updated.WithAddedLocalCanvasElement(element);
+            }
+
+            return updated.WithRecomputedLocalModifications();
+        });
+    }
+
     public bool TrySetChildPaneCanvasElementPreviewPlacement(
         string childPaneId,
         string? elementInstanceId,
@@ -705,6 +784,60 @@ public sealed partial class MainWindowViewModel
             BoundCapabilityId = null,
             BoundCapabilityLabel = null,
             BindingLabel = "Unbound local element"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
+    }
+
+    public bool TryBindChildPaneCanvasElementToCapability(
+        string childPaneId,
+        string elementInstanceId,
+        string capabilityId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) ||
+            string.IsNullOrWhiteSpace(elementInstanceId) ||
+            string.IsNullOrWhiteSpace(capabilityId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null)
+        {
+            return false;
+        }
+
+        var capabilities = EngineServices.ListPaneCapabilities();
+        var selectedCapability = capabilities
+            .FirstOrDefault(capability => string.Equals(capability.CapabilityId, capabilityId, StringComparison.Ordinal));
+        if (selectedCapability is null)
+        {
+            return false;
+        }
+
+        var hostClasses = element.CompatibleHostClasses ?? Array.Empty<PaneCapabilityHostClass>();
+        if (hostClasses.Count > 0)
+        {
+            var compatible = selectedCapability.EffectiveCompatibleHostClasses.Any(hostClasses.Contains);
+            if (!compatible)
+            {
+                return false;
+            }
+        }
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = selectedCapability.CapabilityId,
+            BoundCapabilityLabel = selectedCapability.DisplayLabel,
+            BindingLabel = $"Bound · {selectedCapability.DisplayLabel}"
         };
 
         return TryUpdateChildPane(childPaneId, current =>

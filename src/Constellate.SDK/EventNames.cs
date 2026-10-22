@@ -12,6 +12,8 @@ namespace Constellate.SDK
         public const string FocusOriginChanged = "FocusOriginChanged";
         public const string PanelAttachmentsChanged = "PanelAttachmentsChanged";
         public const string InteractionModeChanged = "InteractionModeChanged";
+    // Authoring registry resolution (telemetry: DB used vs seeded fallback)
+    public const string AuthoringRegistryResolution = "AuthoringRegistryResolution";
         public const string ResourceSurfaceBindingChanged = "ResourceSurfaceBindingChanged";
         public const string SceneChanged = "SceneChanged";
         public const string GroupChanged = "GroupChanged";

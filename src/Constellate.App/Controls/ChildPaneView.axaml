@@ -271,6 +271,8 @@
             <Separator />
             <MenuItem Header="Add Element"
                       IsVisible="{Binding IsAuthorMode}">
+              <MenuItem Header="Choose…"
+                        Click="OnChooseCanvasElementClick" />
               <MenuItem Header="Text Block"
                         Click="OnAddCanvasTextBlockElementClick" />
               <MenuItem Header="Button"
@@ -283,6 +285,15 @@
                         Click="OnAddCanvasCommandBarElementClick" />
               <MenuItem Header="Status Badge"
                         Click="OnAddCanvasStatusBadgeElementClick" />
+            </MenuItem>
+            <MenuItem Header="Add Capability Bundle"
+                      IsVisible="{Binding IsAuthorMode}">
+              <MenuItem Header="Choose…"
+                        Click="OnChooseCanvasBundleClick" />
+              <MenuItem Header="Scene Overview Basics"
+                        Click="OnAddCanvasSceneOverviewBundleClick" />
+              <MenuItem Header="Authoring Quick Controls"
+                        Click="OnAddCanvasAuthoringQuickControlsBundleClick" />
             </MenuItem>
             <Separator IsVisible="{Binding IsAuthorMode}" />
             <MenuItem Header="Save Instance Only"

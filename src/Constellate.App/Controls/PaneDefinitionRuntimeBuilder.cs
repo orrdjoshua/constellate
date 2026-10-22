@@ -10,6 +10,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Messaging;
 
@@ -48,7 +49,7 @@ internal static class PaneDefinitionRuntimeBuilder
             contentStack.Children.Add(BuildElement(pane, definition, element, windowViewModel));
         }
 
-        return new Border
+        var outer = new Border
         {
             Background = ParseBrush("#0F1B25"),
             BorderBrush = ParseBrush("#355066"),
@@ -57,6 +58,7 @@ internal static class PaneDefinitionRuntimeBuilder
             Padding = new Thickness(10),
             Child = contentStack
         };
+        return outer;
     }
 
     private static Control BuildAuthorModeCanvasSurface(
@@ -156,7 +158,7 @@ internal static class PaneDefinitionRuntimeBuilder
             Child = canvasHost
         });
 
-        return new Border
+        var outer = new Border
         {
             Background = ParseBrush("#0F1B25"),
             BorderBrush = ParseBrush("#355066"),
@@ -165,6 +167,65 @@ internal static class PaneDefinitionRuntimeBuilder
             Padding = new Thickness(10),
             Child = stack
         };
+
+        // Attach body-level context menu in author mode to add content or run developer DB write hooks
+        if (windowViewModel is not null)
+        {
+            var bodyMenu = new ContextMenu();
+
+            var addElementItem = new MenuItem { Header = "Add Element…" };
+            addElementItem.Click += async (_, _) =>
+            {
+                var host = TopLevel.GetTopLevel(outer) as Window;
+                if (host is null) return;
+                var kind = await CanvasElementPickerDialog.ShowAsync(host);
+                if (kind is not null)
+                {
+                    windowViewModel.TryAddChildPaneLocalCanvasElement(pane.Id, kind.Value);
+                }
+            };
+            bodyMenu.Items.Add(addElementItem);
+
+            var addBundleItem = new MenuItem { Header = "Add Capability Bundle…" };
+            addBundleItem.Click += async (_, _) =>
+            {
+                var host = TopLevel.GetTopLevel(outer) as Window;
+                if (host is null) return;
+                var bundleId = await CanvasBundlePickerDialog.ShowAsync(host);
+                if (!string.IsNullOrWhiteSpace(bundleId))
+                {
+                    windowViewModel.TryAddChildPaneCapabilityBundle(pane.Id, bundleId);
+                }
+            };
+            bodyMenu.Items.Add(addBundleItem);
+
+            // Developer-only write hooks (shown unguarded for MVP)
+            bodyMenu.Items.Add(new Separator());
+
+            var devAddElement = new MenuItem { Header = "Developer: Add DB Test Element" };
+            devAddElement.Click += (_, _) =>
+            {
+                if (EngineServices.TryUpsertTestAuthoringElement(out _))
+                {
+                    // No UI toast; pickers will reflect new entries on next open.
+                }
+            };
+            bodyMenu.Items.Add(devAddElement);
+
+            var devAddBundle = new MenuItem { Header = "Developer: Add DB Test Bundle" };
+            devAddBundle.Click += (_, _) =>
+            {
+                if (EngineServices.TryUpsertTestAuthoringBundle(out _))
+                {
+                    // No UI toast; pickers will reflect new entries on next open.
+                }
+            };
+            bodyMenu.Items.Add(devAddBundle);
+
+            outer.ContextMenu = bodyMenu;
+        }
+
+        return outer;
     }
 
     private static Control BuildAuthorModeQuickInsertBar(
@@ -190,6 +251,23 @@ internal static class PaneDefinitionRuntimeBuilder
                 entry.ElementKind);
             wrap.Children.Add(button);
         }
+
+        // Developer-only DB insert shortcuts (MVP). Note: the strip won't refresh immediately.
+        var devElementButton = new Button
+        {
+            Content = "Dev: Add DB Test Element",
+            IsEnabled = windowViewModel is not null
+        };
+        devElementButton.Click += (_, _) => EngineServices.TryUpsertTestAuthoringElement(out _);
+        wrap.Children.Add(devElementButton);
+
+        var devBundleButton = new Button
+        {
+            Content = "Dev: Add DB Test Bundle",
+            IsEnabled = windowViewModel is not null
+        };
+        devBundleButton.Click += (_, _) => EngineServices.TryUpsertTestAuthoringBundle(out _);
+        wrap.Children.Add(devBundleButton);
 
         return new Border
         {
@@ -339,6 +417,27 @@ internal static class PaneDefinitionRuntimeBuilder
                 windowViewModel.TryBindChildPaneCanvasElementToFirstCompatibleCapability(pane.Id, element.InstanceId);
             };
             menu.Items.Add(bindItem);
+
+            var chooseItem = new MenuItem
+            {
+                Header = "Choose Capability…",
+                IsEnabled = hasCompatibleHosts
+            };
+            chooseItem.Click += async (_, _) =>
+            {
+                var host = TopLevel.GetTopLevel(border) as Window;
+                if (host is null)
+                {
+                    return;
+                }
+
+                var capabilityId = await CanvasElementCapabilityPickerDialog.ShowAsync(host, pane, element);
+                if (!string.IsNullOrWhiteSpace(capabilityId))
+                {
+                    windowViewModel.TryBindChildPaneCanvasElementToCapability(pane.Id, element.InstanceId, capabilityId);
+                }
+            };
+            menu.Items.Add(chooseItem);
 
             if (!string.IsNullOrWhiteSpace(element.BoundCapabilityId))
             {
@@ -1953,6 +2052,8 @@ internal static class PaneDefinitionRuntimeBuilder
     {
         return targetRef switch
         {
+                "engine.state.authoring_registry_health" =>
+                    EngineServices.GetAuthoringRegistryHealthSummary(),
             "engine.state.current_selection" =>
                 ResolveFirstStringMember(
                     windowViewModel,

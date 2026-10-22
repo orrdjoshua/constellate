@@ -32,6 +32,12 @@ namespace Constellate.Core.Messaging
         public static IEnginePersistenceScope? PersistenceScope { get; private set; }
         public static PersistenceBootstrapResult? PersistenceBootstrapResult => PersistenceScope?.BootstrapResult;
 
+        // Telemetry: DB vs. seed authoring-registry resolution
+        private static int _authoringRegistryDbHits;
+        private static int _authoringRegistrySeedFallbacks;
+        private static DateTimeOffset? _lastAuthoringRegistryResolutionAt;
+        private static string? _lastAuthoringRegistryResolutionKind; // "db" | "seed"
+
         public static IReadOnlyList<PaneCapabilityDescriptor> ListPaneCapabilities()
         {
             EnsureInitialized();
@@ -53,9 +59,57 @@ namespace Constellate.Core.Messaging
         public static IReadOnlyList<PaneAuthoringElementCatalogEntry> ListPaneAuthoringElementEntries()
         {
             EnsureInitialized();
-            // v0.1 implementation: return seeded authoring entries directly.
-            // A later pass will extend this to merge DB-backed registry rows.
+            var store = PersistenceScope?.AuthoringRegistryStore;
+            if (store is not null)
+            {
+                var items = store.ListAuthoringElements();
+                if (items is { Count: > 0 })
+                {
+                    _authoringRegistryDbHits++;
+                    _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
+                    _lastAuthoringRegistryResolutionKind = "db";
+                    PublishEvent(
+                        EventNames.AuthoringRegistryResolution,
+                        new { source = "db", scope = "authoring_elements" });
+                    return items;
+                }
+            }
+            // Fallback to seeded entries
+            _authoringRegistrySeedFallbacks++;
+            _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
+            _lastAuthoringRegistryResolutionKind = "seed";
+            PublishEvent(
+                EventNames.AuthoringRegistryResolution,
+                new { source = "seed", scope = "authoring_elements" });
             return PaneAuthoringCatalog.GetElementEntries();
+        }
+
+        public static IReadOnlyList<PaneAuthoringBundleCatalogEntry> ListPaneAuthoringBundleEntries()
+        {
+            EnsureInitialized();
+            var store = PersistenceScope?.AuthoringRegistryStore;
+            if (store is not null)
+            {
+                var items = store.ListAuthoringBundles();
+                if (items is { Count: > 0 })
+                {
+                    _authoringRegistryDbHits++;
+                    _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
+                    _lastAuthoringRegistryResolutionKind = "db";
+                    PublishEvent(
+                        EventNames.AuthoringRegistryResolution,
+                        new { source = "db", scope = "authoring_bundles" });
+                    return items;
+                }
+            }
+            // Fallback to seeded bundles
+            _authoringRegistrySeedFallbacks++;
+            _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
+            _lastAuthoringRegistryResolutionKind = "seed";
+            PublishEvent(
+                EventNames.AuthoringRegistryResolution,
+                new { source = "seed", scope = "authoring_bundles" });
+            return PaneAuthoringCatalog.GetBundleEntries();
         }
 
         public static bool TryGetAuthoringElementEntry(
@@ -74,6 +128,14 @@ namespace Constellate.Core.Messaging
 
             entry = null!;
             return false;
+        }
+
+        public static bool TryGetAuthoringBundleEntry(
+            string bundleId,
+            out PaneAuthoringBundleCatalogEntry entry)
+        {
+            EnsureInitialized();
+            return PaneAuthoringCatalog.TryGetBundleEntry(bundleId, out entry);
         }
 
         public static bool TryGetPaneDefinition(string paneDefinitionId, out PaneDefinitionDescriptor paneDefinition)
@@ -104,6 +166,36 @@ namespace Constellate.Core.Messaging
                 ?? throw new InvalidOperationException("Pane definition store is not available.");
 
             paneDefinitionStore.Upsert(paneDefinition);
+        }
+
+        // Compact readout used by a developer pane to verify DB materialization vs seed fallback
+        public static string GetAuthoringRegistryHealthSummary()
+        {
+            EnsureInitialized();
+            var dbPath = PersistenceScope?.BootstrapResult?.DatabasePath;
+            var haveDbPath = !string.IsNullOrWhiteSpace(dbPath);
+            var lastAt = _lastAuthoringRegistryResolutionAt?.ToString("u") ?? "n/a";
+            var lastKind = string.IsNullOrWhiteSpace(_lastAuthoringRegistryResolutionKind) ? "n/a" : _lastAuthoringRegistryResolutionKind;
+            var dbHits = _authoringRegistryDbHits;
+            var seedHits = _authoringRegistrySeedFallbacks;
+            // Infer provider from dbPath extension; BootstrapResult may not expose a Provider property.
+            var provider = "unknown";
+            if (haveDbPath)
+            {
+                var lower = dbPath!.Trim().ToLowerInvariant();
+                if (lower.EndsWith(".db") || lower.EndsWith(".sqlite") || lower.EndsWith(".sqlite3"))
+                {
+                    provider = "sqlite";
+                }
+                else
+                {
+                    provider = "file";
+                }
+            }
+            return
+                $"Authoring Registry Health — " +
+                $"provider={provider}; dbPath={(haveDbPath ? dbPath : "(none)")}; " +
+                $"dbHits={dbHits}; seedFallbacks={seedHits}; lastResolution={lastKind} @ {lastAt}";
         }
 
         private static IReadOnlyList<PaneDefinitionDescriptor> BuildPaneDefinitionSnapshot()
@@ -150,6 +242,97 @@ namespace Constellate.Core.Messaging
                 .OrderBy(workspace => workspace.DisplayLabel, StringComparer.Ordinal)
                 .ThenBy(workspace => workspace.WorkspaceId, StringComparer.Ordinal)
                 .ToArray();
+        }
+
+        // Developer-only: upsert a test authoring element into DB registries (if write store available).
+        // Returns true when upsert succeeded; elementTypeId is the canonical id.
+        public static bool TryUpsertTestAuthoringElement(out string elementTypeId)
+        {
+            EnsureInitialized();
+            elementTypeId = "authoring.element.test_button";
+            if (PersistenceScope?.AuthoringRegistryStore is not IAuthoringRegistryWriteStore writeStore)
+            {
+                return false;
+            }
+
+            var entry = new PaneAuthoringElementCatalogEntry(
+                ElementTypeId: elementTypeId,
+                ElementKind: PaneElementKind.Button,
+                DisplayLabel: "Test Button (DB)",
+                Description: "Developer-upserted test element stored in DB.",
+                DefaultWidth: 180,
+                DefaultHeight: 56,
+                DefaultHostClasses: new[] { PaneCapabilityHostClass.InvocationHost }
+            );
+            writeStore.UpsertAuthoringElement(entry);
+            // Touch read path to record telemetry and ensure next reads are hot-consumed
+            _ = ListPaneAuthoringElementEntries();
+            return true;
+        }
+
+        // Developer-only: upsert a test authoring bundle that references the test element and a seeded element type.
+        // Returns true when upsert succeeded; bundleId is the canonical id.
+        public static bool TryUpsertTestAuthoringBundle(out string bundleId)
+        {
+            EnsureInitialized();
+            bundleId = "authoring.bundle.test_quick";
+            if (PersistenceScope?.AuthoringRegistryStore is not IAuthoringRegistryWriteStore writeStore)
+            {
+                return false;
+            }
+
+            // Ensure the test element exists first
+            _ = TryUpsertTestAuthoringElement(out var testElementTypeId);
+
+            // Reference at least one seeded type to demonstrate mixed bundle composition
+            var textBlockTypeId = "authoring.element.text_block";
+            var statusBadgeTypeId = "authoring.element.status_badge";
+
+            var specs = new[]
+            {
+                new PaneAuthoringBundleElementSpec(
+                    ElementTypeId: textBlockTypeId,
+                    ElementKind: PaneElementKind.TextBlock,
+                    DisplayLabel: "Test Bundle Heading",
+                    Description: "Heading for the developer test bundle.",
+                    DefaultWidth: 240,
+                    DefaultHeight: 72,
+                    DefaultHostClasses: new[] { PaneCapabilityHostClass.TextDisplayHost },
+                    DefaultCapabilityId: null
+                ),
+                new PaneAuthoringBundleElementSpec(
+                    ElementTypeId: testElementTypeId,
+                    ElementKind: PaneElementKind.Button,
+                    DisplayLabel: "Test Button (DB)",
+                    Description: "Developer-upserted button from DB.",
+                    DefaultWidth: 180,
+                    DefaultHeight: 56,
+                    DefaultHostClasses: new[] { PaneCapabilityHostClass.InvocationHost },
+                    DefaultCapabilityId: null
+                ),
+                new PaneAuthoringBundleElementSpec(
+                    ElementTypeId: statusBadgeTypeId,
+                    ElementKind: PaneElementKind.StatusBadge,
+                    DisplayLabel: "Test Status",
+                    Description: "Compact status badge in the test bundle.",
+                    DefaultWidth: 180,
+                    DefaultHeight: 44,
+                    DefaultHostClasses: new[] { PaneCapabilityHostClass.StatusBadgeHost },
+                    DefaultCapabilityId: null
+                )
+            };
+
+            var bundle = new PaneAuthoringBundleCatalogEntry(
+                BundleId: bundleId,
+                DisplayLabel: "Test Quick Bundle (DB)",
+                Description: "Developer-upserted sample bundle stored in DB.",
+                Elements: specs
+            );
+
+            writeStore.UpsertAuthoringBundle(bundle);
+            // Touch read path to record telemetry and ensure next reads are hot-consumed
+            _ = ListPaneAuthoringBundleEntries();
+            return true;
         }
 
         private static bool _initialized;

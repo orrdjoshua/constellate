@@ -3222,6 +3222,27 @@ public sealed class SeededPaneCatalog : IPaneCatalog
             ],
             "Seeded audit pane that surfaces the first concrete renderer/viewport capability-parity findings through the shared pane runtime.",
             ["seeded", "audit", "renderer", "viewport"])
+            ,
+        new(
+            "pane.registry_health",
+            "Registry Health",
+            PaneDefinitionKind.ChildPane,
+            true,
+            [
+                new(
+                    "registry_health.header",
+                    PaneElementKind.DefinitionHeader,
+                    "Authoring Registry Health"),
+                new(
+                    "registry_health.summary",
+                    PaneElementKind.TextBlock,
+                    "Summary",
+                    new PaneElementBindingDescriptor(
+                        PaneElementBindingTargetKind.StateSelector,
+                        "engine.state.authoring_registry_health"))
+            ],
+            "Developer pane that reports DB-backed authoring registry materialization vs seeded fallback and last resolution details.",
+            ["seeded", "developer", "registry", "health"])
     ];
 
     private static readonly PaneWorkspaceDescriptor[] WorkspaceDefinitions =
