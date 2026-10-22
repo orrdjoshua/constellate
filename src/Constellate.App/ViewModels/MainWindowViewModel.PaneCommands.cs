@@ -768,6 +768,64 @@ public sealed partial class MainWindowViewModel
             current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
     }
 
+    public bool TryBindChildPaneCanvasElementToCapability(string childPaneId, string elementInstanceId, string capabilityId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) ||
+            string.IsNullOrWhiteSpace(elementInstanceId) ||
+            string.IsNullOrWhiteSpace(capabilityId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null)
+        {
+            return false;
+        }
+
+        var capabilities = EngineServices.ListPaneCapabilities();
+        var selectedCapability = capabilities
+            .FirstOrDefault(c =>
+                string.Equals(c.CapabilityId, capabilityId, StringComparison.Ordinal));
+
+        string resolvedCapabilityId;
+        string resolvedCapabilityLabel;
+
+        if (selectedCapability is null)
+        {
+            var normalized = capabilityId.Trim();
+            if (normalized.Length == 0)
+            {
+                return false;
+            }
+
+            resolvedCapabilityId = normalized;
+            resolvedCapabilityLabel = normalized;
+        }
+        else
+        {
+            resolvedCapabilityId = selectedCapability.CapabilityId;
+            resolvedCapabilityLabel = selectedCapability.DisplayLabel;
+        }
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = resolvedCapabilityId,
+            BoundCapabilityLabel = resolvedCapabilityLabel,
+            BindingLabel = $"Bound · {resolvedCapabilityLabel}"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
+    }
+
     public bool TryClearChildPaneCanvasElementCapability(string childPaneId, string elementInstanceId)
     {
         if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(elementInstanceId))
