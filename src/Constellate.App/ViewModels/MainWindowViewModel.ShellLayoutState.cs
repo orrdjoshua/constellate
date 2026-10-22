@@ -12,6 +12,13 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is the clearest current App-side shell-geometry state seam because it
+    // centralizes viewport bounds, dock extents, corner ownership, and canonical layout
+    // recomputation. Its long-term role should keep live shell geometry explicit while
+    // further separating durable workspace/layout truth from session-local realization
+    // state.
+
     public enum ShellCorner
     {
         TopLeft,

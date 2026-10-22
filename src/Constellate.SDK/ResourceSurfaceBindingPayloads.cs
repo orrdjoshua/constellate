@@ -2,6 +2,11 @@ using System;
 
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Narrow but meaningful public vocabulary for resource-to-surface binding identity.
+    /// This is a good forward-facing SDK foothold for projection/resource participation,
+    /// but it still represents only a small subset of the broader later contract doctrine.
+    /// </summary>
     public sealed record ResourceSurfaceBindingPayload(
         string BindingKind,
         string SurfaceRole,
@@ -61,6 +66,9 @@ namespace Constellate.SDK
         }
     }
 
+    /// <summary>
+    /// Event payload describing a binding-state change for one resource/surface binding key.
+    /// </summary>
     public sealed record ResourceSurfaceBindingChangedPayload(
         string ResourceId,
         string? ResourceTypeId,

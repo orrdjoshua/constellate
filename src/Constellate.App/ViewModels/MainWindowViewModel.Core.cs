@@ -27,6 +27,12 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial remains one of the clearest App-side state aggregation and authority seams.
+    // The current split improves readability, but it does not yet fully solve ownership concentration;
+    // later convergence should keep pulling pane/workspace/product policy into narrower collaborators
+    // rather than letting this Core partial become the permanent home of mixed shell and product state.
+
     // Json + engine bridge
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { IncludeFields = true };
     private readonly IDisposable[] _eventSubscriptions;
@@ -140,10 +146,7 @@ public sealed partial class MainWindowViewModel
     // Activity + history
     private string _lastActivitySummary = "Last Activity: app started";
     private readonly Queue<string> _commandHistory = new();
-    private string _activeResourceDetailSurfaceRole = string.Empty;
-    private string _activeResourceDetailViewRef = string.Empty;
-    private string _activeResourceDetailTitle = string.Empty;
-    private string _activeResourceDetailSubtitle = string.Empty;
+    private ChildPaneResourceContext? _activeResourceDetailSurfaceContext;
 
     // Optional saved layout (session-local)
     private ShellLayoutDescriptor? _savedLayout;
@@ -497,72 +500,65 @@ public sealed partial class MainWindowViewModel
     public int ParentPaneCount => ParentPaneModels.Count;
 
     public bool HasActiveResourceDetailSurface =>
-        !string.IsNullOrWhiteSpace(_activeResourceDetailViewRef);
+        _activeResourceDetailSurfaceContext?.HasSurfaceBinding == true;
 
     public string ActiveResourceDetailSurfaceRole =>
-        _activeResourceDetailSurfaceRole;
+        _activeResourceDetailSurfaceContext?.SurfaceRoleOrEmpty ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceViewRef =>
-        _activeResourceDetailViewRef;
+        _activeResourceDetailSurfaceContext?.ViewRefOrEmpty ?? string.Empty;
 
     public string ActiveResourceDetailSurfaceBindingKey =>
-        PaneSurfaceBinding.CreateResourceSurface(
-            _activeResourceDetailSurfaceRole,
-            _activeResourceDetailViewRef)?.BindingKey ?? string.Empty;
+        _activeResourceDetailSurfaceContext?.BindingKey ?? string.Empty;
 
     public string ActiveResourceDetailPrimaryPaneId =>
         GetActiveResourceDetailPrimaryPaneId();
 
     public string ActiveResourceDetailSurfaceTitle =>
-        string.IsNullOrWhiteSpace(_activeResourceDetailTitle)
-            ? "Resource Detail"
-            : _activeResourceDetailTitle;
+        _activeResourceDetailSurfaceContext?.ReadoutTitle ?? "Resource Detail";
 
     public string ActiveResourceDetailSurfaceSubtitle =>
-        string.IsNullOrWhiteSpace(_activeResourceDetailSubtitle)
-            ? "Waiting for an active resource detail binding."
-            : _activeResourceDetailSubtitle;
+        _activeResourceDetailSurfaceContext?.ReadoutSubtitle ?? "Waiting for an active resource detail binding.";
 
+    /// <summary>
+    /// Current App-side helper seam for normalizing pane resource context and binding
+    /// readback. It now defers to `ChildPaneDescriptor`'s own normalization path
+    /// instead of rebuilding fallback resource context locally, which keeps the
+    /// bounded convergence work centered on the descriptor/upsert seam while
+    /// preserving current compatibility behavior. The latest bounded App-side
+    /// consumer search also confirms this helper remains part of a small
+    /// descriptor/helper/upsert cluster rather than a wider App-surface dependency
+    /// web.
+    /// </summary>
     private static ChildPaneResourceContext? GetPaneEffectiveResourceContext(ChildPaneDescriptor pane)
     {
-        if (pane.ResourceContext is not null)
-        {
-            return pane.ResourceContext;
-        }
-
-        if (string.IsNullOrWhiteSpace(pane.SurfaceRole) &&
-            string.IsNullOrWhiteSpace(pane.BoundViewRef) &&
-            string.IsNullOrWhiteSpace(pane.BoundResourceTitle) &&
-            string.IsNullOrWhiteSpace(pane.BoundResourceDisplayLabel))
-        {
-            return null;
-        }
-
-        return new ChildPaneResourceContext(
-            DisplayLabel: pane.BoundResourceDisplayLabel,
-            Title: pane.BoundResourceTitle,
-            ViewRef: pane.BoundViewRef,
-            SurfaceRole: pane.SurfaceRole);
+        return pane.EffectiveResourceContext;
     }
 
     private static PaneSurfaceBinding? GetPaneSurfaceBinding(ChildPaneDescriptor pane)
     {
-        return pane.SurfaceBinding ?? GetPaneEffectiveResourceContext(pane)?.SurfaceBinding;
+        return pane.SurfaceBinding;
     }
 
     private static string? GetPaneSurfaceRole(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.SurfaceRole;
+        var resourceContext = GetPaneEffectiveResourceContext(pane);
+        return resourceContext?.HasSurfaceBinding == true
+            ? resourceContext.SurfaceRoleOrEmpty
+            : null;
     }
 
     private static string? GetPaneViewRef(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.ViewRef;
+        var resourceContext = GetPaneEffectiveResourceContext(pane);
+        return resourceContext?.HasSurfaceBinding == true
+            ? resourceContext.ViewRefOrEmpty
+            : null;
     }
 
     private static string GetPaneSurfaceBindingKey(ChildPaneDescriptor pane)
     {
-        return GetPaneSurfaceBinding(pane)?.BindingKey ?? string.Empty;
+        return GetPaneEffectiveResourceContext(pane)?.BindingKey ?? string.Empty;
     }
 
     private string GetActiveResourceDetailPrimaryPaneId()
@@ -583,35 +579,16 @@ public sealed partial class MainWindowViewModel
         return dedicatedPane?.Id ?? "shell.current";
     }
 
-    private void SetActiveResourceDetailSurface(string? surfaceRole, string? viewRef, string? resourceDisplayLabel, string? resourceTitle)
+    private void SetActiveResourceDetailSurface(ChildPaneResourceContext? resourceContext)
     {
-        var normalizedSurfaceRole = string.IsNullOrWhiteSpace(surfaceRole)
-            ? string.Empty
-            : surfaceRole.Trim();
-        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
-            ? string.Empty
-            : viewRef.Trim();
-        var normalizedTitle = !string.IsNullOrWhiteSpace(resourceTitle)
-            ? resourceTitle.Trim()
-            : !string.IsNullOrWhiteSpace(resourceDisplayLabel)
-                ? resourceDisplayLabel.Trim()
-                : "Resource Detail";
-        var normalizedSubtitle = BuildActiveResourceDetailSurfaceSubtitle(
-            normalizedSurfaceRole,
-            normalizedViewRef);
+        var normalizedResourceContext = resourceContext?.WithNormalizedDetailChildPaneSurfaceState("Resource Detail");
 
-        if (_activeResourceDetailSurfaceRole == normalizedSurfaceRole &&
-            _activeResourceDetailViewRef == normalizedViewRef &&
-            _activeResourceDetailTitle == normalizedTitle &&
-            _activeResourceDetailSubtitle == normalizedSubtitle)
+        if (Equals(_activeResourceDetailSurfaceContext, normalizedResourceContext))
         {
             return;
         }
 
-        _activeResourceDetailSurfaceRole = normalizedSurfaceRole;
-        _activeResourceDetailViewRef = normalizedViewRef;
-        _activeResourceDetailTitle = normalizedTitle;
-        _activeResourceDetailSubtitle = normalizedSubtitle;
+        _activeResourceDetailSurfaceContext = normalizedResourceContext;
         OnPropertyChanged(nameof(HasActiveResourceDetailSurface));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceRole));
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceBindingKey));
@@ -621,19 +598,14 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ActiveResourceDetailSurfaceSubtitle));
     }
 
-    private static string BuildActiveResourceDetailSurfaceSubtitle(string surfaceRole, string viewRef)
+    private void SetActiveResourceDetailSurface(string? surfaceRole, string? viewRef, string? resourceDisplayLabel, string? resourceTitle)
     {
-        if (string.IsNullOrWhiteSpace(viewRef))
-        {
-            return "Waiting for an active resource detail binding.";
-        }
-
-        if (string.IsNullOrWhiteSpace(surfaceRole))
-        {
-            return viewRef;
-        }
-
-        return $"{surfaceRole} · {viewRef}";
+        SetActiveResourceDetailSurface(
+            ChildPaneResourceContext.CreateDetailChildPaneBody(
+                surfaceRole,
+                viewRef,
+                displayLabel: resourceDisplayLabel,
+                title: resourceTitle));
     }
 
     // Overlay-dock migration toggle: when true, docked parents are also realized

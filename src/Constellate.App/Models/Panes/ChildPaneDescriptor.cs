@@ -471,6 +471,20 @@ public sealed record ChildPaneWorkingCopyState(
     }
 }
 
+/// <summary>
+/// Transitional child-pane state record that already captures valuable working-copy,
+/// definition-posture, author-mode, and resource-surface semantics, but still mixes
+/// authored truth, local instance override state, canvas working state, and
+/// view-facing summary/readout helpers in one App-local type. Search-driven review
+/// now suggests the remaining App-side split-field resource/binding usage is mostly
+/// bounded to this descriptor plus the VM helper/upsert seams, which makes that
+/// cluster a clearer narrow convergence target. Resource-bound panes
+/// also currently carry both split surface/readout fields and a ChildPaneResourceContext,
+/// and after the current bounded convergence slice those remaining split compatibility
+/// fields should be treated as primarily owned here unless a later refactor removes them,
+/// which keeps the bridge practical for today's UI while highlighting a later
+/// convergence target around single-source binding/resource identity carriage.
+/// </summary>
 public sealed record ChildPaneDescriptor(
     string Id,
     string Title,
@@ -513,15 +527,24 @@ public sealed record ChildPaneDescriptor(
     IReadOnlyList<ChildPaneCanvasElementInstance>? LocalCanvasElements = null,
     string? SelectedCanvasElementInstanceId = null)
 {
-    public ChildPaneResourceContext? EffectiveResourceContext =>
-        ResourceContext ??
-        CreateFallbackResourceContext();
+    /// <summary>
+    /// Current descriptor-level App-side normalization result for resource-bound pane
+    /// identity and surface participation. It prefers the fuller canonical
+    /// `ResourceContext` when present and merges the split legacy fields only as
+    /// compatibility fallback data for still-transitional App-side callers.
+    /// </summary>
+    public ChildPaneResourceContext? EffectiveResourceContext
+    {
+        get
+        {
+            var fallbackResourceContext = CreateFallbackResourceContext();
+            return ResourceContext?.MergeWith(fallbackResourceContext) ??
+                   fallbackResourceContext;
+        }
+    }
 
     public PaneSurfaceBinding? SurfaceBinding =>
-        EffectiveResourceContext?.SurfaceBinding ??
-        PaneSurfaceBinding.CreateResourceSurface(
-            SurfaceRole,
-            BoundViewRef);
+        EffectiveResourceContext?.SurfaceBinding;
 
     public bool HasDirectBoundResourceContextPresentation =>
         EffectiveResourceContext is not null;
@@ -531,28 +554,13 @@ public sealed record ChildPaneDescriptor(
         get
         {
             var resourceContext = EffectiveResourceContext;
-            if (resourceContext is null)
-            {
-                return string.Empty;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resourceContext.Title))
-            {
-                return resourceContext.Title!;
-            }
-
-            if (!string.IsNullOrWhiteSpace(resourceContext.DisplayLabel))
-            {
-                return resourceContext.DisplayLabel!;
-            }
-
-            return "Bound Resource";
+            return resourceContext?.ReadoutTitle ?? string.Empty;
         }
     }
 
     public string PaneBoundResourceReadoutSubtitle =>
         EffectiveResourceContext is { } resourceContext
-            ? BuildBoundResourceReadoutSubtitle(resourceContext)
+            ? resourceContext.ReadoutSubtitle
             : string.Empty;
 
     public string PaneDefaultEmptyBodyText =>
@@ -1275,6 +1283,29 @@ public sealed record ChildPaneDescriptor(
         return WithBaselineAuthoredValues(CurrentAuthoredValues, hasSavedInstanceState);
     }
 
+    /// <summary>
+    /// Keeps canonical resource-context truth primary while projecting the still-transitional
+    /// split resource/readout fields as compatibility mirrors for narrower App-side callers.
+    /// This gives pane upsert paths one bounded seam for carrying canonical identity forward
+    /// without open-coding the compatibility-field assignments at each call site. Passing
+    /// `null` through the same seam also clears the mirrored compatibility fields together.
+    /// </summary>
+    public ChildPaneDescriptor WithCanonicalResourceContext(ChildPaneResourceContext? resourceContext)
+    {
+        var normalizedResourceContext = resourceContext is null
+            ? null
+            : resourceContext.MergeWith(CreateFallbackResourceContext());
+
+        return this with
+        {
+            ResourceContext = normalizedResourceContext,
+            SurfaceRole = normalizedResourceContext?.SurfaceRole,
+            BoundViewRef = normalizedResourceContext?.ViewRef,
+            BoundResourceTitle = normalizedResourceContext?.Title,
+            BoundResourceDisplayLabel = normalizedResourceContext?.DisplayLabel
+        };
+    }
+
     public ChildPaneDescriptor WithSavedInstanceOnlyState()
     {
         return SourcePosture switch
@@ -1319,15 +1350,10 @@ public sealed record ChildPaneDescriptor(
             DefinitionLabel = definition.DisplayLabel,
             DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.InSyncWithBaseRevision,
             HasSavedInstanceState = false,
-            SurfaceRole = null,
-            BoundViewRef = null,
-            BoundResourceTitle = null,
-            BoundResourceDisplayLabel = null,
-            ResourceContext = null,
             CanvasElementPreviewPlacements = null,
             LocalCanvasElements = null,
             SelectedCanvasElementInstanceId = null
-        }).WithBaselineAuthoredValues(authoredValues, false))
+        }).WithCanonicalResourceContext(null).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
 
@@ -1346,15 +1372,10 @@ public sealed record ChildPaneDescriptor(
             DefinitionLabel = null,
             DefinitionSyncPosture = ChildPaneDefinitionSyncPosture.NotApplicable,
             HasSavedInstanceState = false,
-            SurfaceRole = null,
-            BoundViewRef = null,
-            BoundResourceTitle = null,
-            BoundResourceDisplayLabel = null,
-            ResourceContext = null,
             CanvasElementPreviewPlacements = null,
             LocalCanvasElements = null,
             SelectedCanvasElementInstanceId = null
-        }).WithBaselineAuthoredValues(authoredValues, false))
+        }).WithCanonicalResourceContext(null).WithBaselineAuthoredValues(authoredValues, false))
             .WithCurrentAuthoredValues(authoredValues);
     }
 
@@ -1434,40 +1455,11 @@ public sealed record ChildPaneDescriptor(
 
     private ChildPaneResourceContext? CreateFallbackResourceContext()
     {
-        if (string.IsNullOrWhiteSpace(SurfaceRole) &&
-            string.IsNullOrWhiteSpace(BoundViewRef) &&
-            string.IsNullOrWhiteSpace(BoundResourceTitle) &&
-            string.IsNullOrWhiteSpace(BoundResourceDisplayLabel))
-        {
-            return null;
-        }
-
-        return new ChildPaneResourceContext(
-            DisplayLabel: BoundResourceDisplayLabel,
-            Title: BoundResourceTitle,
-            ViewRef: BoundViewRef,
-            SurfaceRole: SurfaceRole);
-    }
-
-    private static string BuildBoundResourceReadoutSubtitle(ChildPaneResourceContext resourceContext)
-    {
-        var subtitle = string.Empty;
-
-        if (!string.IsNullOrWhiteSpace(resourceContext.SurfaceRole))
-        {
-            subtitle = resourceContext.SurfaceRole!;
-        }
-
-        if (!string.IsNullOrWhiteSpace(resourceContext.ViewRef))
-        {
-            subtitle = string.IsNullOrWhiteSpace(subtitle)
-                ? resourceContext.ViewRef!
-                : $"{subtitle} · {resourceContext.ViewRef}";
-        }
-
-        return string.IsNullOrWhiteSpace(subtitle)
-            ? "Pane is bound to a resource context."
-            : subtitle;
+        return ChildPaneResourceContext.CreateDetailChildPaneBody(
+            SurfaceRole,
+            BoundViewRef,
+            displayLabel: BoundResourceDisplayLabel,
+            title: BoundResourceTitle);
     }
 
     private static ChildPaneAuthoredValues CreateDefinitionAuthoredValues(

@@ -10,6 +10,13 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is a useful containment seam for host transitions, floating geometry,
+    // and minimize/restore state changes, but it still leaves too much pane-host mutation
+    // authority inside the central ViewModel. Longer-term convergence should preserve the
+    // pane-centric dock/float vocabulary here while moving more policy and coordination
+    // into narrower host/workspace services.
+
     public void MoveChildPaneToHost(string id, string hostId)
     {
         if (string.IsNullOrWhiteSpace(id))

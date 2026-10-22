@@ -84,6 +84,16 @@ namespace Constellate.App
             });
         }
 
+        /// <summary>
+        /// Current App-sync handoff from Core binding truth into pane realization.
+        /// Live `ResourceSurfaceBindingChanged` events and persisted
+        /// `ListResolvedResourceSurfaceBindings(...)` refresh both converge on the
+        /// same pane-upsert path here, but they currently forward only surface/view
+        /// identity plus mirrored display metadata instead of the fuller canonical
+        /// resource identity already available at the Core seam. The first bounded
+        /// cleanup slice now starts preserving that fuller identity deeper into the
+        /// App realization path while keeping the current pane-id strategy stable.
+        /// </summary>
         private void TryTrackResourceSurfaceBinding(ResourceSurfaceBindingChangedPayload payload)
         {
             if (!payload.IsActive ||
@@ -93,8 +103,20 @@ namespace Constellate.App
                 return;
             }
 
-            SetActiveResourceDetailSurface(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
-            UpsertResourceBoundDetailChildPane(payload.Binding.SurfaceRole, payload.Binding.ViewRef, payload.ResourceDisplayLabel, payload.ResourceTitle);
+            var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+                payload.Binding.SurfaceRole,
+                payload.Binding.ViewRef,
+                resourceId: payload.ResourceId,
+                resourceTypeId: payload.ResourceTypeId,
+                displayLabel: payload.ResourceDisplayLabel,
+                title: payload.ResourceTitle);
+            if (resourceContext is null)
+            {
+                return;
+            }
+
+            SetActiveResourceDetailSurface(resourceContext);
+            UpsertResourceBoundDetailChildPane(resourceContext);
         }
 
         private void TrySyncActiveResourceDetailSurfaceFromPersistence()
@@ -121,11 +143,19 @@ namespace Constellate.App
 
             foreach (var detailBinding in detailBindings)
             {
-                UpsertResourceBoundDetailChildPane(
+                var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                     detailBinding.SurfaceRole,
                     detailBinding.ViewRef,
-                    detailBinding.ResourceDisplayLabel,
-                    detailBinding.ResourceTitle);
+                    resourceId: detailBinding.ResourceId,
+                    resourceTypeId: detailBinding.ResourceTypeId,
+                    displayLabel: detailBinding.ResourceDisplayLabel,
+                    title: detailBinding.ResourceTitle);
+                if (resourceContext is null)
+                {
+                    continue;
+                }
+
+                UpsertResourceBoundDetailChildPane(resourceContext);
             }
 
             var activeBindingKey = ActiveResourceDetailSurfaceBindingKey;
@@ -133,14 +163,15 @@ namespace Constellate.App
                     !string.IsNullOrWhiteSpace(activeBindingKey) &&
                     string.Equals(detailBinding.BindingKey, activeBindingKey, StringComparison.Ordinal))
                 ?? detailBindings[0];
-
-            SetActiveResourceDetailSurface(
+            var activeResourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
                 activeDetailBinding.SurfaceRole,
                 activeDetailBinding.ViewRef,
-                activeDetailBinding.ResourceDisplayLabel,
-                activeDetailBinding.ResourceTitle);
+                resourceId: activeDetailBinding.ResourceId,
+                resourceTypeId: activeDetailBinding.ResourceTypeId,
+                displayLabel: activeDetailBinding.ResourceDisplayLabel,
+                title: activeDetailBinding.ResourceTitle);
+            SetActiveResourceDetailSurface(activeResourceContext);
         }
-
 
         private void SendCommand<TPayload>(string commandName, TPayload payload)
         {
@@ -225,22 +256,28 @@ namespace Constellate.App
         {
             var hasResourceDisplayLabel = TryGetString(payload, "resourceDisplayLabel", out var resourceDisplayLabel);
             var hasResourceTitle = TryGetString(payload, "resourceTitle", out var resourceTitle);
+            var hasResourceId = TryGetString(payload, "resourceId", out var resourceId);
+            var hasResourceTypeId = TryGetString(payload, "resourceTypeId", out var resourceTypeId);
 
             var resolvedResourceDisplayLabel = hasResourceDisplayLabel ? resourceDisplayLabel : null;
             var resolvedResourceTitle = hasResourceTitle ? resourceTitle : null;
+            var resolvedResourceId = hasResourceId ? resourceId : null;
+            var resolvedResourceTypeId = hasResourceTypeId ? resourceTypeId : null;
+            var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+                surfaceRole,
+                viewRef,
+                resourceId: resolvedResourceId,
+                resourceTypeId: resolvedResourceTypeId,
+                displayLabel: resolvedResourceDisplayLabel,
+                title: resolvedResourceTitle);
+            if (resourceContext is null)
+            {
+                return;
+            }
 
-            SetActiveResourceDetailSurface(
-                surfaceRole,
-                viewRef,
-                resolvedResourceDisplayLabel,
-                resolvedResourceTitle);
-            UpsertResourceBoundDetailChildPane(
-                surfaceRole,
-                viewRef,
-                resolvedResourceDisplayLabel,
-                resolvedResourceTitle);
+            SetActiveResourceDetailSurface(resourceContext);
+            UpsertResourceBoundDetailChildPane(resourceContext);
         }
-
         private static bool TryResolveExplicitDetailSurfaceRole(JsonElement payload, out string surfaceRole)
         {
             surfaceRole = string.Empty;

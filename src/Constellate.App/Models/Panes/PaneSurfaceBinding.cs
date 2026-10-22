@@ -1,5 +1,11 @@
 namespace Constellate.App;
 
+/// <summary>
+/// App-local mirror of the narrow resource-surface binding vocabulary currently used for
+/// child-pane realization. This is a practical near-term seam, but because it closely
+/// matches the SDK/Core binding vocabulary it is also a likely later convergence target
+/// to reduce duplication and drift.
+/// </summary>
 public sealed record PaneSurfaceBinding(
     string BindingKind,
     string SurfaceRole,

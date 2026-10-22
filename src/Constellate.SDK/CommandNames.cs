@@ -1,5 +1,17 @@
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Current SDK command-name boundary for the reviewed engine surface.
+    /// It is credible and usable today, but it is also still current-engine-shaped,
+    /// so future SDK cleanup should preserve the naming seam while resisting
+    /// indefinite scope growth inside one flat bundle. Direct review of adjacent SDK
+    /// files also suggests this name seam is healthier than the broader payload
+    /// bundles, so near-term cleanup should prefer preserving command-name stability
+    /// while reducing payload overloading elsewhere.
+    /// The current consumer-spread review also shows heavy App/Core/renderer usage,
+    /// which further reinforces that command-name stability is a healthier near-term
+    /// posture than churn in this public naming seam.
+    /// </summary>
     public static class CommandNames
     {
         public const string CreateEntity = "CreateEntity";

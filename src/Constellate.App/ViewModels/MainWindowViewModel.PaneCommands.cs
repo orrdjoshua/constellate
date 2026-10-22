@@ -14,6 +14,12 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is currently a migration-stage holding zone for multiple responsibilities:
+    // child-pane authoring lifecycle, definition promotion/revert flows, resource-detail pane
+    // orchestration, and proof-target workspace materialization. Useful behavior should be
+    // preserved, but longer-term refactors should keep splitting these concerns into narrower
+    // seams rather than letting this file remain the permanent pane-policy center.
     /// <summary>
     /// Legacy MVP rule retained only as a creation-time fallback.
     /// Real persisted docked child sizing now lives in ChildPaneDescriptor.FixedSizePixels.
@@ -1153,13 +1159,36 @@ public sealed partial class MainWindowViewModel
         return candidate;
     }
 
+    /// <summary>
+    /// Current App-side resource-detail pane upsert path. It materializes child panes from
+    /// surface-role/view-ref binding identity plus mirrored display metadata. Search-driven
+    /// review now suggests this split-field carriage is still fairly bounded to the
+    /// descriptor/helper/upsert cluster, which makes this seam a good narrow cleanup point
+    /// before any broader resource/provider ambitions are widened. The latest bounded
+    /// App-side consumer search also confirms that direct split compatibility-field
+    /// reads/writes now remain inside `ChildPaneDescriptor`, while the callers in
+    /// this file primarily consume the descriptor-owned canonical normalization seam.
+    /// The first bounded
+    /// cleanup slice now preserves canonical `ResourceId` / `ResourceTypeId` farther
+    /// into `ChildPaneResourceContext` while intentionally keeping the current
+    /// `surfaceRole + viewRef` pane-id strategy and compatibility fields stable. It now
+    /// also preserves existing canonical resource identity/readout values when a narrower
+    /// compatibility fallback event re-upserts the same pane without the fuller Core
+    /// binding payload, and now routes split compatibility-field mirroring through the
+    /// descriptor seam instead of open-coding those assignments locally. This works for
+    /// today's detail-surface realization but also shows that pane lifecycle here is still
+    /// keyed more by binding/view identity and mirrored readout state than by full
+    /// canonical resource identity carried straight through from Core binding truth.
+    /// </summary>
     private void UpsertResourceBoundChildPane(
         string paneId,
         string paneTitle,
         string surfaceRole,
         string? viewRef,
         string? resourceDisplayLabel,
-        string? resourceTitle)
+        string? resourceTitle,
+        string? resourceId = null,
+        string? resourceTypeId = null)
     {
         var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
             ? string.Empty
@@ -1172,17 +1201,18 @@ public sealed partial class MainWindowViewModel
         var normalizedPaneTitle = string.IsNullOrWhiteSpace(paneTitle)
             ? "Resource Detail"
             : paneTitle.Trim();
-        var normalizedResourceTitle = string.IsNullOrWhiteSpace(resourceTitle)
-            ? normalizedPaneTitle
-            : resourceTitle.Trim();
-        var normalizedResourceDisplayLabel = string.IsNullOrWhiteSpace(resourceDisplayLabel)
-            ? normalizedResourceTitle
-            : resourceDisplayLabel.Trim();
-        var resourceContext = new ChildPaneResourceContext(
-            DisplayLabel: normalizedResourceDisplayLabel,
-            Title: normalizedResourceTitle,
-            ViewRef: normalizedViewRef,
-            SurfaceRole: surfaceRole);
+        var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+            surfaceRole,
+            normalizedViewRef,
+            displayLabel: resourceDisplayLabel,
+            title: resourceTitle,
+            resourceId: resourceId,
+            resourceTypeId: resourceTypeId)?
+            .WithNormalizedDetailChildPaneSurfaceState(normalizedPaneTitle);
+        if (resourceContext is null)
+        {
+            return;
+        }
 
         for (var i = 0; i < ChildPanes.Count; i++)
         {
@@ -1192,16 +1222,22 @@ public sealed partial class MainWindowViewModel
                 continue;
             }
 
-            ChildPanes[i] = existing with
-            {
-                Title = normalizedPaneTitle,
-                IsMinimized = false,
-                SurfaceRole = surfaceRole,
-                BoundViewRef = normalizedViewRef,
-                BoundResourceTitle = normalizedResourceTitle,
-                BoundResourceDisplayLabel = normalizedResourceDisplayLabel,
-                ResourceContext = resourceContext
-            };
+            var existingResourceContext = existing.EffectiveResourceContext;
+            var resolvedPaneTitle = string.IsNullOrWhiteSpace(resourceTitle)
+                ? string.IsNullOrWhiteSpace(existing.Title)
+                    ? normalizedPaneTitle
+                    : existing.Title
+                : normalizedPaneTitle;
+            var resolvedResourceContext = resourceContext
+                .MergeWith(existingResourceContext)
+                .WithNormalizedDetailChildPaneSurfaceState(resolvedPaneTitle);
+
+            ChildPanes[i] = existing
+                .WithCanonicalResourceContext(resolvedResourceContext) with
+                {
+                    Title = resolvedPaneTitle,
+                    IsMinimized = false
+                };
 
             RaiseChildPaneCollectionsChanged();
             return;
@@ -1250,22 +1286,19 @@ public sealed partial class MainWindowViewModel
             ChildPanes[i] = existing with { Order = existing.Order + 1 };
         }
 
-        ChildPanes.Add(new ChildPaneDescriptor(
-            paneId,
-            normalizedPaneTitle,
-            insertOrder,
-            ContainerIndex: containerIndex,
-            IsMinimized: false,
-            SlideIndex: slideIndex,
-            PreferredSizeRatio: preferredSizeRatio,
-            ParentId: parent.Id,
-            FixedSizePixels: fixedPixels,
-            SurfaceRole: surfaceRole,
-            BoundViewRef: normalizedViewRef,
-            BoundResourceTitle: normalizedResourceTitle,
-            BoundResourceDisplayLabel: normalizedResourceDisplayLabel,
-            BaseTitle: normalizedPaneTitle,
-            ResourceContext: resourceContext));
+        ChildPanes.Add(
+            new ChildPaneDescriptor(
+                paneId,
+                normalizedPaneTitle,
+                insertOrder,
+                ContainerIndex: containerIndex,
+                IsMinimized: false,
+                SlideIndex: slideIndex,
+                PreferredSizeRatio: preferredSizeRatio,
+                ParentId: parent.Id,
+                FixedSizePixels: fixedPixels,
+                BaseTitle: normalizedPaneTitle)
+            .WithCanonicalResourceContext(resourceContext));
 
         RaiseChildPaneCollectionsChanged();
         _moveChildPaneUpCommand.RaiseCanExecuteChanged();
@@ -1276,56 +1309,56 @@ public sealed partial class MainWindowViewModel
 
     private static string BuildResourceBoundChildPaneId(string surfaceRole, string viewRef)
     {
-        var seed = $"resource:{surfaceRole}:{viewRef}";
-        var builder = new StringBuilder(seed.Length);
-        var lastWasSeparator = false;
+        return ChildPaneResourceContext.BuildAutoGeneratedDetailChildPaneId(surfaceRole, viewRef);
+    }
 
-        foreach (var ch in seed)
+    private void UpsertResourceBoundDetailChildPane(ChildPaneResourceContext resourceContext)
+    {
+        ArgumentNullException.ThrowIfNull(resourceContext);
+
+        if (!resourceContext.IsDetailChildPaneBodySurface)
         {
-            var normalized = char.ToLowerInvariant(ch);
-            if (char.IsLetterOrDigit(normalized))
-            {
-                builder.Append(normalized);
-                lastWasSeparator = false;
-                continue;
-            }
-
-            if (lastWasSeparator)
-            {
-                continue;
-            }
-
-            builder.Append('.');
-            lastWasSeparator = true;
+            return;
         }
 
-        var slug = builder.ToString().Trim('.');
-        return string.IsNullOrWhiteSpace(slug)
-            ? "pane.resource.detail"
-            : $"pane.{slug}";
+        var autoGeneratedDetailChildPaneId = resourceContext.AutoGeneratedDetailChildPaneId;
+        if (string.IsNullOrWhiteSpace(autoGeneratedDetailChildPaneId))
+        {
+            return;
+        }
+
+        UpsertResourceBoundChildPane(
+            autoGeneratedDetailChildPaneId,
+            resourceContext.ReadoutTitle,
+            resourceContext.SurfaceRoleOrEmpty,
+            resourceContext.ViewRefOrEmpty,
+            resourceContext.DisplayLabel,
+            resourceContext.Title,
+            resourceId: resourceContext.ResourceId,
+            resourceTypeId: resourceContext.ResourceTypeId);
     }
 
     private void UpsertResourceBoundDetailChildPane(
         string surfaceRole,
         string? viewRef,
         string? resourceDisplayLabel,
-        string? resourceTitle)
+        string? resourceTitle,
+        string? resourceId = null,
+        string? resourceTypeId = null)
     {
-        var normalizedViewRef = string.IsNullOrWhiteSpace(viewRef)
-            ? string.Empty
-            : viewRef.Trim();
-        if (string.IsNullOrWhiteSpace(surfaceRole) || string.IsNullOrWhiteSpace(normalizedViewRef))
+        var resourceContext = ChildPaneResourceContext.CreateDetailChildPaneBody(
+            surfaceRole,
+            viewRef,
+            resourceId: resourceId,
+            resourceTypeId: resourceTypeId,
+            displayLabel: resourceDisplayLabel,
+            title: resourceTitle);
+        if (resourceContext is null)
         {
             return;
         }
 
-        UpsertResourceBoundChildPane(
-            BuildResourceBoundChildPaneId(surfaceRole, normalizedViewRef),
-            string.IsNullOrWhiteSpace(resourceTitle) ? "Resource Detail" : resourceTitle.Trim(),
-            surfaceRole,
-            normalizedViewRef,
-            resourceDisplayLabel,
-            resourceTitle);
+        UpsertResourceBoundDetailChildPane(resourceContext);
     }
 
     private void ReconcileResourceBoundDetailChildPanes(IEnumerable<string> expectedPaneIds)
@@ -1338,20 +1371,13 @@ public sealed partial class MainWindowViewModel
         for (var i = ChildPanes.Count - 1; i >= 0; i--)
         {
             var pane = ChildPanes[i];
-            var surfaceBinding = GetPaneSurfaceBinding(pane);
-            if (surfaceBinding is null ||
-                !string.Equals(surfaceBinding.ProjectionMode, PaneSurfaceBinding.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(surfaceBinding.TargetSurfaceKind, PaneSurfaceBinding.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase))
+            var resourceContext = GetPaneEffectiveResourceContext(pane);
+            if (resourceContext?.IsDetailChildPaneBodySurface != true)
             {
                 continue;
             }
 
-            var autoGeneratedPaneId = BuildResourceBoundChildPaneId(surfaceBinding.SurfaceRole, surfaceBinding.ViewRef);
-            if (!string.Equals(pane.Id, autoGeneratedPaneId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
+            if (!resourceContext.MatchesAutoGeneratedDetailChildPaneId(pane.Id)) continue;
             if (expectedPaneIdSet.Contains(pane.Id))
             {
                 continue;
@@ -1375,19 +1401,13 @@ public sealed partial class MainWindowViewModel
 
     private bool IsAutoGeneratedResourceBoundDetailPane(ChildPaneDescriptor pane)
     {
-        var surfaceBinding = GetPaneSurfaceBinding(pane);
-        if (surfaceBinding is null ||
-            !string.Equals(surfaceBinding.ProjectionMode, PaneSurfaceBinding.ProjectionModeDetail, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(surfaceBinding.TargetSurfaceKind, PaneSurfaceBinding.TargetSurfaceKindChildPaneBody, StringComparison.OrdinalIgnoreCase))
+        var resourceContext = GetPaneEffectiveResourceContext(pane);
+        if (resourceContext?.IsDetailChildPaneBodySurface != true)
         {
             return false;
         }
 
-        var autoGeneratedPaneId = BuildResourceBoundChildPaneId(
-            surfaceBinding.SurfaceRole,
-            surfaceBinding.ViewRef);
-
-        return string.Equals(pane.Id, autoGeneratedPaneId, StringComparison.Ordinal);
+        return resourceContext.MatchesAutoGeneratedDetailChildPaneId(pane.Id);
     }
 
 

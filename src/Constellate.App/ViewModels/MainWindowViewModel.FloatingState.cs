@@ -5,6 +5,13 @@ namespace Constellate.App;
 
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is currently a narrow floating-shell coordination seam focused on
+    // z-index normalization across parent and child floating surfaces. That keeps the
+    // concern reasonably contained today, but longer-term convergence should let this
+    // logic depend more on clearer floating-surface / overlay ownership boundaries and
+    // less on centralized ViewModel coordination.
+
     public void SetFloatingChildZIndex(string id, int zIndex)
     {
         if (string.IsNullOrWhiteSpace(id))

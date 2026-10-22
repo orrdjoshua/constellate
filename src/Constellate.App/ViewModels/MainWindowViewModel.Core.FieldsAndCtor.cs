@@ -14,6 +14,11 @@ namespace Constellate.App
 {
     public sealed partial class MainWindowViewModel
     {
+        // Commentary/parity note:
+        // This constructor is currently a construction-time assembly seam for event
+        // subscriptions, command wiring, startup refresh, and multiple strands of
+        // shell/product behavior hookup. It is useful during the current migration stage,
+        // but longer-term convergence should keep shrinking this concentration point.
         public MainWindowViewModel()
         {
             // Event subscriptions (EngineSync partial provides Subscribe* helpers)

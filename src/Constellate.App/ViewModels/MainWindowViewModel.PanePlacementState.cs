@@ -10,6 +10,13 @@ namespace Constellate.App;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
+    // Commentary/parity note:
+    // This partial is relatively focused because it handles lane-target placement,
+    // parent/slide reassignment, and order writeback for live child-pane realization.
+    // Even so, it still keeps important placement mutation logic inside the central
+    // ViewModel, so later convergence should preserve the clear placement vocabulary
+    // while moving more of the writeback behavior toward narrower layout/workspace seams.
+
     /// <summary>
     /// Place a child into a specific parent/lane at a target insert index for the parent's current SlideIndex.
     /// If the child belongs to a different parent or slide, it is moved accordingly. All visible children

@@ -4,6 +4,21 @@ using System.Numerics;
 
 namespace Constellate.SDK
 {
+    /// <summary>
+    /// Current broad SDK payload bundle for present engine messaging.
+    /// It is useful for today's public boundary, but it mixes multiple domains and is a likely
+    /// later decomposition target into narrower families such as entity lifecycle,
+    /// panel/surface, selection/focus, hierarchy/navigation, and view/camera bridge payloads.
+    /// Direct review of adjacent SDK files reinforces that this bundle, rather than
+    /// `CommandNames` or `EventNames`, is the clearer public-boundary pressure point
+    /// and should be narrowed only in response to real consumer clusters.
+    /// The latest consumer-spread review now suggests those future families are
+    /// directionally real, but also still co-consumed inside the same App command
+    /// issuance seams, Core command handlers, and renderer interaction/command-surface
+    /// files, so an immediate split here would currently be more package churn than
+    /// substantive architectural improvement.
+    /// Near-term cleanup should preserve compatibility while resisting further bundle growth.
+    /// </summary>
     public sealed record NodeAppearancePayload(
         string? Primitive = null,
         string? FillColor = null,
