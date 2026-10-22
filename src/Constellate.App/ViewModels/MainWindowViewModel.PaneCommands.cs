@@ -545,6 +545,88 @@ public sealed partial class MainWindowViewModel
         return TryUpdateChildPane(childPaneId, current => current.WithAddedLocalCanvasElement(element));
     }
 
+    public bool TryAddChildPaneCapabilityBundle(string childPaneId, string? bundleId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(bundleId))
+        {
+            return false;
+        }
+
+        var normalizedBundleId = bundleId.Trim();
+        var bundle = EngineServices.ListPaneAuthoringBundleEntries()
+            .FirstOrDefault(candidate =>
+                string.Equals(candidate.BundleId, normalizedBundleId, StringComparison.Ordinal));
+        if (bundle is null || bundle.Elements.Count == 0)
+        {
+            return false;
+        }
+
+        var capabilityLabelsById = EngineServices.ListPaneCapabilities()
+            .ToDictionary(
+                capability => capability.CapabilityId,
+                capability => capability.DisplayLabel,
+                StringComparer.Ordinal);
+
+        return TryUpdateChildPane(childPaneId, current =>
+        {
+            var updated = current;
+            const double originX = 48;
+            const double originY = 48;
+            const double columnSpacing = 360;
+            const double rowSpacing = 144;
+            var columnCount = Math.Min(2, Math.Max(1, bundle.Elements.Count));
+
+            for (var i = 0; i < bundle.Elements.Count; i++)
+            {
+                var bundleElement = bundle.Elements[i];
+                var localOrdinal = updated.LocalCanvasElementCount + 1;
+                var column = i % columnCount;
+                var row = i / columnCount;
+
+                string? boundCapabilityId = null;
+                string? boundCapabilityLabel = null;
+                if (!string.IsNullOrWhiteSpace(bundleElement.DefaultCapabilityId) &&
+                    capabilityLabelsById.TryGetValue(bundleElement.DefaultCapabilityId, out var capabilityLabel))
+                {
+                    boundCapabilityId = bundleElement.DefaultCapabilityId;
+                    boundCapabilityLabel = capabilityLabel;
+                }
+
+                var bindingLabel = boundCapabilityLabel is not null
+                    ? $"Bound · {boundCapabilityLabel}"
+                    : bundleElement.DefaultHostClasses.Count == 0
+                        ? "Bundle element"
+                        : $"Unbound · {string.Join(", ", bundleElement.DefaultHostClasses)}";
+
+                var displayLabel = string.IsNullOrWhiteSpace(bundleElement.DisplayLabel)
+                    ? bundleElement.ElementKind.ToString()
+                    : bundleElement.DisplayLabel;
+
+                var element = new ChildPaneCanvasElementInstance(
+                    InstanceId: $"local.canvas.{localOrdinal}",
+                    SourceElementId: bundleElement.ElementTypeId,
+                    ElementKind: bundleElement.ElementKind,
+                    DisplayLabel: displayLabel,
+                    BindingLabel: bindingLabel,
+                    X: originX + (column * columnSpacing),
+                    Y: originY + (row * rowSpacing),
+                    Width: bundleElement.DefaultWidth,
+                    Height: bundleElement.DefaultHeight,
+                    ZIndex: updated.LocalCanvasElementCount,
+                    Depth: 0,
+                    CompatibleHostClasses: bundleElement.DefaultHostClasses,
+                    BoundCapabilityId: boundCapabilityId,
+                    BoundCapabilityLabel: boundCapabilityLabel);
+
+                updated = updated.WithAddedLocalCanvasElement(element);
+            }
+
+            return Equals(updated, current)
+                ? null
+                : updated.WithRecomputedLocalModifications();
+        });
+    }
+
     public bool TrySetChildPaneCanvasElementPreviewPlacement(
         string childPaneId,
         string? elementInstanceId,
