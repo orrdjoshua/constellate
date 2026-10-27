@@ -11,6 +11,16 @@ namespace Constellate.Persistence.Bootstrap
         // but it currently proves more about directory/database posture than about durable lane
         // realization. Later persistence work should keep this bootstrap seam narrow while moving
         // real current-state and archive truth into the stores layered beneath it.
+        //
+        // Phase-5 intent:
+        // - Treat the resolved databasePath as the concrete identity for the current project/world
+        //   within a given clone/worktree.
+        // - On first creation of the file (databaseFileCreated == true), allow composed stores to
+        //   perform schema creation plus default seeding for catalogs/definitions/workspaces/
+        //   authoring entries as appropriate.
+        // - On subsequent opens of an existing file, perform migrations only; do not silently
+        //   reseed or overwrite user data. Any "restore defaults" posture should be an explicit
+        //   project/world administration flow layered above this bootstrapper, not hidden here.
 
         public PersistenceBootstrapResult Bootstrap(PersistenceBootstrapOptions options)
         {
