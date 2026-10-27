@@ -15,6 +15,17 @@ namespace Constellate.Persistence.Bootstrap
         // the stores currently composed here are still seed-stage implementations, so this
         // class should be read as structural composition ahead of full durable-truth maturity,
         // not as proof that the persistence lanes are already fully realized.
+        //
+        // Phase-5 intent:
+        // - Treat a single IEnginePersistenceScope instance as "the persistence face" of one
+        //   project/world, typically backed by a single SQLite database file.
+        // - EngineStateStore / ProjectionBindingStore / PaneDefinitionStore / PaneWorkspaceStore /
+        //   ResourceRegistryStore / NativeRecordStore / ProviderRegistryStore / RuntimeArchiveStore
+        //   are currently wired to seed-* implementations for local development worlds.
+        // - As each lane graduates from seed-only to DB-backed current-state truth, new concrete
+        //   I*Store implementations should be composed here without changing the higher-level
+        //   engine contracts, so that "one persistence scope per world" remains the stable
+        //   boundary while durability improves underneath.
         public SeedPersistenceScope(PersistenceBootstrapResult bootstrapResult)
         {
             BootstrapResult = bootstrapResult ?? throw new ArgumentNullException(nameof(bootstrapResult));
