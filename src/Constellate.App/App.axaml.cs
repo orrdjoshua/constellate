@@ -14,8 +14,8 @@ namespace Constellate.App
 
         public override void OnFrameworkInitializationCompleted()
         {
-            // Initialize minimal in-proc command/event bus
-            EngineServices.EnsureInitialized();
+            // Ensure an engine world session is active (creates the default world if needed)
+            EngineHost.EnsureWorldSession();
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.MainWindow = new MainWindow();
