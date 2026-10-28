@@ -128,35 +128,7 @@ namespace Constellate.App
 
         private void OpenWorld(WorldDescriptor world)
         {
-            var projectRoot = ProjectPathResolver.ResolveProjectRootPath();
-
-            var options = string.IsNullOrWhiteSpace(world.RootId) ||
-                          string.Equals(world.RootId, "ad-hoc", StringComparison.Ordinal)
-                ? new PersistenceBootstrapOptions(
-                    projectRoot,
-                    "Constellate",
-                    DatabaseFilePath: world.DatabaseFilePath)
-                : new PersistenceBootstrapOptions(
-                    projectRoot,
-                    "Constellate",
-                    Path.GetFileName(world.DatabaseFilePath));
-
-            var bootstrap = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
-            var scope = new SeedPersistenceScope(bootstrap);
-
-            EngineServices.ConfigurePersistence(scope);
-            EngineHost.ConfigurePersistenceScope(scope);
-            EngineHost.EnsureWorldSession();
-
-            var lifetime = (IClassicDesktopStyleApplicationLifetime?)Application.Current?.ApplicationLifetime;
-            if (lifetime is null)
-            {
-                return;
-            }
-
-            var mainWindow = new MainWindow();
-            lifetime.MainWindow = mainWindow;
-            mainWindow.Show();
+            WorldSessionCoordinator.OpenWorld(world);
             Close();
         }
 
