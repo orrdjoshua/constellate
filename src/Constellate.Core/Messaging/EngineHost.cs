@@ -73,17 +73,25 @@ namespace Constellate.Core.Messaging
                     return _current;
                 }
 
-                // Placeholder for the first scaffolding pass. The next Phase 5 coding
-                // slice will move the existing EngineServices.EnsureInitialized logic
-                // into this method so that:
-                //
-                // - command/event bus instances are world-scoped,
-                // - EngineScene and ShellSceneState live inside EngineWorldSession,
-                // - and EngineServices becomes a facade over EngineHost.Current rather
-                //   than a static engine kernel.
-                throw new NotImplementedException(
-                    "EngineHost.EnsureWorldSession is not yet wired to EngineServices. " +
-                    "The next Phase 5 refactor will move initialization here.");
+                // Bridge pass:
+                // For now we delegate initialization to the existing EngineServices kernel
+                // and then wrap its static state in an EngineWorldSession. Later Phase‑5
+                // work will move the initialization logic itself into this host/session
+                // layer so the engine can truly run multiple worlds in-process.
+                EngineServices.EnsureInitialized();
+
+                var session = new EngineWorldSession(
+                    EngineServices.PersistenceScope,
+                    EngineServices.CommandBus,
+                    EngineServices.EventBus,
+                    EngineServices.Scene,
+                    EngineServices.ShellScene,
+                    EngineServices.PaneCatalog,
+                    EngineServices.Capabilities,
+                    EngineServices.Settings);
+
+                _current = session;
+                return session;
             }
         }
 
