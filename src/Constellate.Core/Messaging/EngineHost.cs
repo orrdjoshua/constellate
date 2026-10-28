@@ -140,25 +140,17 @@ namespace Constellate.Core.Messaging
                     return _current;
                 }
 
-                // Bridge pass:
-                // For now we delegate initialization to the existing EngineServices kernel
-                // and then wrap its static state in an EngineWorldSession. Later Phase‑5
-                // work will move the initialization logic itself into this host/session
-                // layer so the engine can truly run multiple worlds in-process.
-                EngineServices.EnsureInitialized();
-
-                var session = new EngineWorldSession(
-                    EngineServices.PersistenceScope,
-                    EngineServices.CommandBus,
-                    EngineServices.EventBus,
-                    EngineServices.Scene,
-                    EngineServices.ShellScene,
-                    EngineServices.PaneCatalog,
-                    EngineServices.Capabilities,
-                    EngineServices.Settings);
-
+                var session = EngineServices.CreateWorldSession(_configuredPersistenceScope);
                 _current = session;
                 return session;
+            }
+        }
+
+        internal static void AdoptSession(EngineWorldSession session)
+        {
+            lock (Gate)
+            {
+                _current = session;
             }
         }
 
@@ -184,9 +176,18 @@ namespace Constellate.Core.Messaging
 
             lock (Gate)
             {
-                throw new NotImplementedException(
-                    "EngineHost.SwitchWorld will be implemented in the next Phase 5 refactor " +
-                    "to support in-process world switching.");
+                var current = _current;
+                _current = null;
+
+                if (current is not null)
+                {
+                    current.Dispose();
+                }
+
+                _configuredPersistenceScope = persistenceScope;
+                var session = EngineServices.CreateWorldSession(persistenceScope);
+                _current = session;
+                return session;
             }
         }
 
