@@ -34,10 +34,10 @@ namespace Constellate.Persistence.Bootstrap
             ProjectionBindingStore = new SqliteEngineProjectionBindingStore(bootstrapResult);
             PaneDefinitionStore = new SqlitePaneDefinitionStore(bootstrapResult);
             PaneWorkspaceStore = new SqlitePaneWorkspaceStore(bootstrapResult);
-            ResourceRegistryStore = new SeedResourceRegistryStore(bootstrapResult);
-            NativeRecordStore = new SeedNativeRecordStore(bootstrapResult);
-            ProviderRegistryStore = new SeedProviderRegistryStore(bootstrapResult);
-            RuntimeArchiveStore = new SeedRuntimeArchiveStore(bootstrapResult);
+            ResourceRegistryStore = new SqliteResourceRegistryStore(bootstrapResult);
+            NativeRecordStore = new SqliteNativeRecordStore(bootstrapResult);
+            ProviderRegistryStore = new SqliteProviderRegistryStore(bootstrapResult);
+            RuntimeArchiveStore = new SqliteRuntimeArchiveStore(bootstrapResult);
         }
 
         public PersistenceBootstrapResult BootstrapResult { get; }
