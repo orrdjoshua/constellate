@@ -13,11 +13,12 @@ namespace Constellate.App.Worlds
         public static void OpenWorld(WorldDescriptor world)
         {
             var scope = CreatePersistenceScope(world);
+            var identity = CreateWorldIdentity(world);
 
             EngineServices.ConfigurePersistence(scope);
             EngineHost.ConfigurePersistenceScope(scope);
-            EngineHost.ConfigureWorldIdentity(CreateWorldIdentity(world));
-            EngineHost.EnsureWorldSession();
+            EngineHost.ConfigureWorldIdentity(identity);
+            EngineHost.SwitchWorld(scope, identity);
 
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             if (lifetime is null)
@@ -50,6 +51,39 @@ namespace Constellate.App.Worlds
 
                 var scope = CreatePersistenceScope(world);
                 EngineHost.SwitchWorld(scope, CreateWorldIdentity(world));
+                error = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
+        public static bool TryExitToWorldSelection(
+            bool saveCurrentWorld,
+            out string? error)
+        {
+            try
+            {
+                if (saveCurrentWorld)
+                {
+                    EngineServices.PersistCurrentSceneSnapshot();
+                }
+
+                EngineHost.ShutdownWorld();
+
+                var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+                if (lifetime is null)
+                {
+                    error = "Desktop application lifetime is not available.";
+                    return false;
+                }
+
+                var selectionWindow = new WorldSelectionWindow();
+                lifetime.MainWindow = selectionWindow;
+                selectionWindow.Show();
                 error = null;
                 return true;
             }
