@@ -39,6 +39,73 @@ namespace Constellate.Core.Messaging
         }
 
         /// <summary>
+        /// Identifier for the currently active world, when available. In this initial
+        /// Phase-5 pass the id is derived from the backing database file name; a later
+        /// EngineProjectRecord-backed store may override or enrich this identity, but
+        /// callers should always prefer accessing it through this façade.
+        /// </summary>
+        public static string? CurrentWorldId
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.WorldId;
+                }
+            }
+        }
+
+        /// <summary>
+        /// User-facing name for the currently active world, when available. Today this
+        /// is derived from the database file name (or a simple placeholder for in-
+        /// memory/seed-only sessions). Future world-selection and overlay UX should read
+        /// through this property rather than binding directly to EngineWorldSession.
+        /// </summary>
+        public static string? CurrentWorldDisplayName
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.WorldDisplayName;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Full path to the database file backing the currently active world, when
+        /// available. This is intended for diagnostics and world-selection/provenance
+        /// UIs rather than as a persistence hook for callers.
+        /// </summary>
+        public static string? CurrentWorldDatabasePath
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.WorldDatabasePath;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether the current world session is backed by a database file
+        /// that was created for this run (new world) versus an existing file (existing
+        /// world). This is the façade callers should consult when deciding between
+        /// first-run seeding and migrate-only behavior.
+        /// </summary>
+        public static bool CurrentWorldIsNewWorld
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.IsNewWorld ?? false;
+                }
+            }
+        }
+
+        /// <summary>
         /// Configure the persistence scope that should be used when creating the first
         /// world session for this process. Program/App startup is expected to call this
         /// once per process, before any EngineServices/EngineHost initialization occurs.
