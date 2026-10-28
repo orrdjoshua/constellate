@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Constellate.App.ViewModels.Worlds"
+        x:Class="Constellate.App.WorldOverlayWindow"
+        x:DataType="vm:WorldOverlayViewModel"
+        Width="620"
+        Height="640"
+        Title="Constellate — World Overlay"
+        WindowStartupLocation="CenterOwner">
+
+  <Border Background="#0B1220" Padding="18">
+    <StackPanel Spacing="10">
+
+      <TextBlock Text="World Overlay"
+                 FontSize="22"
+                 FontWeight="SemiBold"
+                 Foreground="#F3F8FD" />
+
+      <Border Background="#13212C"
+              BorderBrush="#355066"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Text="World"
+                     FontWeight="SemiBold" Foreground="#9DD1F0" Margin="0,0,12,6" />
+          <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentWorldDisplayName}"
+                     Foreground="#E5EDF7" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="World ID"
+                     FontWeight="SemiBold" Foreground="#9DD1F0" Margin="0,0,12,6" />
+          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentWorldId}"
+                     Foreground="#E5EDF7" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0" Text="Database"
+                     FontWeight="SemiBold" Foreground="#9DD1F0" Margin="0,0,12,6" />
+          <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentWorldDatabasePath}"
+                     Foreground="#E5EDF7" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="New World"
+                     FontWeight="SemiBold" Foreground="#9DD1F0" Margin="0,0,12,0" />
+          <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CurrentWorldIsNewWorld}"
+                     Foreground="#E5EDF7" />
+        </Grid>
+      </Border>
+
+      <Button Content="Save World Now"
+              HorizontalAlignment="Left"
+              Click="SaveWorldNow_OnClick" />
+
+      <Border Background="#142636"
+              BorderBrush="#486983"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Global Save Behavior"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#E4F3FD" />
+
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <CheckBox Content="Auto-save"
+                      IsChecked="{Binding AutoSaveEnabled, Mode=TwoWay}"
+                      Foreground="#E5EDF7" />
+            <TextBlock Text="Interval (seconds)"
+                       Foreground="#9DB3C5"
+                       VerticalAlignment="Center" />
+            <TextBox x:Name="AutoSaveIntervalTextBox"
+                     Text="{Binding AutoSaveIntervalSeconds, Mode=TwoWay}"
+                     Width="90"
+                     HorizontalContentAlignment="Right" />
+            <Button Content="Apply Settings"
+                    Click="ApplySettings_OnClick" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Background="#13212C"
+              BorderBrush="#355066"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Switch World"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#E4F3FD" />
+
+          <ListBox ItemsSource="{Binding Worlds}"
+                   SelectedItem="{Binding SelectedWorld, Mode=TwoWay}"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   MinHeight="180">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding DisplayName}"
+                             FontSize="13"
+                             FontWeight="SemiBold"
+                             Foreground="#E5EDF7" />
+                  <TextBlock Text="{Binding DatabaseFilePath}"
+                             FontSize="10"
+                             Foreground="#9DB3C5"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <Button Content="Switch Selected"
+                  Click="SwitchSelected_OnClick"
+                  IsEnabled="{Binding HasSelectedWorld}"
+                  HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Content="Exit to World Selection"
+                Click="ExitToWorldSelection_OnClick" />
+        <Button Content="Close"
+                Click="Close_OnClick" />
+      </StackPanel>
+
+    </StackPanel>
+  </Border>
+</Window>
