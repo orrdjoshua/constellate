@@ -29,14 +29,32 @@ namespace Constellate.Core.Messaging
         private const string DefaultResourceSummarySurfaceRole = "resource.summary";
         private const string DefaultResourceSummaryViewRefPrefix = "resource.summary";
 
-        public static ICommandBus CommandBus { get; private set; } = null!;
-        public static IEventBus EventBus { get; private set; } = null!;
-        public static EngineScene Scene { get; private set; } = null!;
-        public static ShellSceneState ShellScene { get; private set; } = null!;
-        public static ICapabilityRegistry Capabilities { get; private set; } = null!;
-        public static IPaneCatalog PaneCatalog { get; private set; } = null!;
-        public static EngineSettings Settings { get; private set; } = null!;
-        public static IEnginePersistenceScope? PersistenceScope { get; private set; }
+        private static IEnginePersistenceScope? _persistenceScope;
+
+        public static ICommandBus CommandBus =>
+            EngineHost.Current?.CommandBus ?? throw new InvalidOperationException("No active world session.");
+
+        public static IEventBus EventBus =>
+            EngineHost.Current?.EventBus ?? throw new InvalidOperationException("No active world session.");
+
+        public static EngineScene Scene =>
+            EngineHost.Current?.Scene ?? throw new InvalidOperationException("No active world session.");
+
+        public static ShellSceneState ShellScene =>
+            EngineHost.Current?.ShellScene ?? throw new InvalidOperationException("No active world session.");
+
+        public static ICapabilityRegistry Capabilities =>
+            EngineHost.Current?.Capabilities ?? throw new InvalidOperationException("No active world session.");
+
+        public static IPaneCatalog PaneCatalog =>
+            EngineHost.Current?.PaneCatalog ?? throw new InvalidOperationException("No active world session.");
+
+        public static EngineSettings Settings =>
+            EngineHost.Current?.Settings ?? throw new InvalidOperationException("No active world session.");
+
+        public static IEnginePersistenceScope? PersistenceScope =>
+            EngineHost.Current?.PersistenceScope ?? _persistenceScope;
+
         public static PersistenceBootstrapResult? PersistenceBootstrapResult => PersistenceScope?.BootstrapResult;
 
         public static IReadOnlyList<PaneCapabilityDescriptor> ListPaneCapabilities()
@@ -331,47 +349,53 @@ namespace Constellate.Core.Messaging
                 .ToArray();
         }
 
-        private static bool _initialized;
-
         public static void ConfigurePersistence(IEnginePersistenceScope persistenceScope)
         {
             ArgumentNullException.ThrowIfNull(persistenceScope);
-
-            if (_initialized)
-            {
-                return;
-            }
-
-            PersistenceScope = persistenceScope;
+            _persistenceScope = persistenceScope;
         }
 
         public static void EnsureInitialized()
         {
-            if (_initialized) return;
+            _ = EngineHost.EnsureWorldSession();
+        }
+
+        public static EngineWorldSession CreateWorldSession(IEnginePersistenceScope? persistenceScope)
+        {
+            _persistenceScope = persistenceScope;
 
             var bus = new SimpleInProcBus();
-            CommandBus = bus;
-            EventBus = bus;
-            Scene = new EngineScene();
-            ShellScene = new ShellSceneState(Scene);
+            var scene = new EngineScene();
+            var shellScene = new ShellSceneState(scene);
             var paneCatalog = new SeededPaneCatalog();
-            PaneCatalog = paneCatalog;
-            Capabilities = new CapabilityRegistry(paneCatalog);
-            Settings = new EngineSettings();
+            var capabilities = new CapabilityRegistry(paneCatalog);
+            var settings = new EngineSettings();
+
+            var session = new EngineWorldSession(
+                persistenceScope,
+                bus,
+                bus,
+                scene,
+                shellScene,
+                paneCatalog,
+                capabilities,
+                settings);
+
+            EngineHost.AdoptSession(session);
 
             InitializePersistence();
 
-            if (!TryRestorePersistedScene(Scene))
+            if (!TryRestorePersistedScene(scene))
             {
-                SeedDefaultScene(Scene);
+                SeedDefaultScene(scene);
                 PersistCurrentSceneSnapshot();
             }
 
-            RegisterCommandHandlers(CommandBus, Scene);
-            RegisterEventHandlers(EventBus, Scene);
-            SeedCapabilities(Capabilities);
+            RegisterCommandHandlers(bus, scene);
+            RegisterEventHandlers(bus, scene);
+            SeedCapabilities(capabilities);
 
-            _initialized = true;
+            return session;
         }
 
         public static void PersistCurrentSceneSnapshot()
