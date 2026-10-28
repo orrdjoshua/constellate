@@ -385,10 +385,18 @@ namespace Constellate.Core.Messaging
 
             InitializePersistence();
 
+            // Phase-5 default-seeding policy:
+            // - New world databases are the only runtime path allowed to create starter scene content.
+            // - Existing worlds open empty when no persisted snapshot exists instead of silently reseeding.
+            var isNewWorld = persistenceScope?.BootstrapResult?.DatabaseFileCreated ?? false;
+
             if (!TryRestorePersistedScene(scene))
             {
-                SeedDefaultScene(scene);
-                PersistCurrentSceneSnapshot();
+                if (isNewWorld)
+                {
+                    SeedDefaultScene(scene);
+                    PersistCurrentSceneSnapshot();
+                }
             }
 
             RegisterCommandHandlers(bus, scene);
