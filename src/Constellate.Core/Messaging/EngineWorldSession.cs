@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Constellate.Core.Capabilities;
 using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Scene;
@@ -38,6 +39,32 @@ namespace Constellate.Core.Messaging
             PaneCatalog = paneCatalog ?? throw new ArgumentNullException(nameof(paneCatalog));
             Capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
+            var bootstrap = persistenceScope?.BootstrapResult;
+            if (bootstrap is not null)
+            {
+                WorldDatabasePath = bootstrap.DatabasePath;
+                IsNewWorld = bootstrap.DatabaseFileCreated;
+
+                var fileName = Path.GetFileNameWithoutExtension(bootstrap.DatabasePath);
+                if (string.IsNullOrWhiteSpace(fileName))
+                {
+                    WorldId = bootstrap.DatabasePath;
+                    WorldDisplayName = "World";
+                }
+                else
+                {
+                    WorldId = fileName;
+                    WorldDisplayName = fileName;
+                }
+            }
+            else
+            {
+                WorldDatabasePath = null;
+                WorldId = "world:in-memory";
+                WorldDisplayName = "In-memory World";
+                IsNewWorld = false;
+            }
         }
 
         /// <summary>
@@ -46,6 +73,30 @@ namespace Constellate.Core.Messaging
         /// workspaces, projection bindings, resource registry, native records, etc.
         /// </summary>
         public IEnginePersistenceScope? PersistenceScope { get; }
+
+        /// <summary>
+        /// Stable world identifier derived from the backing database. In this initial
+        /// pass it is based on the database file name so App/UI layers can distinguish
+        /// worlds before a fuller EngineProjectRecord-backed identity is wired in.
+        /// </summary>
+        public string WorldId { get; }
+
+        /// <summary>
+        /// User-facing world name derived from the database file name (or a simple
+        /// placeholder for in-memory/seed-only sessions).
+        /// </summary>
+        public string WorldDisplayName { get; }
+
+        /// <summary>
+        /// Full path to the backing database file for this world, when available.
+        /// </summary>
+        public string? WorldDatabasePath { get; }
+
+        /// <summary>
+        /// Indicates whether this session is backed by a database file that was just
+        /// created for this run (new world) versus an existing file (existing world).
+        /// </summary>
+        public bool IsNewWorld { get; }
 
         /// <summary>
         /// World-scoped command bus instance.
