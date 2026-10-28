@@ -39,6 +39,8 @@ namespace Constellate.App.Worlds
 
             try
             {
+                EngineServices.PersistCurrentSceneSnapshot();
+
                 var scope = CreatePersistenceScope(world);
                 EngineHost.SwitchWorld(scope);
                 error = null;
