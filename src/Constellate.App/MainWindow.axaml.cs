@@ -1,5 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Constellate.Core.Messaging;
 
 namespace Constellate.App
 {
@@ -14,6 +16,7 @@ namespace Constellate.App
         {
             InitializeComponent();
             DataContext = new MainWindowViewModel();
+            EngineHost.WorldSessionChanged += MainWindow_OnWorldSessionChanged;
 
             InitializeShellLayoutBridge();
             InitializePaneGestureHost();
@@ -22,6 +25,25 @@ namespace Constellate.App
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+        }
+
+        private void MainWindow_OnKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Escape)
+            {
+                return;
+            }
+
+            var worldOverlay = new WorldOverlayWindow();
+            worldOverlay.ShowDialog(this);
+            e.Handled = true;
+        }
+
+        private void MainWindow_OnWorldSessionChanged()
+        {
+            DataContext = new MainWindowViewModel();
+            InitializeShellLayoutBridge();
+            InitializePaneGestureHost();
         }
     }
 }
