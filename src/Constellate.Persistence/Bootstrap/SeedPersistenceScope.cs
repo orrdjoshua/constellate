@@ -30,7 +30,7 @@ namespace Constellate.Persistence.Bootstrap
         {
             BootstrapResult = bootstrapResult ?? throw new ArgumentNullException(nameof(bootstrapResult));
             EngineStateStore = new SqliteEngineStateStore(bootstrapResult);
-            ProjectionBindingStore = new SeedEngineProjectionBindingStore(bootstrapResult);
+            ProjectionBindingStore = new SqliteEngineProjectionBindingStore(bootstrapResult);
             PaneDefinitionStore = new SeedPaneDefinitionStore(bootstrapResult);
             PaneWorkspaceStore = new SeedPaneWorkspaceStore(bootstrapResult);
             ResourceRegistryStore = new SeedResourceRegistryStore(bootstrapResult);
