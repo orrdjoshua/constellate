@@ -1,4 +1,5 @@
 using System;
+using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Storage;
 using Constellate.Persistence.Archive;
 using Constellate.Persistence.CurrentState;
@@ -33,9 +34,19 @@ namespace Constellate.Persistence.Bootstrap
             NativeRecordStore = new SqliteNativeRecordStore(bootstrapResult);
             ProviderRegistryStore = new SqliteProviderRegistryStore(bootstrapResult);
             RuntimeArchiveStore = new SqliteRuntimeArchiveStore(bootstrapResult);
+            AuthoringRegistryStore = new SqliteAuthoringRegistryStore(
+                bootstrapResult,
+                seedDefaultsOnInitialize: bootstrapResult.DatabaseFileCreated);
+
+            if (bootstrapResult.DatabaseFileCreated)
+            {
+                SeedDefaultWorldCatalog();
+            }
         }
 
         public PersistenceBootstrapResult BootstrapResult { get; }
+
+        public IAuthoringRegistryStore AuthoringRegistryStore { get; }
 
         public IEngineStateStore EngineStateStore { get; }
 
@@ -53,8 +64,24 @@ namespace Constellate.Persistence.Bootstrap
 
         public IRuntimeArchiveStore RuntimeArchiveStore { get; }
 
+        private void SeedDefaultWorldCatalog()
+        {
+            var catalog = new SeededPaneCatalog();
+
+            foreach (var definition in catalog.GetPaneDefinitions())
+            {
+                PaneDefinitionStore.Upsert(definition);
+            }
+
+            foreach (var workspace in catalog.GetWorkspaceDefinitions())
+            {
+                PaneWorkspaceStore.Upsert(workspace);
+            }
+        }
+
         public void EnsureInitialized()
         {
+            AuthoringRegistryStore.EnsureInitialized();
             ProjectionBindingStore.EnsureInitialized();
             PaneDefinitionStore.EnsureInitialized();
             PaneWorkspaceStore.EnsureInitialized();
