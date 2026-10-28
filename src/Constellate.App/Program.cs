@@ -19,7 +19,6 @@ namespace Constellate.App
             }
             catch { /* ignore */ }
 #endif
-            ConfigureEnginePersistence();
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
 
