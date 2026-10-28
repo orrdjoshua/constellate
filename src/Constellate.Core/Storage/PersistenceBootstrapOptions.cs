@@ -4,5 +4,6 @@ namespace Constellate.Core.Storage
         string ProjectRootPath,
         string ProjectShortName,
         string DatabaseFileName = "constellate.db",
-        string DataDirectoryName = ".constellate");
+        string DataDirectoryName = ".constellate",
+        string? DatabaseFilePath = null);
 }

@@ -545,82 +545,85 @@ public sealed partial class MainWindowViewModel
         return TryUpdateChildPane(childPaneId, current => current.WithAddedLocalCanvasElement(element));
     }
 
-    public bool TryAddChildPaneCapabilityBundle(
-        string childPaneId,
-        string bundleId)
+    public bool TryAddChildPaneCapabilityBundle(string childPaneId, string? bundleId)
     {
         if (string.IsNullOrWhiteSpace(childPaneId) || string.IsNullOrWhiteSpace(bundleId))
         {
             return false;
         }
 
-        if (!EngineServices.TryGetAuthoringBundleEntry(bundleId, out var bundle))
+        var normalizedBundleId = bundleId.Trim();
+        var bundle = EngineServices.ListPaneAuthoringBundleEntries()
+            .FirstOrDefault(candidate =>
+                string.Equals(candidate.BundleId, normalizedBundleId, StringComparison.Ordinal));
+        if (bundle is null || bundle.Elements.Count == 0)
         {
             return false;
         }
 
-        var pane = FindChildPaneById(childPaneId);
-        if (pane is null)
-        {
-            return false;
-        }
+        var capabilityLabelsById = EngineServices.ListPaneCapabilities()
+            .ToDictionary(
+                capability => capability.CapabilityId,
+                capability => capability.DisplayLabel,
+                StringComparer.Ordinal);
 
-        // Materialize bundle elements as local canvas elements with a simple grid offset layout.
         return TryUpdateChildPane(childPaneId, current =>
         {
             var updated = current;
+            const double originX = 48;
+            const double originY = 48;
+            const double columnSpacing = 360;
+            const double rowSpacing = 144;
+            var columnCount = Math.Min(2, Math.Max(1, bundle.Elements.Count));
 
             for (var i = 0; i < bundle.Elements.Count; i++)
             {
-                var spec = bundle.Elements[i];
-
-                var nextOrdinal = updated.LocalCanvasElementCount + 1;
-                var column = i % 2;
-                var row = i / 2;
-
-                var x = 72 + (column * 40);
-                var y = 72 + (row * 32);
-
-                var bindingLabel = spec.DefaultHostClasses.Count == 0
-                    ? "Unbound local element"
-                    : $"Unbound · {string.Join(", ", spec.DefaultHostClasses)}";
+                var bundleElement = bundle.Elements[i];
+                var localOrdinal = updated.LocalCanvasElementCount + 1;
+                var column = i % columnCount;
+                var row = i / columnCount;
 
                 string? boundCapabilityId = null;
                 string? boundCapabilityLabel = null;
-
-                if (!string.IsNullOrWhiteSpace(spec.DefaultCapabilityId))
+                if (!string.IsNullOrWhiteSpace(bundleElement.DefaultCapabilityId) &&
+                    capabilityLabelsById.TryGetValue(bundleElement.DefaultCapabilityId, out var capabilityLabel))
                 {
-                    var capability = EngineServices.ListPaneCapabilities()
-                        .FirstOrDefault(candidate =>
-                            string.Equals(candidate.CapabilityId, spec.DefaultCapabilityId, StringComparison.Ordinal));
-                    if (capability is not null)
-                    {
-                        boundCapabilityId = capability.CapabilityId;
-                        boundCapabilityLabel = capability.DisplayLabel;
-                        bindingLabel = $"Bound · {capability.DisplayLabel}";
-                    }
+                    boundCapabilityId = bundleElement.DefaultCapabilityId;
+                    boundCapabilityLabel = capabilityLabel;
                 }
 
+                var bindingLabel = boundCapabilityLabel is not null
+                    ? $"Bound · {boundCapabilityLabel}"
+                    : bundleElement.DefaultHostClasses.Count == 0
+                        ? "Bundle element"
+                        : $"Unbound · {string.Join(", ", bundleElement.DefaultHostClasses)}";
+
+                var displayLabel = string.IsNullOrWhiteSpace(bundleElement.DisplayLabel)
+                    ? bundleElement.ElementKind.ToString()
+                    : bundleElement.DisplayLabel;
+
                 var element = new ChildPaneCanvasElementInstance(
-                    InstanceId: $"local.canvas.{nextOrdinal}",
-                    SourceElementId: spec.ElementTypeId,
-                    ElementKind: spec.ElementKind,
-                    DisplayLabel: spec.DisplayLabel,
+                    InstanceId: $"local.canvas.{localOrdinal}",
+                    SourceElementId: bundleElement.ElementTypeId,
+                    ElementKind: bundleElement.ElementKind,
+                    DisplayLabel: displayLabel,
                     BindingLabel: bindingLabel,
-                    X: x,
-                    Y: y,
-                    Width: spec.DefaultWidth,
-                    Height: spec.DefaultHeight,
+                    X: originX + (column * columnSpacing),
+                    Y: originY + (row * rowSpacing),
+                    Width: bundleElement.DefaultWidth,
+                    Height: bundleElement.DefaultHeight,
                     ZIndex: updated.LocalCanvasElementCount,
                     Depth: 0,
-                    CompatibleHostClasses: spec.DefaultHostClasses,
+                    CompatibleHostClasses: bundleElement.DefaultHostClasses,
                     BoundCapabilityId: boundCapabilityId,
                     BoundCapabilityLabel: boundCapabilityLabel);
 
                 updated = updated.WithAddedLocalCanvasElement(element);
             }
 
-            return updated.WithRecomputedLocalModifications();
+            return Equals(updated, current)
+                ? null
+                : updated.WithRecomputedLocalModifications();
         });
     }
 
@@ -759,6 +762,64 @@ public sealed partial class MainWindowViewModel
             BoundCapabilityId = selectedCapability.CapabilityId,
             BoundCapabilityLabel = selectedCapability.DisplayLabel,
             BindingLabel = $"Bound · {selectedCapability.DisplayLabel}"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
+    }
+
+    public bool TryBindChildPaneCanvasElementToCapability(string childPaneId, string elementInstanceId, string capabilityId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) ||
+            string.IsNullOrWhiteSpace(elementInstanceId) ||
+            string.IsNullOrWhiteSpace(capabilityId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null)
+        {
+            return false;
+        }
+
+        var capabilities = EngineServices.ListPaneCapabilities();
+        var selectedCapability = capabilities
+            .FirstOrDefault(c =>
+                string.Equals(c.CapabilityId, capabilityId, StringComparison.Ordinal));
+
+        string resolvedCapabilityId;
+        string resolvedCapabilityLabel;
+
+        if (selectedCapability is null)
+        {
+            var normalized = capabilityId.Trim();
+            if (normalized.Length == 0)
+            {
+                return false;
+            }
+
+            resolvedCapabilityId = normalized;
+            resolvedCapabilityLabel = normalized;
+        }
+        else
+        {
+            resolvedCapabilityId = selectedCapability.CapabilityId;
+            resolvedCapabilityLabel = selectedCapability.DisplayLabel;
+        }
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = resolvedCapabilityId,
+            BoundCapabilityLabel = resolvedCapabilityLabel,
+            BindingLabel = $"Bound · {resolvedCapabilityLabel}"
         };
 
         return TryUpdateChildPane(childPaneId, current =>

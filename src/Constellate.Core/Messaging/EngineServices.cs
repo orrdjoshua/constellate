@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Text.Json;
 using Constellate.Core.Capabilities;
 using Constellate.Core.Capabilities.Panes;
@@ -65,29 +66,53 @@ namespace Constellate.Core.Messaging
         public static IReadOnlyList<PaneAuthoringElementCatalogEntry> ListPaneAuthoringElementEntries()
         {
             EnsureInitialized();
-            var store = PersistenceScope?.AuthoringRegistryStore;
-            if (store is not null)
+
+            var entriesById = new Dictionary<string, PaneAuthoringElementCatalogEntry>(StringComparer.Ordinal);
+
+            foreach (var entry in PaneAuthoringCatalog.GetElementEntries())
             {
-                var items = store.ListAuthoringElements();
-                if (items is { Count: > 0 })
+                entriesById[entry.ElementTypeId] = entry;
+            }
+
+            var authoringRegistryStore = GetAuthoringRegistryStore();
+            if (authoringRegistryStore is not null)
+            {
+                foreach (var entry in authoringRegistryStore.ListAuthoringElements())
                 {
-                    _authoringRegistryDbHits++;
-                    _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
-                    _lastAuthoringRegistryResolutionKind = "db";
-                    PublishEvent(
-                        EventNames.AuthoringRegistryResolution,
-                        new { source = "db", scope = "authoring_elements" });
-                    return items;
+                    entriesById[entry.ElementTypeId] = entry;
                 }
             }
-            // Fallback to seeded entries
-            _authoringRegistrySeedFallbacks++;
-            _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
-            _lastAuthoringRegistryResolutionKind = "seed";
-            PublishEvent(
-                EventNames.AuthoringRegistryResolution,
-                new { source = "seed", scope = "authoring_elements" });
-            return PaneAuthoringCatalog.GetElementEntries();
+
+            return entriesById.Values
+                .OrderBy(entry => entry.DisplayLabel, StringComparer.Ordinal)
+                .ThenBy(entry => entry.ElementTypeId, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        public static IReadOnlyList<PaneAuthoringBundleCatalogEntry> ListPaneAuthoringBundleEntries()
+        {
+            EnsureInitialized();
+
+            var bundlesById = new Dictionary<string, PaneAuthoringBundleCatalogEntry>(StringComparer.Ordinal);
+
+            foreach (var bundle in PaneAuthoringCatalog.GetBundleEntries())
+            {
+                bundlesById[bundle.BundleId] = bundle;
+            }
+
+            var authoringRegistryStore = GetAuthoringRegistryStore();
+            if (authoringRegistryStore is not null)
+            {
+                foreach (var bundle in authoringRegistryStore.ListAuthoringBundles())
+                {
+                    bundlesById[bundle.BundleId] = bundle;
+                }
+            }
+
+            return bundlesById.Values
+                .OrderBy(bundle => bundle.DisplayLabel, StringComparer.Ordinal)
+                .ThenBy(bundle => bundle.BundleId, StringComparer.Ordinal)
+                .ToArray();
         }
 
         public static IReadOnlyList<PaneAuthoringBundleCatalogEntry> ListPaneAuthoringBundleEntries()
@@ -123,7 +148,7 @@ namespace Constellate.Core.Messaging
             out PaneAuthoringElementCatalogEntry entry)
         {
             EnsureInitialized();
-            foreach (var candidate in PaneAuthoringCatalog.GetElementEntries())
+            foreach (var candidate in ListPaneAuthoringElementEntries())
             {
                 if (candidate.ElementKind == elementKind)
                 {
@@ -136,12 +161,39 @@ namespace Constellate.Core.Messaging
             return false;
         }
 
-        public static bool TryGetAuthoringBundleEntry(
-            string bundleId,
-            out PaneAuthoringBundleCatalogEntry entry)
+        public static bool TryUpsertTestAuthoringElement(out PaneAuthoringElementCatalogEntry entry)
         {
             EnsureInitialized();
-            return PaneAuthoringCatalog.TryGetBundleEntry(bundleId, out entry);
+
+            entry = BuildTestAuthoringElementEntry();
+
+            var writeStore = GetAuthoringRegistryWriteStore();
+            if (writeStore is null)
+            {
+                return false;
+            }
+
+            writeStore.UpsertAuthoringElement(entry);
+            return true;
+        }
+
+        public static bool TryUpsertTestAuthoringBundle(out PaneAuthoringBundleCatalogEntry bundle)
+        {
+            EnsureInitialized();
+
+            var elementEntry = BuildTestAuthoringElementEntry();
+            var defaultCapabilityId = FindFirstCompatibleCapabilityId(elementEntry.DefaultHostClasses);
+            bundle = BuildTestAuthoringBundleEntry(elementEntry, defaultCapabilityId);
+
+            var writeStore = GetAuthoringRegistryWriteStore();
+            if (writeStore is null)
+            {
+                return false;
+            }
+
+            writeStore.UpsertAuthoringElement(elementEntry);
+            writeStore.UpsertAuthoringBundle(bundle);
+            return true;
         }
 
         public static bool TryGetPaneDefinition(string paneDefinitionId, out PaneDefinitionDescriptor paneDefinition)
@@ -174,34 +226,97 @@ namespace Constellate.Core.Messaging
             paneDefinitionStore.Upsert(paneDefinition);
         }
 
-        // Compact readout used by a developer pane to verify DB materialization vs seed fallback
+        private static IAuthoringRegistryStore? GetAuthoringRegistryStore()
+        {
+            var persistenceScope = PersistenceScope;
+            if (persistenceScope is null)
+            {
+                return null;
+            }
+
+            var authoringRegistryProperty = persistenceScope.GetType().GetProperty(
+                "AuthoringRegistryStore",
+                BindingFlags.Instance | BindingFlags.Public);
+            if (authoringRegistryProperty?.GetValue(persistenceScope) is not IAuthoringRegistryStore authoringRegistryStore)
+            {
+                return null;
+            }
+
+            authoringRegistryStore.EnsureInitialized();
+            return authoringRegistryStore;
+        }
+
+        private static IAuthoringRegistryWriteStore? GetAuthoringRegistryWriteStore()
+        {
+            return GetAuthoringRegistryStore() as IAuthoringRegistryWriteStore;
+        }
+
+        private static PaneAuthoringElementCatalogEntry BuildTestAuthoringElementEntry()
+        {
+            return new PaneAuthoringElementCatalogEntry(
+                "authoring.element.db_test_status_card",
+                PaneElementKind.StatusBadge,
+                "DB Test Status Card",
+                "Developer-seeded status card persisted through the authoring registry write seam.",
+                220,
+                52,
+                [PaneCapabilityHostClass.StatusBadgeHost]);
+        }
+
+        private static PaneAuthoringBundleCatalogEntry BuildTestAuthoringBundleEntry(
+            PaneAuthoringElementCatalogEntry elementEntry,
+            string? defaultCapabilityId)
+        {
+            return new PaneAuthoringBundleCatalogEntry(
+                "authoring.bundle.db_test_status",
+                "DB Test Status Bundle",
+                "Developer-seeded bundle persisted through the authoring registry write seam.",
+                [
+                    new PaneAuthoringBundleElementSpec(
+                        elementEntry.ElementTypeId,
+                        elementEntry.ElementKind,
+                        "DB Test Status",
+                        "Registry-backed status card seeded by the developer authoring hook.",
+                        elementEntry.DefaultWidth,
+                        elementEntry.DefaultHeight,
+                        elementEntry.DefaultHostClasses,
+                        defaultCapabilityId)
+                ]);
+        }
+
+        private static string? FindFirstCompatibleCapabilityId(IReadOnlyList<PaneCapabilityHostClass> hostClasses)
+        {
+            return ListPaneCapabilities()
+                .Where(capability =>
+                    hostClasses.Count == 0 ||
+                    capability.EffectiveCompatibleHostClasses.Any(hostClasses.Contains))
+                .OrderBy(capability => capability.DisplayLabel, StringComparer.Ordinal)
+                .Select(capability => capability.CapabilityId)
+                .FirstOrDefault();
+        }
+
         public static string GetAuthoringRegistryHealthSummary()
         {
             EnsureInitialized();
-            var dbPath = PersistenceScope?.BootstrapResult?.DatabasePath;
-            var haveDbPath = !string.IsNullOrWhiteSpace(dbPath);
-            var lastAt = _lastAuthoringRegistryResolutionAt?.ToString("u") ?? "n/a";
-            var lastKind = string.IsNullOrWhiteSpace(_lastAuthoringRegistryResolutionKind) ? "n/a" : _lastAuthoringRegistryResolutionKind;
-            var dbHits = _authoringRegistryDbHits;
-            var seedHits = _authoringRegistrySeedFallbacks;
-            // Infer provider from dbPath extension; BootstrapResult may not expose a Provider property.
-            var provider = "unknown";
-            if (haveDbPath)
+
+            var store = GetAuthoringRegistryStore();
+            if (store is null)
             {
-                var lower = dbPath!.Trim().ToLowerInvariant();
-                if (lower.EndsWith(".db") || lower.EndsWith(".sqlite") || lower.EndsWith(".sqlite3"))
-                {
-                    provider = "sqlite";
-                }
-                else
-                {
-                    provider = "file";
-                }
+                return "Authoring registry: unavailable (no active registry store).";
             }
-            return
-                $"Authoring Registry Health — " +
-                $"provider={provider}; dbPath={(haveDbPath ? dbPath : "(none)")}; " +
-                $"dbHits={dbHits}; seedFallbacks={seedHits}; lastResolution={lastKind} @ {lastAt}";
+
+            var writeStore = GetAuthoringRegistryWriteStore();
+            if (writeStore is null)
+            {
+                return "Authoring registry: seed-backed (read-only authoring catalog).";
+            }
+
+            if (writeStore.TryGetGenerationVersion("authoring", out var version))
+            {
+                return $"Authoring registry: DB-backed (generation {version}).";
+            }
+
+            return "Authoring registry: DB-backed (generation metadata unavailable).";
         }
 
         private static IReadOnlyList<PaneDefinitionDescriptor> BuildPaneDefinitionSnapshot()

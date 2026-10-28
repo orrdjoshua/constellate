@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Constellate.App.ViewModels.Worlds"
+        x:Class="Constellate.App.WorldSelectionWindow"
+        x:DataType="vm:WorldSelectionViewModel"
+        Width="760"
+        Height="540"
+        Title="Constellate — Select or Create World"
+        WindowStartupLocation="CenterScreen">
+
+  <Border Background="#0B1220" Padding="18">
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+      <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,10">
+        <TextBlock Text="Constellate Worlds"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   Foreground="#F3F8FD" />
+        <TextBlock Text="Select a world, create a new local world, or open a database file from disk."
+                   FontSize="11"
+                   Foreground="#BFD3E4"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Grid.Row="1"
+              Background="#13212C"
+              BorderBrush="#355066"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="6">
+        <ListBox x:Name="WorldList"
+                 ItemsSource="{Binding Worlds}"
+                 SelectedItem="{Binding SelectedWorld, Mode=TwoWay}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 HorizontalAlignment="Stretch"
+                 VerticalAlignment="Stretch"
+                 MinHeight="260">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding DisplayName}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="#E5EDF7" />
+                <TextBlock Text="{Binding DatabaseFilePath}"
+                           FontSize="10"
+                           Foreground="#9DB3C5"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding RootId}"
+                           FontSize="10"
+                           Foreground="#7EAFC9" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+
+      <Border Grid.Row="2"
+              x:Name="CreateWorldForm"
+              IsVisible="False"
+              Background="#142636"
+              BorderBrush="#486983"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="12"
+              Margin="0,10,0,0">
+        <StackPanel Spacing="6">
+          <TextBlock Text="New World"
+                     FontSize="14"
+                     FontWeight="SemiBold"
+                     Foreground="#E4F3FD" />
+          <TextBlock Text="World name"
+                     FontSize="10"
+                     Foreground="#9DD1F0" />
+          <TextBox x:Name="NewWorldNameBox"
+                   Watermark="My World"
+                   MinWidth="320"
+                   HorizontalAlignment="Left" />
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Right">
+            <Button Content="Cancel" Click="CancelCreateWorld_OnClick" />
+            <Button Content="Create World" Click="ConfirmCreateWorld_OnClick" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
+        <Button Grid.Column="0"
+                Content="Add DB Folder..."
+                Click="AddRoot_OnClick" />
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="8">
+          <Button Content="Open from File..."
+                  Click="Browse_OnClick" />
+          <Button Content="New World..."
+                  Click="CreateWorld_OnClick" />
+          <Button Content="Open Selected"
+                  Click="OpenSelected_OnClick"
+                  IsEnabled="{Binding HasSelectedWorld}" />
+        </StackPanel>
+      </Grid>
+
+    </Grid>
+  </Border>
+</Window>
