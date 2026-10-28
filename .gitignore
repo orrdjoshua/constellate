@@ -15,6 +15,7 @@ obj/*
 # User-specific
 *.user
 *.suo
+*.constellate
 
 # OS
 .DS_Store
