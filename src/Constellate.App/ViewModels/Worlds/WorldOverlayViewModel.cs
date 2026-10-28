@@ -112,11 +112,14 @@ namespace Constellate.App.ViewModels.Worlds
 
         public void ApplySettings()
         {
-            _worldSettingsStore.SaveSettings(new WorldSaveSettings(
+            var settings = new WorldSaveSettings(
                 _autoSaveEnabled,
                 _autoSaveIntervalSeconds,
                 WorldSaveBehavior.Ask,
-                WorldSaveBehavior.Ask));
+                WorldSaveBehavior.Ask);
+
+            _worldSettingsStore.SaveSettings(settings);
+            WorldAutoSaveCoordinator.Current?.ApplySettings(settings);
         }
 
         public bool TrySwitchSelectedWorld(out string? error)
