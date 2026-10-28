@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Storage;
 using Constellate.Persistence.Archive;
 using Constellate.Persistence.CurrentState;
@@ -33,9 +35,26 @@ namespace Constellate.Persistence.Bootstrap
             NativeRecordStore = new SqliteNativeRecordStore(bootstrapResult);
             ProviderRegistryStore = new SqliteProviderRegistryStore(bootstrapResult);
             RuntimeArchiveStore = new SqliteRuntimeArchiveStore(bootstrapResult);
+            AuthoringRegistryStore = new SqliteAuthoringRegistryStore(
+                bootstrapResult,
+                seedDefaultsOnInitialize: bootstrapResult.DatabaseFileCreated);
+
+            var engineProjectStore = new SqliteEngineProjectStore(bootstrapResult);
+            engineProjectStore.EnsureInitialized();
+            if (!engineProjectStore.TryGet(out _))
+            {
+                engineProjectStore.Upsert(BuildDefaultEngineProjectRecord(bootstrapResult));
+            }
+
+            if (bootstrapResult.DatabaseFileCreated)
+            {
+                SeedDefaultWorldCatalog();
+            }
         }
 
         public PersistenceBootstrapResult BootstrapResult { get; }
+
+        public IAuthoringRegistryStore AuthoringRegistryStore { get; }
 
         public IEngineStateStore EngineStateStore { get; }
 
@@ -53,8 +72,39 @@ namespace Constellate.Persistence.Bootstrap
 
         public IRuntimeArchiveStore RuntimeArchiveStore { get; }
 
+        private void SeedDefaultWorldCatalog()
+        {
+            var catalog = new SeededPaneCatalog();
+
+            foreach (var definition in catalog.GetPaneDefinitions())
+            {
+                PaneDefinitionStore.Upsert(definition);
+            }
+
+            foreach (var workspace in catalog.GetWorkspaceDefinitions())
+            {
+                PaneWorkspaceStore.Upsert(workspace);
+            }
+        }
+
+        private static EngineProjectRecord BuildDefaultEngineProjectRecord(
+            PersistenceBootstrapResult bootstrapResult)
+        {
+            var displayName = Path.GetFileNameWithoutExtension(bootstrapResult.DatabasePath);
+            var now = DateTimeOffset.UtcNow;
+
+            return new EngineProjectRecord(
+                ProjectId: $"world-{Guid.NewGuid():N}",
+                DisplayName: displayName,
+                ProjectVersion: SqliteEngineProjectStore.CurrentProjectVersion,
+                EngineSchemaVersion: SqliteEngineProjectStore.CurrentEngineSchemaVersion,
+                CreatedAt: now,
+                UpdatedAt: now);
+        }
+
         public void EnsureInitialized()
         {
+            AuthoringRegistryStore.EnsureInitialized();
             ProjectionBindingStore.EnsureInitialized();
             PaneDefinitionStore.EnsureInitialized();
             PaneWorkspaceStore.EnsureInitialized();

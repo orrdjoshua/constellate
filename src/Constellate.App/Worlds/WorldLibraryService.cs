@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Constellate.Core.Storage;
 using Constellate.Persistence.Bootstrap;
+using Constellate.Persistence.CurrentState;
 
 namespace Constellate.App.Worlds
 {
@@ -68,10 +69,23 @@ namespace Constellate.App.Worlds
                 DatabaseFilePath: databaseFilePath);
             var result = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
 
-            return BuildDescriptorFromBootstrap(
+            var engineProjectStore = new SqliteEngineProjectStore(result);
+
+            EngineProjectRecord projectRecord;
+            if (result.DatabaseFileCreated)
+            {
+                projectRecord = engineProjectStore.CreateNew(displayName);
+            }
+            else if (!engineProjectStore.TryGet(out projectRecord))
+            {
+                projectRecord = engineProjectStore.CreateNew(
+                    Path.GetFileNameWithoutExtension(result.DatabasePath));
+            }
+
+            return BuildDescriptorFromProjectRecord(
+                projectRecord,
                 result.DatabasePath,
                 root.RootId,
-                displayName,
                 result.DatabaseFileCreated);
         }
 
@@ -89,6 +103,23 @@ namespace Constellate.App.Worlds
             string dbPath,
             WorldDbRootDefinition root)
         {
+            var options = new PersistenceBootstrapOptions(
+                root.ProjectRootPath,
+                "Constellate",
+                Path.GetFileName(dbPath),
+                DatabaseFilePath: dbPath);
+            var result = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
+            var engineProjectStore = new SqliteEngineProjectStore(result);
+
+            if (engineProjectStore.TryGet(out var projectRecord))
+            {
+                return BuildDescriptorFromProjectRecord(
+                    projectRecord,
+                    dbPath,
+                    root.RootId,
+                    isNew: false);
+            }
+
             var fileInfo = new FileInfo(dbPath);
             var fileNameNoExt = Path.GetFileNameWithoutExtension(dbPath);
 
@@ -107,24 +138,22 @@ namespace Constellate.App.Worlds
                 IsReadOnly: false);
         }
 
-        private static WorldDescriptor BuildDescriptorFromBootstrap(
+        private static WorldDescriptor BuildDescriptorFromProjectRecord(
+            EngineProjectRecord projectRecord,
             string databasePath,
             string rootId,
-            string displayName,
             bool isNew)
         {
-            var fileInfo = new FileInfo(databasePath);
-
             return new WorldDescriptor(
-                WorldId: Path.GetFileNameWithoutExtension(databasePath),
-                DisplayName: displayName,
+                WorldId: projectRecord.ProjectId,
+                DisplayName: projectRecord.DisplayName,
                 DatabaseFilePath: databasePath,
                 RootId: rootId,
                 Description: null,
-                CreatedAt: fileInfo.Exists ? fileInfo.CreationTimeUtc : DateTimeOffset.UtcNow,
-                LastOpenedAt: fileInfo.Exists ? fileInfo.LastWriteTimeUtc : DateTimeOffset.UtcNow,
-                EngineSchemaVersion: null,
-                ProjectVersion: null,
+                CreatedAt: projectRecord.CreatedAt,
+                LastOpenedAt: projectRecord.UpdatedAt,
+                EngineSchemaVersion: projectRecord.EngineSchemaVersion,
+                ProjectVersion: projectRecord.ProjectVersion,
                 IsNew: isNew,
                 IsCompatible: true,
                 IsReadOnly: false);
