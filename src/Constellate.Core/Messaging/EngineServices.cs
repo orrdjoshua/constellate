@@ -340,7 +340,9 @@ namespace Constellate.Core.Messaging
             _ = EngineHost.EnsureWorldSession();
         }
 
-        public static EngineWorldSession CreateWorldSession(IEnginePersistenceScope? persistenceScope)
+        public static EngineWorldSession CreateWorldSession(
+            IEnginePersistenceScope? persistenceScope,
+            EngineWorldSessionIdentity? identity = null)
         {
             _persistenceScope = persistenceScope;
 
@@ -359,7 +361,8 @@ namespace Constellate.Core.Messaging
                 shellScene,
                 paneCatalog,
                 capabilities,
-                settings);
+                settings,
+                identity);
 
             EngineHost.AdoptSession(session);
 
