@@ -20,12 +20,6 @@ namespace Constellate.App.Controls
 {
     public partial class ChildPaneView : UserControl
     {
-        // Commentary/parity note:
-        // This control currently acts as a transitional coordinator for pane-definition
-        // realization, inline author-mode posture, and resource-detail fallback readouts.
-        // The intended direction is to keep the ordinary child-pane experience lighter by
-        // moving more lifecycle/policy work into narrower services or runtime builders while
-        // preserving this view as the concrete host for authored pane content.
         private PaneChrome? _root;
         private ScrollViewer? _headerScroll;
         private ChildPaneDescriptor? _model;
@@ -438,6 +432,70 @@ namespace Constellate.App.Controls
         private void OnAddCanvasStatusBadgeElementClick(object? sender, RoutedEventArgs e)
         {
             TryAddCanvasElement(PaneElementKind.StatusBadge);
+        }
+
+        private async void OnChooseCanvasElementClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            var host = ResolveHostWindow();
+            if (host is null)
+            {
+                return;
+            }
+
+            var elementKind = await CanvasElementPickerDialog.ShowAsync(host);
+            if (elementKind is PaneElementKind chosen)
+            {
+                _windowViewModel.TryAddChildPaneLocalCanvasElement(_model.Id, chosen);
+            }
+        }
+
+        private void OnAddCanvasSceneOverviewBundleClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryAddChildPaneCapabilityBundle(
+                _model.Id,
+                "authoring.bundle.scene_overview");
+        }
+
+        private void OnAddCanvasAuthoringQuickControlsBundleClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            _windowViewModel.TryAddChildPaneCapabilityBundle(
+                _model.Id,
+                "authoring.bundle.quick_controls");
+        }
+
+        private async void OnChooseCanvasBundleClick(object? sender, RoutedEventArgs e)
+        {
+            if (_model is null || _windowViewModel is null)
+            {
+                return;
+            }
+
+            var host = ResolveHostWindow();
+            if (host is null)
+            {
+                return;
+            }
+
+            var bundleId = await CanvasBundlePickerDialog.ShowAsync(host);
+            if (!string.IsNullOrWhiteSpace(bundleId))
+            {
+                _windowViewModel.TryAddChildPaneCapabilityBundle(_model.Id, bundleId);
+            }
         }
 
         private void TryAddCanvasElement(PaneElementKind elementKind)

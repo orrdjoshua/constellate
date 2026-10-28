@@ -857,6 +857,60 @@ public sealed partial class MainWindowViewModel
             current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
     }
 
+    public bool TryBindChildPaneCanvasElementToCapability(
+        string childPaneId,
+        string elementInstanceId,
+        string capabilityId)
+    {
+        if (string.IsNullOrWhiteSpace(childPaneId) ||
+            string.IsNullOrWhiteSpace(elementInstanceId) ||
+            string.IsNullOrWhiteSpace(capabilityId))
+        {
+            return false;
+        }
+
+        var pane = FindChildPaneById(childPaneId);
+        if (pane is null)
+        {
+            return false;
+        }
+
+        var element = pane.EffectiveLocalCanvasElements
+            .FirstOrDefault(e => string.Equals(e.InstanceId, elementInstanceId, StringComparison.Ordinal));
+        if (element is null)
+        {
+            return false;
+        }
+
+        var capabilities = EngineServices.ListPaneCapabilities();
+        var selectedCapability = capabilities
+            .FirstOrDefault(capability => string.Equals(capability.CapabilityId, capabilityId, StringComparison.Ordinal));
+        if (selectedCapability is null)
+        {
+            return false;
+        }
+
+        var hostClasses = element.CompatibleHostClasses ?? Array.Empty<PaneCapabilityHostClass>();
+        if (hostClasses.Count > 0)
+        {
+            var compatible = selectedCapability.EffectiveCompatibleHostClasses.Any(hostClasses.Contains);
+            if (!compatible)
+            {
+                return false;
+            }
+        }
+
+        var updatedElement = element with
+        {
+            BoundCapabilityId = selectedCapability.CapabilityId,
+            BoundCapabilityLabel = selectedCapability.DisplayLabel,
+            BindingLabel = $"Bound · {selectedCapability.DisplayLabel}"
+        };
+
+        return TryUpdateChildPane(childPaneId, current =>
+            current.WithUpdatedLocalCanvasElement(updatedElement).WithRecomputedLocalModifications());
+    }
+
     public bool TrySaveChildPaneAsNewDefinition(string childPaneId)
     {
         if (string.IsNullOrWhiteSpace(childPaneId))
