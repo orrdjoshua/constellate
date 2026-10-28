@@ -91,9 +91,29 @@ namespace Constellate.App
             CreateWorldForm.IsVisible = false;
         }
 
-        private void AddRoot_OnClick(object? sender, RoutedEventArgs e)
+        private async void AddRoot_OnClick(object? sender, RoutedEventArgs e)
         {
-            // Future DB-root management lands in PLAN-129 Phase D.
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Add World Database Folder",
+                AllowMultiple = false
+            });
+
+            var folder = folders?.FirstOrDefault();
+            if (folder is null)
+            {
+                return;
+            }
+
+            try
+            {
+                _worldLibraryService.AddRoot(folder.Path.LocalPath, folder.Name);
+                LoadWorlds();
+            }
+            catch (Exception)
+            {
+                // Keep the chooser open and its current selection intact.
+            }
         }
 
         private void OpenSelected_OnClick(object? sender, RoutedEventArgs e)
