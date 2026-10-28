@@ -1,10 +1,12 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Constellate.App.ViewModels.Worlds;
+using Constellate.App.Worlds;
 
 namespace Constellate.App
 {
@@ -40,21 +42,61 @@ namespace Constellate.App
             _viewModel.ApplySettings();
         }
 
-        private void SwitchSelected_OnClick(object? sender, RoutedEventArgs e)
+        private async void SwitchSelected_OnClick(object? sender, RoutedEventArgs e)
         {
-            _ = _viewModel.TrySwitchSelectedWorld(out _);
+            var saveCurrentWorld = await ResolveSaveCurrentWorldAsync(
+                _viewModel.ResolveSwitchBehavior(),
+                "Switch World",
+                "Save changes to the current world before switching?");
+            if (saveCurrentWorld is null)
+            {
+                return;
+            }
+
+            _ = _viewModel.TrySwitchSelectedWorld(saveCurrentWorld.Value, out _);
         }
 
-        private void ExitToWorldSelection_OnClick(object? sender, RoutedEventArgs e)
+        private async void ExitToWorldSelection_OnClick(object? sender, RoutedEventArgs e)
         {
-            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            if (lifetime is not null)
+            var saveCurrentWorld = await ResolveSaveCurrentWorldAsync(
+                _viewModel.ResolveExitBehavior(),
+                "Exit to World Selection",
+                "Save changes to the current world before returning to world selection?");
+            if (saveCurrentWorld is null)
             {
-                lifetime.MainWindow = new WorldSelectionWindow();
-                lifetime.MainWindow.Show();
+                return;
+            }
+
+            if (!WorldSessionCoordinator.TryExitToWorldSelection(saveCurrentWorld.Value, out _))
+            {
+                return;
             }
 
             Close();
+        }
+
+        private async Task<bool?> ResolveSaveCurrentWorldAsync(
+            WorldSaveBehavior behavior,
+            string title,
+            string message)
+        {
+            if (behavior == WorldSaveBehavior.Save)
+            {
+                return true;
+            }
+
+            if (behavior == WorldSaveBehavior.Discard)
+            {
+                return false;
+            }
+
+            var decision = await WorldTransitionConfirmationDialog.ShowAsync(this, title, message);
+            return decision switch
+            {
+                WorldTransitionDecision.Save => true,
+                WorldTransitionDecision.Discard => false,
+                _ => (bool?)null
+            };
         }
 
         private void Close_OnClick(object? sender, RoutedEventArgs e)

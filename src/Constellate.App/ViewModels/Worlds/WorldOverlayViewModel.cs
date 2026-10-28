@@ -130,23 +130,13 @@ namespace Constellate.App.ViewModels.Worlds
             WorldAutoSaveCoordinator.Current?.ApplySettings(settings);
         }
 
-        public bool TrySwitchSelectedWorld(out string? error)
+        public bool TrySwitchSelectedWorld(bool saveCurrentWorld, out string? error)
         {
             if (SelectedWorld is null)
             {
                 error = "No world selected.";
                 return false;
             }
-
-            var settings = _worldSettingsStore.LoadSettings();
-
-            // Ask is currently treated as Save until a real modal confirmation
-            // is added to the world overlay. Discard bypasses persistence.
-            var saveCurrentWorld = settings.SwitchBehavior switch
-            {
-                WorldSaveBehavior.Discard => false,
-                _ => true
-            };
 
             var succeeded = WorldSessionCoordinator.TrySwitchWorld(
                 SelectedWorld,
@@ -159,6 +149,16 @@ namespace Constellate.App.ViewModels.Worlds
             }
 
             return succeeded;
+        }
+
+        public WorldSaveBehavior ResolveSwitchBehavior()
+        {
+            return _worldSettingsStore.LoadSettings().SwitchBehavior;
+        }
+
+        public WorldSaveBehavior ResolveExitBehavior()
+        {
+            return _worldSettingsStore.LoadSettings().ExitBehavior;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
