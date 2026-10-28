@@ -18,6 +18,13 @@ namespace Constellate.App.Worlds
 
     internal sealed class WorldLibraryService
     {
+        private readonly WorldRootsStore _worldRootsStore;
+
+        public WorldLibraryService()
+        {
+            _worldRootsStore = new WorldRootsStore(ProjectPathResolver.ResolveProjectRootPath());
+        }
+
         public IReadOnlyList<WorldDescriptor> DiscoverWorlds()
         {
             var roots = ResolveEnabledRoots();
@@ -50,7 +57,15 @@ namespace Constellate.App.Worlds
                 ?? ResolveEnabledRoots().First();
 
             var safeName = BuildDatabaseFileName(displayName);
-            var options = new PersistenceBootstrapOptions(root.ProjectRootPath, "Constellate", safeName);
+            var databaseFilePath = string.Equals(root.RootId, "default", StringComparison.Ordinal)
+                ? null
+                : Path.Combine(root.SearchDirectory, safeName);
+
+            var options = new PersistenceBootstrapOptions(
+                root.ProjectRootPath,
+                "Constellate",
+                safeName,
+                DatabaseFilePath: databaseFilePath);
             var result = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
 
             return BuildDescriptorFromBootstrap(
@@ -62,18 +77,12 @@ namespace Constellate.App.Worlds
 
         private IReadOnlyList<WorldDbRootDefinition> ResolveEnabledRoots()
         {
-            var projectRoot = ProjectPathResolver.ResolveProjectRootPath();
+            return _worldRootsStore.LoadRoots();
+        }
 
-            return new[]
-            {
-                new WorldDbRootDefinition(
-                    "default",
-                    "Project-local worlds",
-                    ProjectPathResolver.ResolveProjectLocalWorldsDirectory(projectRoot),
-                    projectRoot,
-                    IsDefault: true,
-                    IsEnabled: true)
-            };
+        public void AddRoot(string searchDirectory, string? displayLabel = null)
+        {
+            _worldRootsStore.AddRoot(searchDirectory, displayLabel);
         }
 
         private static WorldDescriptor BuildDescriptorFromDatabasePath(
