@@ -25,6 +25,13 @@ namespace Constellate.Core.Messaging
         private static EngineWorldSession? _current;
 
         /// <summary>
+        /// Raised after the active world session has been created, switched, or shut down.
+        /// App/UI subscription owners should subscribe to this instead of caching the bus,
+        /// scene, or persistence scope across world switches.
+        /// </summary>
+        public static event Action? WorldSessionChanged;
+
+        /// <summary>
         /// The currently active world session, or null if none has been created yet.
         /// </summary>
         public static EngineWorldSession? Current
@@ -142,6 +149,7 @@ namespace Constellate.Core.Messaging
 
                 var session = EngineServices.CreateWorldSession(_configuredPersistenceScope);
                 _current = session;
+                NotifyWorldSessionChanged();
                 return session;
             }
         }
@@ -187,6 +195,7 @@ namespace Constellate.Core.Messaging
                 _configuredPersistenceScope = persistenceScope;
                 var session = EngineServices.CreateWorldSession(persistenceScope);
                 _current = session;
+                NotifyWorldSessionChanged();
                 return session;
             }
         }
@@ -216,7 +225,22 @@ namespace Constellate.Core.Messaging
                 finally
                 {
                     _current = null;
+                    NotifyWorldSessionChanged();
                 }
+            }
+        }
+
+        private static void NotifyWorldSessionChanged()
+        {
+            try
+            {
+                WorldSessionChanged?.Invoke();
+            }
+            catch
+            {
+                // Subscribers are best-effort UI/App rebind hooks only.
+                // EngineHost must not fail a world switch because a presentation
+                // subscriber threw while adjusting to the new session.
             }
         }
     }
