@@ -29,7 +29,10 @@ namespace Constellate.App.Worlds
             mainWindow.Show();
         }
 
-        public static bool TrySwitchWorld(WorldDescriptor world, out string? error)
+        public static bool TrySwitchWorld(
+            WorldDescriptor world,
+            bool saveCurrentWorld,
+            out string? error)
         {
             if (world is null)
             {
@@ -39,7 +42,10 @@ namespace Constellate.App.Worlds
 
             try
             {
-                EngineServices.PersistCurrentSceneSnapshot();
+                if (saveCurrentWorld)
+                {
+                    EngineServices.PersistCurrentSceneSnapshot();
+                }
 
                 var scope = CreatePersistenceScope(world);
                 EngineHost.SwitchWorld(scope);
