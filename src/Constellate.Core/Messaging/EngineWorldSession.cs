@@ -8,6 +8,24 @@ using Constellate.Core.Storage;
 namespace Constellate.Core.Messaging
 {
     /// <summary>
+    /// Durable identity summary for an EngineWorldSession.
+    ///
+    /// This is the Core-facing carrier for project/world identity originally recorded
+    /// in EngineProjectRecord. App startup and world-switching paths pass this into
+    /// EngineHost so the active session exposes stable logical identity instead of
+    /// deriving it only from the backing database filename.
+    /// </summary>
+    public sealed record EngineWorldSessionIdentity(
+        string WorldId,
+        string DisplayName,
+        string DatabasePath,
+        bool IsNewWorld,
+        string? ProjectVersion = null,
+        string? EngineSchemaVersion = null,
+        DateTimeOffset? CreatedAt = null,
+        DateTimeOffset? UpdatedAt = null);
+
+    /// <summary>
     /// Represents one concrete engine/runtime world session: a scene, shell scene state,
     /// command/event bus pair, pane catalog, capabilities, engine settings, and persistence scope.
     /// This is the unit that EngineHost will create, activate, and dispose when switching
@@ -29,7 +47,8 @@ namespace Constellate.Core.Messaging
             ShellSceneState shellScene,
             IPaneCatalog paneCatalog,
             ICapabilityRegistry capabilities,
-            EngineSettings settings)
+            EngineSettings settings,
+            EngineWorldSessionIdentity? identity = null)
         {
             PersistenceScope = persistenceScope;
             CommandBus = commandBus ?? throw new ArgumentNullException(nameof(commandBus));
@@ -40,30 +59,49 @@ namespace Constellate.Core.Messaging
             Capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
 
-            var bootstrap = persistenceScope?.BootstrapResult;
-            if (bootstrap is not null)
+            if (identity is not null)
             {
-                WorldDatabasePath = bootstrap.DatabasePath;
-                IsNewWorld = bootstrap.DatabaseFileCreated;
-
-                var fileName = Path.GetFileNameWithoutExtension(bootstrap.DatabasePath);
-                if (string.IsNullOrWhiteSpace(fileName))
-                {
-                    WorldId = bootstrap.DatabasePath;
-                    WorldDisplayName = "World";
-                }
-                else
-                {
-                    WorldId = fileName;
-                    WorldDisplayName = fileName;
-                }
+                WorldId = identity.WorldId;
+                WorldDisplayName = identity.DisplayName;
+                WorldDatabasePath = identity.DatabasePath;
+                IsNewWorld = identity.IsNewWorld;
+                ProjectVersion = identity.ProjectVersion;
+                EngineSchemaVersion = identity.EngineSchemaVersion;
+                CreatedAt = identity.CreatedAt;
+                UpdatedAt = identity.UpdatedAt;
             }
             else
             {
-                WorldDatabasePath = null;
-                WorldId = "world:in-memory";
-                WorldDisplayName = "In-memory World";
-                IsNewWorld = false;
+                var bootstrap = persistenceScope?.BootstrapResult;
+                if (bootstrap is not null)
+                {
+                    WorldDatabasePath = bootstrap.DatabasePath;
+                    IsNewWorld = bootstrap.DatabaseFileCreated;
+
+                    var fileName = Path.GetFileNameWithoutExtension(bootstrap.DatabasePath);
+                    if (string.IsNullOrWhiteSpace(fileName))
+                    {
+                        WorldId = bootstrap.DatabasePath;
+                        WorldDisplayName = "World";
+                    }
+                    else
+                    {
+                        WorldId = fileName;
+                        WorldDisplayName = fileName;
+                    }
+                }
+                else
+                {
+                    WorldDatabasePath = null;
+                    WorldId = "world:in-memory";
+                    WorldDisplayName = "In-memory World";
+                    IsNewWorld = false;
+                }
+
+                ProjectVersion = null;
+                EngineSchemaVersion = null;
+                CreatedAt = null;
+                UpdatedAt = null;
             }
         }
 
@@ -97,6 +135,26 @@ namespace Constellate.Core.Messaging
         /// created for this run (new world) versus an existing file (existing world).
         /// </summary>
         public bool IsNewWorld { get; }
+
+        /// <summary>
+        /// Project-level version marker recorded in EngineProjectRecord, when available.
+        /// </summary>
+        public string? ProjectVersion { get; }
+
+        /// <summary>
+        /// Engine schema version recorded in EngineProjectRecord, when available.
+        /// </summary>
+        public string? EngineSchemaVersion { get; }
+
+        /// <summary>
+        /// Original creation timestamp recorded in EngineProjectRecord, when available.
+        /// </summary>
+        public DateTimeOffset? CreatedAt { get; }
+
+        /// <summary>
+        /// Last update timestamp recorded in EngineProjectRecord, when available.
+        /// </summary>
+        public DateTimeOffset? UpdatedAt { get; }
 
         /// <summary>
         /// World-scoped command bus instance.

@@ -32,6 +32,10 @@ namespace Constellate.App.ViewModels.Worlds
         public string? CurrentWorldDisplayName => EngineHost.CurrentWorldDisplayName;
         public string? CurrentWorldDatabasePath => EngineHost.CurrentWorldDatabasePath;
         public bool CurrentWorldIsNewWorld => EngineHost.CurrentWorldIsNewWorld;
+        public string? CurrentWorldProjectVersion => EngineHost.CurrentWorldProjectVersion;
+        public string? CurrentWorldEngineSchemaVersion => EngineHost.CurrentWorldEngineSchemaVersion;
+        public DateTimeOffset? CurrentWorldCreatedAt => EngineHost.CurrentWorldCreatedAt;
+        public DateTimeOffset? CurrentWorldUpdatedAt => EngineHost.CurrentWorldUpdatedAt;
 
         public WorldDescriptor? SelectedWorld
         {
@@ -103,6 +107,10 @@ namespace Constellate.App.ViewModels.Worlds
             OnPropertyChanged(nameof(CurrentWorldDisplayName));
             OnPropertyChanged(nameof(CurrentWorldDatabasePath));
             OnPropertyChanged(nameof(CurrentWorldIsNewWorld));
+            OnPropertyChanged(nameof(CurrentWorldProjectVersion));
+            OnPropertyChanged(nameof(CurrentWorldEngineSchemaVersion));
+            OnPropertyChanged(nameof(CurrentWorldCreatedAt));
+            OnPropertyChanged(nameof(CurrentWorldUpdatedAt));
         }
 
         public void SaveWorldNow()

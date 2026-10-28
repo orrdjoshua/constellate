@@ -23,6 +23,7 @@ namespace Constellate.Core.Messaging
 
         private static IEnginePersistenceScope? _configuredPersistenceScope;
         private static EngineWorldSession? _current;
+        private static EngineWorldSessionIdentity? _pendingWorldIdentity;
 
         /// <summary>
         /// Raised after the active world session has been created, switched, or shut down.
@@ -112,6 +113,50 @@ namespace Constellate.Core.Messaging
             }
         }
 
+        public static string? CurrentWorldProjectVersion
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.ProjectVersion;
+                }
+            }
+        }
+
+        public static string? CurrentWorldEngineSchemaVersion
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.EngineSchemaVersion;
+                }
+            }
+        }
+
+        public static DateTimeOffset? CurrentWorldCreatedAt
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.CreatedAt;
+                }
+            }
+        }
+
+        public static DateTimeOffset? CurrentWorldUpdatedAt
+        {
+            get
+            {
+                lock (Gate)
+                {
+                    return _current?.UpdatedAt;
+                }
+            }
+        }
+
         /// <summary>
         /// Configure the persistence scope that should be used when creating the first
         /// world session for this process. Program/App startup is expected to call this
@@ -127,6 +172,16 @@ namespace Constellate.Core.Messaging
             lock (Gate)
             {
                 _configuredPersistenceScope = persistenceScope;
+            }
+        }
+
+        public static void ConfigureWorldIdentity(EngineWorldSessionIdentity identity)
+        {
+            ArgumentNullException.ThrowIfNull(identity);
+
+            lock (Gate)
+            {
+                _pendingWorldIdentity = identity;
             }
         }
 
@@ -147,7 +202,10 @@ namespace Constellate.Core.Messaging
                     return _current;
                 }
 
-                var session = EngineServices.CreateWorldSession(_configuredPersistenceScope);
+                var identity = _pendingWorldIdentity;
+                _pendingWorldIdentity = null;
+
+                var session = EngineServices.CreateWorldSession(_configuredPersistenceScope, identity);
                 _current = session;
                 NotifyWorldSessionChanged();
                 return session;
@@ -178,7 +236,9 @@ namespace Constellate.Core.Messaging
         /// NotImplementedException so that the shape of the API is clear while we
         /// still rely on the existing EngineServices static kernel.
         /// </summary>
-        public static EngineWorldSession SwitchWorld(IEnginePersistenceScope persistenceScope)
+        public static EngineWorldSession SwitchWorld(
+            IEnginePersistenceScope persistenceScope,
+            EngineWorldSessionIdentity? identity = null)
         {
             if (persistenceScope is null) throw new ArgumentNullException(nameof(persistenceScope));
 
@@ -192,8 +252,11 @@ namespace Constellate.Core.Messaging
                     current.Dispose();
                 }
 
+                var nextIdentity = identity ?? _pendingWorldIdentity;
+                _pendingWorldIdentity = null;
+
                 _configuredPersistenceScope = persistenceScope;
-                var session = EngineServices.CreateWorldSession(persistenceScope);
+                var session = EngineServices.CreateWorldSession(persistenceScope, nextIdentity);
                 _current = session;
                 NotifyWorldSessionChanged();
                 return session;
