@@ -74,7 +74,7 @@ namespace Constellate.App.Worlds
                     Path.GetFileName(world.DatabaseFilePath));
 
             var bootstrap = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
-            return new SeedPersistenceScope(bootstrap);
+            return new SqlitePersistenceScope(bootstrap);
         }
     }
 }
