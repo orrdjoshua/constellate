@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Constellate.Core.Capabilities.Panes;
 using Constellate.Core.Storage;
 using Constellate.Persistence.Archive;
@@ -37,6 +38,13 @@ namespace Constellate.Persistence.Bootstrap
             AuthoringRegistryStore = new SqliteAuthoringRegistryStore(
                 bootstrapResult,
                 seedDefaultsOnInitialize: bootstrapResult.DatabaseFileCreated);
+
+            var engineProjectStore = new SqliteEngineProjectStore(bootstrapResult);
+            engineProjectStore.EnsureInitialized();
+            if (!engineProjectStore.TryGet(out _))
+            {
+                engineProjectStore.Upsert(BuildDefaultEngineProjectRecord(bootstrapResult));
+            }
 
             if (bootstrapResult.DatabaseFileCreated)
             {
@@ -77,6 +85,21 @@ namespace Constellate.Persistence.Bootstrap
             {
                 PaneWorkspaceStore.Upsert(workspace);
             }
+        }
+
+        private static EngineProjectRecord BuildDefaultEngineProjectRecord(
+            PersistenceBootstrapResult bootstrapResult)
+        {
+            var displayName = Path.GetFileNameWithoutExtension(bootstrapResult.DatabasePath);
+            var now = DateTimeOffset.UtcNow;
+
+            return new EngineProjectRecord(
+                ProjectId: $"world-{Guid.NewGuid():N}",
+                DisplayName: displayName,
+                ProjectVersion: SqliteEngineProjectStore.CurrentProjectVersion,
+                EngineSchemaVersion: SqliteEngineProjectStore.CurrentEngineSchemaVersion,
+                CreatedAt: now,
+                UpdatedAt: now);
         }
 
         public void EnsureInitialized()
