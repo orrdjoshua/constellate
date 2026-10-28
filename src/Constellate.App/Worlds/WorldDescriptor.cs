@@ -20,7 +20,7 @@ namespace Constellate.App.Worlds
     /// Later phases will populate CreatedAt/LastOpenedAt/EngineSchemaVersion/ProjectVersion
     /// from EngineProjectRecord and schema-metadata reads once those lanes are fully wired.
     /// </summary>
-    internal sealed record WorldDescriptor(
+    public sealed record WorldDescriptor(
         /// <summary>
         /// Stable logical identifier for the world (e.g., from EngineProjectRecord.ProjectId).
         /// Not tied to the absolute database file path so worlds can be moved between roots.
