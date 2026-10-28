@@ -31,6 +31,21 @@ namespace Constellate.App.Worlds
             mainWindow.Show();
         }
 
+        public static bool TryOpenWorld(WorldDescriptor world, out string? error)
+        {
+            try
+            {
+                OpenWorld(world);
+                error = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
         public static bool TrySwitchWorld(
             WorldDescriptor world,
             bool saveCurrentWorld,

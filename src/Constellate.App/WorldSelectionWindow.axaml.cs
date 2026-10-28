@@ -3,15 +3,14 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Constellate.App.ViewModels.Worlds;
 using Constellate.App.Worlds;
-using Constellate.Core.Messaging;
-using Constellate.Core.Storage;
-using Constellate.Persistence.Bootstrap;
 
 namespace Constellate.App
 {
@@ -112,24 +111,75 @@ namespace Constellate.App
             }
             catch (Exception)
             {
-                // Keep the chooser open and its current selection intact.
+                await ShowOpenWorldErrorAsync("The selected folder could not be added as a world library root.");
             }
         }
 
+        private void WorldList_OnDoubleTapped(object? sender, TappedEventArgs e)
+        {
+            OpenSelectedWorld();
+        }
+
         private void OpenSelected_OnClick(object? sender, RoutedEventArgs e)
+        {
+            OpenSelectedWorld();
+        }
+
+        private async void OpenSelectedWorld()
         {
             if (_viewModel.SelectedWorld is not { } selected)
             {
                 return;
             }
 
-            OpenWorld(selected);
+            if (!WorldSessionCoordinator.TryOpenWorld(selected, out var error))
+            {
+                await ShowOpenWorldErrorAsync(
+                    string.IsNullOrWhiteSpace(error)
+                        ? "The selected world could not be opened."
+                        : error);
+                return;
+            }
+
+            Close();
         }
 
-        private void OpenWorld(WorldDescriptor world)
+        private async System.Threading.Tasks.Task ShowOpenWorldErrorAsync(string message)
         {
-            WorldSessionCoordinator.OpenWorld(world);
-            Close();
+            var dialog = new Window
+            {
+                Title = "Open World",
+                Width = 470,
+                Height = 190,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                CanResize = false,
+                ShowInTaskbar = false
+            };
+
+            var root = new StackPanel
+            {
+                Margin = new Thickness(18),
+                Spacing = 12
+            };
+
+            var messageBlock = new TextBlock
+            {
+                Text = message,
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            var closeButton = new Button
+            {
+                Content = "OK",
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            closeButton.Click += (_, _) => dialog.Close();
+
+            root.Children.Add(messageBlock);
+            root.Children.Add(closeButton);
+            dialog.Content = root;
+
+            await dialog.ShowDialog(this);
         }
 
         private static WorldDescriptor BuildDescriptorFromPath(string path, string rootId)
