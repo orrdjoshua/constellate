@@ -18,14 +18,18 @@ namespace Constellate.Persistence.Registry
     public sealed class SqliteAuthoringRegistryStore : IAuthoringRegistryStore, IAuthoringRegistryWriteStore
     {
         private readonly string _dbPath;
+        private readonly bool _seedDefaultsOnInitialize;
 
-        public SqliteAuthoringRegistryStore(PersistenceBootstrapResult bootstrap)
+        public SqliteAuthoringRegistryStore(
+            PersistenceBootstrapResult bootstrap,
+            bool seedDefaultsOnInitialize = false)
         {
             if (bootstrap is null) throw new ArgumentNullException(nameof(bootstrap));
             if (string.IsNullOrWhiteSpace(bootstrap.DatabasePath))
                 throw new ArgumentException("Persistence bootstrap database path is missing.");
 
             _dbPath = bootstrap.DatabasePath;
+            _seedDefaultsOnInitialize = seedDefaultsOnInitialize;
         }
 
         public void EnsureInitialized()
@@ -142,8 +146,9 @@ CREATE TABLE IF NOT EXISTS registry_generations(
                 }
             }
 
-            // Seed visual elements from in-code catalog on first run
-            if (!Any(conn, "SELECT 1 FROM pane_visual_element_types LIMIT 1;"))
+            // Seed visual elements from in-code catalog only for new-world creation.
+            if (_seedDefaultsOnInitialize &&
+                !Any(conn, "SELECT 1 FROM pane_visual_element_types LIMIT 1;"))
             {
                 var now = UtcNowIso();
                 foreach (var e in PaneAuthoringCatalog.GetElementEntries())
@@ -172,8 +177,9 @@ VALUES ($id, $cls);",
                 BumpGeneration(conn, "authoring");
             }
 
-            // Seed bundles from in-code catalog on first run
-            if (!Any(conn, "SELECT 1 FROM pane_capability_bundles LIMIT 1;"))
+            // Seed bundles from in-code catalog only for new-world creation.
+            if (_seedDefaultsOnInitialize &&
+                !Any(conn, "SELECT 1 FROM pane_capability_bundles LIMIT 1;"))
             {
                 var now = UtcNowIso();
                 foreach (var b in PaneAuthoringCatalog.GetBundleEntries())
