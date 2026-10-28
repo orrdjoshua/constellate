@@ -81,11 +81,6 @@ namespace Constellate.Core.Messaging
 
             var entriesById = new Dictionary<string, PaneAuthoringElementCatalogEntry>(StringComparer.Ordinal);
 
-            foreach (var entry in PaneAuthoringCatalog.GetElementEntries())
-            {
-                entriesById[entry.ElementTypeId] = entry;
-            }
-
             var authoringRegistryStore = GetAuthoringRegistryStore();
             if (authoringRegistryStore is not null)
             {
@@ -106,11 +101,6 @@ namespace Constellate.Core.Messaging
             EnsureInitialized();
 
             var bundlesById = new Dictionary<string, PaneAuthoringBundleCatalogEntry>(StringComparer.Ordinal);
-
-            foreach (var bundle in PaneAuthoringCatalog.GetBundleEntries())
-            {
-                bundlesById[bundle.BundleId] = bundle;
-            }
 
             var authoringRegistryStore = GetAuthoringRegistryStore();
             if (authoringRegistryStore is not null)
@@ -307,11 +297,6 @@ namespace Constellate.Core.Messaging
         {
             var definitionsById = new Dictionary<string, PaneDefinitionDescriptor>(StringComparer.Ordinal);
 
-            foreach (var definition in PaneCatalog.GetPaneDefinitions())
-            {
-                definitionsById[definition.PaneDefinitionId] = definition;
-            }
-
             if (PersistenceScope?.PaneDefinitionStore is not null)
             {
                 foreach (var definition in PersistenceScope.PaneDefinitionStore.ListAll())
@@ -329,11 +314,6 @@ namespace Constellate.Core.Messaging
         private static IReadOnlyList<PaneWorkspaceDescriptor> BuildPaneWorkspaceSnapshot()
         {
             var workspacesById = new Dictionary<string, PaneWorkspaceDescriptor>(StringComparer.Ordinal);
-
-            foreach (var workspace in PaneCatalog.GetWorkspaceDefinitions())
-            {
-                workspacesById[workspace.WorkspaceId] = workspace;
-            }
 
             if (PersistenceScope?.PaneWorkspaceStore is not null)
             {
