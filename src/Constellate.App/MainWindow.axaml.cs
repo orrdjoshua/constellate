@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Constellate.App.Worlds;
 using Constellate.Core.Messaging;
 
 namespace Constellate.App
@@ -16,6 +17,7 @@ namespace Constellate.App
         {
             InitializeComponent();
             DataContext = new MainWindowViewModel();
+            WorldAutoSaveCoordinator.Initialize(ProjectPathResolver.ResolveProjectRootPath());
             EngineHost.WorldSessionChanged += MainWindow_OnWorldSessionChanged;
 
             InitializeShellLayoutBridge();
