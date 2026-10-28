@@ -29,14 +29,32 @@ namespace Constellate.Core.Messaging
         private const string DefaultResourceSummarySurfaceRole = "resource.summary";
         private const string DefaultResourceSummaryViewRefPrefix = "resource.summary";
 
-        public static ICommandBus CommandBus { get; private set; } = null!;
-        public static IEventBus EventBus { get; private set; } = null!;
-        public static EngineScene Scene { get; private set; } = null!;
-        public static ShellSceneState ShellScene { get; private set; } = null!;
-        public static ICapabilityRegistry Capabilities { get; private set; } = null!;
-        public static IPaneCatalog PaneCatalog { get; private set; } = null!;
-        public static EngineSettings Settings { get; private set; } = null!;
-        public static IEnginePersistenceScope? PersistenceScope { get; private set; }
+        private static IEnginePersistenceScope? _persistenceScope;
+
+        public static ICommandBus CommandBus =>
+            EngineHost.Current?.CommandBus ?? throw new InvalidOperationException("No active world session.");
+
+        public static IEventBus EventBus =>
+            EngineHost.Current?.EventBus ?? throw new InvalidOperationException("No active world session.");
+
+        public static EngineScene Scene =>
+            EngineHost.Current?.Scene ?? throw new InvalidOperationException("No active world session.");
+
+        public static ShellSceneState ShellScene =>
+            EngineHost.Current?.ShellScene ?? throw new InvalidOperationException("No active world session.");
+
+        public static ICapabilityRegistry Capabilities =>
+            EngineHost.Current?.Capabilities ?? throw new InvalidOperationException("No active world session.");
+
+        public static IPaneCatalog PaneCatalog =>
+            EngineHost.Current?.PaneCatalog ?? throw new InvalidOperationException("No active world session.");
+
+        public static EngineSettings Settings =>
+            EngineHost.Current?.Settings ?? throw new InvalidOperationException("No active world session.");
+
+        public static IEnginePersistenceScope? PersistenceScope =>
+            EngineHost.Current?.PersistenceScope ?? _persistenceScope;
+
         public static PersistenceBootstrapResult? PersistenceBootstrapResult => PersistenceScope?.BootstrapResult;
 
         // Telemetry: DB vs. seed authoring-registry resolution
@@ -113,34 +131,6 @@ namespace Constellate.Core.Messaging
                 .OrderBy(bundle => bundle.DisplayLabel, StringComparer.Ordinal)
                 .ThenBy(bundle => bundle.BundleId, StringComparer.Ordinal)
                 .ToArray();
-        }
-
-        public static IReadOnlyList<PaneAuthoringBundleCatalogEntry> ListPaneAuthoringBundleEntries()
-        {
-            EnsureInitialized();
-            var store = PersistenceScope?.AuthoringRegistryStore;
-            if (store is not null)
-            {
-                var items = store.ListAuthoringBundles();
-                if (items is { Count: > 0 })
-                {
-                    _authoringRegistryDbHits++;
-                    _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
-                    _lastAuthoringRegistryResolutionKind = "db";
-                    PublishEvent(
-                        EventNames.AuthoringRegistryResolution,
-                        new { source = "db", scope = "authoring_bundles" });
-                    return items;
-                }
-            }
-            // Fallback to seeded bundles
-            _authoringRegistrySeedFallbacks++;
-            _lastAuthoringRegistryResolutionAt = DateTimeOffset.UtcNow;
-            _lastAuthoringRegistryResolutionKind = "seed";
-            PublishEvent(
-                EventNames.AuthoringRegistryResolution,
-                new { source = "seed", scope = "authoring_bundles" });
-            return PaneAuthoringCatalog.GetBundleEntries();
         }
 
         public static bool TryGetAuthoringElementEntry(
@@ -365,138 +355,53 @@ namespace Constellate.Core.Messaging
                 .ToArray();
         }
 
-        // Developer-only: upsert a test authoring element into DB registries (if write store available).
-        // Returns true when upsert succeeded; elementTypeId is the canonical id.
-        public static bool TryUpsertTestAuthoringElement(out string elementTypeId)
-        {
-            EnsureInitialized();
-            elementTypeId = "authoring.element.test_button";
-            if (PersistenceScope?.AuthoringRegistryStore is not IAuthoringRegistryWriteStore writeStore)
-            {
-                return false;
-            }
-
-            var entry = new PaneAuthoringElementCatalogEntry(
-                ElementTypeId: elementTypeId,
-                ElementKind: PaneElementKind.Button,
-                DisplayLabel: "Test Button (DB)",
-                Description: "Developer-upserted test element stored in DB.",
-                DefaultWidth: 180,
-                DefaultHeight: 56,
-                DefaultHostClasses: new[] { PaneCapabilityHostClass.InvocationHost }
-            );
-            writeStore.UpsertAuthoringElement(entry);
-            // Touch read path to record telemetry and ensure next reads are hot-consumed
-            _ = ListPaneAuthoringElementEntries();
-            return true;
-        }
-
-        // Developer-only: upsert a test authoring bundle that references the test element and a seeded element type.
-        // Returns true when upsert succeeded; bundleId is the canonical id.
-        public static bool TryUpsertTestAuthoringBundle(out string bundleId)
-        {
-            EnsureInitialized();
-            bundleId = "authoring.bundle.test_quick";
-            if (PersistenceScope?.AuthoringRegistryStore is not IAuthoringRegistryWriteStore writeStore)
-            {
-                return false;
-            }
-
-            // Ensure the test element exists first
-            _ = TryUpsertTestAuthoringElement(out var testElementTypeId);
-
-            // Reference at least one seeded type to demonstrate mixed bundle composition
-            var textBlockTypeId = "authoring.element.text_block";
-            var statusBadgeTypeId = "authoring.element.status_badge";
-
-            var specs = new[]
-            {
-                new PaneAuthoringBundleElementSpec(
-                    ElementTypeId: textBlockTypeId,
-                    ElementKind: PaneElementKind.TextBlock,
-                    DisplayLabel: "Test Bundle Heading",
-                    Description: "Heading for the developer test bundle.",
-                    DefaultWidth: 240,
-                    DefaultHeight: 72,
-                    DefaultHostClasses: new[] { PaneCapabilityHostClass.TextDisplayHost },
-                    DefaultCapabilityId: null
-                ),
-                new PaneAuthoringBundleElementSpec(
-                    ElementTypeId: testElementTypeId,
-                    ElementKind: PaneElementKind.Button,
-                    DisplayLabel: "Test Button (DB)",
-                    Description: "Developer-upserted button from DB.",
-                    DefaultWidth: 180,
-                    DefaultHeight: 56,
-                    DefaultHostClasses: new[] { PaneCapabilityHostClass.InvocationHost },
-                    DefaultCapabilityId: null
-                ),
-                new PaneAuthoringBundleElementSpec(
-                    ElementTypeId: statusBadgeTypeId,
-                    ElementKind: PaneElementKind.StatusBadge,
-                    DisplayLabel: "Test Status",
-                    Description: "Compact status badge in the test bundle.",
-                    DefaultWidth: 180,
-                    DefaultHeight: 44,
-                    DefaultHostClasses: new[] { PaneCapabilityHostClass.StatusBadgeHost },
-                    DefaultCapabilityId: null
-                )
-            };
-
-            var bundle = new PaneAuthoringBundleCatalogEntry(
-                BundleId: bundleId,
-                DisplayLabel: "Test Quick Bundle (DB)",
-                Description: "Developer-upserted sample bundle stored in DB.",
-                Elements: specs
-            );
-
-            writeStore.UpsertAuthoringBundle(bundle);
-            // Touch read path to record telemetry and ensure next reads are hot-consumed
-            _ = ListPaneAuthoringBundleEntries();
-            return true;
-        }
-
-        private static bool _initialized;
-
         public static void ConfigurePersistence(IEnginePersistenceScope persistenceScope)
         {
             ArgumentNullException.ThrowIfNull(persistenceScope);
-
-            if (_initialized)
-            {
-                return;
-            }
-
-            PersistenceScope = persistenceScope;
+            _persistenceScope = persistenceScope;
         }
 
         public static void EnsureInitialized()
         {
-            if (_initialized) return;
+            _ = EngineHost.EnsureWorldSession();
+        }
+
+        public static EngineWorldSession CreateWorldSession(IEnginePersistenceScope? persistenceScope)
+        {
+            _persistenceScope = persistenceScope;
 
             var bus = new SimpleInProcBus();
-            CommandBus = bus;
-            EventBus = bus;
-            Scene = new EngineScene();
-            ShellScene = new ShellSceneState(Scene);
+            var scene = new EngineScene();
+            var shellScene = new ShellSceneState(scene);
             var paneCatalog = new SeededPaneCatalog();
-            PaneCatalog = paneCatalog;
-            Capabilities = new CapabilityRegistry(paneCatalog);
-            Settings = new EngineSettings();
+            var capabilities = new CapabilityRegistry(paneCatalog);
+            var settings = new EngineSettings();
+
+            var session = new EngineWorldSession(
+                persistenceScope,
+                bus,
+                bus,
+                scene,
+                shellScene,
+                paneCatalog,
+                capabilities,
+                settings);
+
+            EngineHost.AdoptSession(session);
 
             InitializePersistence();
 
-            if (!TryRestorePersistedScene(Scene))
+            if (!TryRestorePersistedScene(scene))
             {
-                SeedDefaultScene(Scene);
+                SeedDefaultScene(scene);
                 PersistCurrentSceneSnapshot();
             }
 
-            RegisterCommandHandlers(CommandBus, Scene);
-            RegisterEventHandlers(EventBus, Scene);
-            SeedCapabilities(Capabilities);
+            RegisterCommandHandlers(bus, scene);
+            RegisterEventHandlers(bus, scene);
+            SeedCapabilities(capabilities);
 
-            _initialized = true;
+            return session;
         }
 
         public static void PersistCurrentSceneSnapshot()

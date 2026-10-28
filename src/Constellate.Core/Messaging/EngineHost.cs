@@ -25,6 +25,13 @@ namespace Constellate.Core.Messaging
         private static EngineWorldSession? _current;
 
         /// <summary>
+        /// Raised after the active world session has been created, switched, or shut down.
+        /// App/UI subscription owners should subscribe to this instead of caching the bus,
+        /// scene, or persistence scope across world switches.
+        /// </summary>
+        public static event Action? WorldSessionChanged;
+
+        /// <summary>
         /// The currently active world session, or null if none has been created yet.
         /// </summary>
         public static EngineWorldSession? Current
@@ -140,25 +147,18 @@ namespace Constellate.Core.Messaging
                     return _current;
                 }
 
-                // Bridge pass:
-                // For now we delegate initialization to the existing EngineServices kernel
-                // and then wrap its static state in an EngineWorldSession. Later Phase‑5
-                // work will move the initialization logic itself into this host/session
-                // layer so the engine can truly run multiple worlds in-process.
-                EngineServices.EnsureInitialized();
-
-                var session = new EngineWorldSession(
-                    EngineServices.PersistenceScope,
-                    EngineServices.CommandBus,
-                    EngineServices.EventBus,
-                    EngineServices.Scene,
-                    EngineServices.ShellScene,
-                    EngineServices.PaneCatalog,
-                    EngineServices.Capabilities,
-                    EngineServices.Settings);
-
+                var session = EngineServices.CreateWorldSession(_configuredPersistenceScope);
                 _current = session;
+                NotifyWorldSessionChanged();
                 return session;
+            }
+        }
+
+        internal static void AdoptSession(EngineWorldSession session)
+        {
+            lock (Gate)
+            {
+                _current = session;
             }
         }
 
@@ -184,9 +184,19 @@ namespace Constellate.Core.Messaging
 
             lock (Gate)
             {
-                throw new NotImplementedException(
-                    "EngineHost.SwitchWorld will be implemented in the next Phase 5 refactor " +
-                    "to support in-process world switching.");
+                var current = _current;
+                _current = null;
+
+                if (current is not null)
+                {
+                    current.Dispose();
+                }
+
+                _configuredPersistenceScope = persistenceScope;
+                var session = EngineServices.CreateWorldSession(persistenceScope);
+                _current = session;
+                NotifyWorldSessionChanged();
+                return session;
             }
         }
 
@@ -215,7 +225,22 @@ namespace Constellate.Core.Messaging
                 finally
                 {
                     _current = null;
+                    NotifyWorldSessionChanged();
                 }
+            }
+        }
+
+        private static void NotifyWorldSessionChanged()
+        {
+            try
+            {
+                WorldSessionChanged?.Invoke();
+            }
+            catch
+            {
+                // Subscribers are best-effort UI/App rebind hooks only.
+                // EngineHost must not fail a world switch because a presentation
+                // subscriber threw while adjusting to the new session.
             }
         }
     }

@@ -36,7 +36,7 @@ namespace Constellate.App
                 var bootstrapOptions = BuildPersistenceOptions(projectRootPath);
                 var bootstrapResult = bootstrapper.Bootstrap(bootstrapOptions);
 
-                var persistenceScope = new SeedPersistenceScope(bootstrapResult);
+                var persistenceScope = new SqlitePersistenceScope(bootstrapResult);
                 EngineServices.ConfigurePersistence(persistenceScope);
                 EngineHost.ConfigurePersistenceScope(persistenceScope);
             }

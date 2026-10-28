@@ -91,9 +91,29 @@ namespace Constellate.App
             CreateWorldForm.IsVisible = false;
         }
 
-        private void AddRoot_OnClick(object? sender, RoutedEventArgs e)
+        private async void AddRoot_OnClick(object? sender, RoutedEventArgs e)
         {
-            // Future DB-root management lands in PLAN-129 Phase D.
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Add World Database Folder",
+                AllowMultiple = false
+            });
+
+            var folder = folders?.FirstOrDefault();
+            if (folder is null)
+            {
+                return;
+            }
+
+            try
+            {
+                _worldLibraryService.AddRoot(folder.Path.LocalPath, folder.Name);
+                LoadWorlds();
+            }
+            catch (Exception)
+            {
+                // Keep the chooser open and its current selection intact.
+            }
         }
 
         private void OpenSelected_OnClick(object? sender, RoutedEventArgs e)
@@ -108,35 +128,7 @@ namespace Constellate.App
 
         private void OpenWorld(WorldDescriptor world)
         {
-            var projectRoot = ProjectPathResolver.ResolveProjectRootPath();
-
-            var options = string.IsNullOrWhiteSpace(world.RootId) ||
-                          string.Equals(world.RootId, "ad-hoc", StringComparison.Ordinal)
-                ? new PersistenceBootstrapOptions(
-                    projectRoot,
-                    "Constellate",
-                    DatabaseFilePath: world.DatabaseFilePath)
-                : new PersistenceBootstrapOptions(
-                    projectRoot,
-                    "Constellate",
-                    Path.GetFileName(world.DatabaseFilePath));
-
-            var bootstrap = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
-            var scope = new SeedPersistenceScope(bootstrap);
-
-            EngineServices.ConfigurePersistence(scope);
-            EngineHost.ConfigurePersistenceScope(scope);
-            EngineHost.EnsureWorldSession();
-
-            var lifetime = (IClassicDesktopStyleApplicationLifetime?)Application.Current?.ApplicationLifetime;
-            if (lifetime is null)
-            {
-                return;
-            }
-
-            var mainWindow = new MainWindow();
-            lifetime.MainWindow = mainWindow;
-            mainWindow.Show();
+            WorldSessionCoordinator.OpenWorld(world);
             Close();
         }
 

@@ -8,7 +8,8 @@
         x:DataType="app:MainWindowViewModel"
         Width="1200"
         Height="760"
-        Title="Constellate — Hybrid 2D/3D">
+        Title="Constellate — Hybrid 2D/3D"
+        KeyDown="MainWindow_OnKeyDown">
 
   <Window.Styles>
     <!-- Overlay dock-resize grip hover affordances -->
@@ -112,6 +113,11 @@
 
   <!-- Root grid remains only as a neutral root to layer viewport (below) and overlay (above). -->
   <Grid x:Name="RootGrid" Background="#050911">
+    <!-- Commentary/parity note:
+         The unified overlay composition below is already the real shell/viewport integration seam,
+         but it still reflects some migration-stage layering churn. Future shell work should preserve
+         this single-world overlay posture while continuing to reduce ad hoc bridge-state in how
+         docked, floating, drag-shadow, and corner-affordance layers are composed. -->
     <!-- Layer 0: Full-window 3D viewport -->
     <Border x:Name="ViewportHost"
             HorizontalAlignment="Stretch"
