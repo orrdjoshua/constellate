@@ -16,6 +16,7 @@ namespace Constellate.App.Worlds
 
             EngineServices.ConfigurePersistence(scope);
             EngineHost.ConfigurePersistenceScope(scope);
+            EngineHost.ConfigureWorldIdentity(CreateWorldIdentity(world));
             EngineHost.EnsureWorldSession();
 
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
@@ -48,7 +49,7 @@ namespace Constellate.App.Worlds
                 }
 
                 var scope = CreatePersistenceScope(world);
-                EngineHost.SwitchWorld(scope);
+                EngineHost.SwitchWorld(scope, CreateWorldIdentity(world));
                 error = null;
                 return true;
             }
@@ -75,6 +76,19 @@ namespace Constellate.App.Worlds
 
             var bootstrap = new SqliteProjectPersistenceBootstrapper().Bootstrap(options);
             return new SqlitePersistenceScope(bootstrap);
+        }
+
+        private static EngineWorldSessionIdentity CreateWorldIdentity(WorldDescriptor world)
+        {
+            return new EngineWorldSessionIdentity(
+                world.WorldId,
+                world.DisplayName,
+                world.DatabaseFilePath,
+                world.IsNew,
+                world.ProjectVersion,
+                world.EngineSchemaVersion,
+                world.CreatedAt,
+                world.LastOpenedAt);
         }
     }
 }
