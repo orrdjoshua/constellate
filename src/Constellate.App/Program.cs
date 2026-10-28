@@ -39,6 +39,7 @@ namespace Constellate.App
 
                 var persistenceScope = new SeedPersistenceScope(bootstrapResult);
                 EngineServices.ConfigurePersistence(persistenceScope);
+                EngineHost.ConfigurePersistenceScope(persistenceScope);
             }
             catch
             {
