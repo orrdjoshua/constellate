@@ -50,7 +50,16 @@ namespace Constellate.Persistence.Bootstrap
             var dataDirectoryPath = Path.Combine(projectRootPath, options.DataDirectoryName, "persistence");
             Directory.CreateDirectory(dataDirectoryPath);
 
-            var databasePath = Path.Combine(dataDirectoryPath, options.DatabaseFileName);
+            var databasePath = string.IsNullOrWhiteSpace(options.DatabaseFilePath)
+                ? Path.Combine(dataDirectoryPath, options.DatabaseFileName)
+                : Path.GetFullPath(options.DatabaseFilePath!);
+
+            var databaseDirectory = Path.GetDirectoryName(databasePath);
+            if (!string.IsNullOrWhiteSpace(databaseDirectory))
+            {
+                Directory.CreateDirectory(databaseDirectory);
+            }
+
             var databaseFileCreated = false;
 
             if (!File.Exists(databasePath))
