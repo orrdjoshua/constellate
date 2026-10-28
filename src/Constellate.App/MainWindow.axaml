@@ -8,7 +8,8 @@
         x:DataType="app:MainWindowViewModel"
         Width="1200"
         Height="760"
-        Title="Constellate — Hybrid 2D/3D">
+        Title="Constellate — Hybrid 2D/3D"
+        KeyDown="MainWindow_OnKeyDown">
 
   <Window.Styles>
     <!-- Overlay dock-resize grip hover affordances -->
