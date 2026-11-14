@@ -9,17 +9,21 @@
         Title="Constellate — Select or Create World"
         WindowStartupLocation="CenterScreen">
 
-  <Border Background="#0B1220" Padding="18">
+  <Border Background="{DynamicResource WindowSurface}" Padding="18">
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
       <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,10">
         <TextBlock Text="Constellate Worlds"
                    FontSize="22"
                    FontWeight="SemiBold"
-                   Foreground="#F3F8FD" />
+                   Foreground="{DynamicResource TextPrimary}" />
         <TextBlock Text="Select a world, create a new local world, or open a database file from disk."
                    FontSize="11"
-                   Foreground="#BFD3E4"
+                   Foreground="{DynamicResource TextSecondary}"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="Double-click a world to open it, or select it and choose Open Selected."
+                   FontSize="11"
+                   Foreground="{DynamicResource TextAccent}"
                    TextWrapping="Wrap" />
         <TextBlock Text="Double-click a world to open it, or select it and choose Open Selected."
                    FontSize="11"
@@ -28,17 +32,13 @@
       </StackPanel>
 
       <Border Grid.Row="1"
-              Background="#13212C"
-              BorderBrush="#355066"
-              BorderThickness="1"
-              CornerRadius="6"
+              Classes="card"
               Padding="6">
         <ListBox x:Name="WorldList"
                  ItemsSource="{Binding Worlds}"
                  DoubleTapped="WorldList_OnDoubleTapped"
+                 KeyDown="WorldList_OnKeyDown"
                  SelectedItem="{Binding SelectedWorld, Mode=TwoWay}"
-                 Background="Transparent"
-                 BorderThickness="0"
                  HorizontalAlignment="Stretch"
                  VerticalAlignment="Stretch"
                  MinHeight="260">
@@ -48,14 +48,14 @@
                 <TextBlock Text="{Binding DisplayName}"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#E5EDF7" />
+                           Foreground="{DynamicResource TextHighEmphasis}" />
                 <TextBlock Text="{Binding DatabaseFilePath}"
                            FontSize="10"
-                           Foreground="#9DB3C5"
+                           Foreground="{DynamicResource TextMuted}"
                            TextWrapping="Wrap" />
                 <TextBlock Text="{Binding RootId}"
                            FontSize="10"
-                           Foreground="#7EAFC9" />
+                           Foreground="{DynamicResource TextInfo}" />
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -65,29 +65,26 @@
       <Border Grid.Row="2"
               x:Name="CreateWorldForm"
               IsVisible="False"
-              Background="#142636"
-              BorderBrush="#486983"
-              BorderThickness="1"
-              CornerRadius="6"
+              Classes="settingsCard"
               Padding="12"
               Margin="0,10,0,0">
         <StackPanel Spacing="6">
           <TextBlock Text="New World"
                      FontSize="14"
                      FontWeight="SemiBold"
-                     Foreground="#E4F3FD" />
+                     Foreground="{DynamicResource TextPrimary}" />
           <TextBlock Text="World name"
                      FontSize="10"
-                     Foreground="#9DD1F0" />
+                     Foreground="{DynamicResource TextAccent}" />
           <TextBox x:Name="NewWorldNameBox"
-                   Watermark="My World"
+                   PlaceholderText="My World"
                    MinWidth="320"
                    HorizontalAlignment="Left" />
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
                       HorizontalAlignment="Right">
             <Button Content="Cancel" Click="CancelCreateWorld_OnClick" />
-            <Button Content="Create World" Click="ConfirmCreateWorld_OnClick" />
+            <Button Content="Create World" Classes="primary" Click="ConfirmCreateWorld_OnClick" />
           </StackPanel>
         </StackPanel>
       </Border>
@@ -104,6 +101,7 @@
           <Button Content="New World..."
                   Click="CreateWorld_OnClick" />
           <Button Content="Open Selected"
+                  Classes="primary"
                   Click="OpenSelected_OnClick"
                   IsDefault="True"
                   IsEnabled="{Binding HasSelectedWorld}" />

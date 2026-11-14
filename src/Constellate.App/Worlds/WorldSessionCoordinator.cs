@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Constellate.Core.Messaging;
 using Constellate.Core.Storage;
@@ -82,19 +83,20 @@ namespace Constellate.App.Worlds
         {
             try
             {
-                if (saveCurrentWorld)
-                {
-                    EngineServices.PersistCurrentSceneSnapshot();
-                }
-
-                EngineHost.ShutdownWorld();
-
                 var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
                 if (lifetime is null)
                 {
                     error = "Desktop application lifetime is not available.";
                     return false;
                 }
+
+                if (saveCurrentWorld)
+                {
+                    EngineServices.PersistCurrentSceneSnapshot();
+                }
+
+                lifetime.MainWindow?.Close();
+                EngineHost.ShutdownWorld();
 
                 var selectionWindow = new WorldSelectionWindow();
                 lifetime.MainWindow = selectionWindow;

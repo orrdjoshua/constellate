@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Constellate.App.Worlds;
 using Constellate.Core.Messaging;
+using System;
 
 namespace Constellate.App
 {
@@ -19,6 +20,7 @@ namespace Constellate.App
             DataContext = new MainWindowViewModel();
             WorldAutoSaveCoordinator.Initialize(ProjectPathResolver.ResolveProjectRootPath());
             EngineHost.WorldSessionChanged += MainWindow_OnWorldSessionChanged;
+            Closed += MainWindow_OnClosed;
 
             InitializeShellLayoutBridge();
             InitializePaneGestureHost();
@@ -46,6 +48,11 @@ namespace Constellate.App
             DataContext = new MainWindowViewModel();
             InitializeShellLayoutBridge();
             InitializePaneGestureHost();
+        }
+
+        private void MainWindow_OnClosed(object? sender, EventArgs e)
+        {
+            EngineHost.WorldSessionChanged -= MainWindow_OnWorldSessionChanged;
         }
     }
 }

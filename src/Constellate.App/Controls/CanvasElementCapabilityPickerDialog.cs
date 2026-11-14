@@ -96,19 +96,17 @@ internal static class CanvasElementCapabilityPickerDialog
         var cancelButton = new Button
         {
             Content = "Cancel",
-            MinWidth = 100,
-            Background = CreateBrush("#223142"),
-            Foreground = CreateBrush("#E5EDF7")
+            MinWidth = 100
         };
+        cancelButton.Classes.Add("secondary");
         cancelButton.Click += (_, _) => dialog.Close(null);
 
         var bindButton = new Button
         {
             Content = "Bind Capability",
-            MinWidth = 130,
-            Background = CreateBrush("#2D5A7A"),
-            Foreground = CreateBrush("#E5EDF7")
+            MinWidth = 130
         };
+        bindButton.Classes.Add("primary");
         bindButton.Click += (_, _) =>
         {
             if (listBox.SelectedItem is PaneCapabilityDescriptor selected)
@@ -162,6 +160,39 @@ internal static class CanvasElementCapabilityPickerDialog
 
     private static IBrush CreateBrush(string hex)
     {
+        var key = hex.ToUpperInvariant() switch
+        {
+            "#101722" => "DialogSurface",
+            "#152230" => "SurfaceHover",
+            "#355066" => "BorderSubtle",
+            "#E5EDF7" => "TextHighEmphasis",
+            "#D5E4F1" => "TextSecondary",
+            "#223142" => "ButtonSecondaryBackground",
+            "#2D5A7A" => "PrimaryButtonBackground",
+            "#BFD3E4" => "TextSecondary",
+            "#9DD1F0" => "TextAccent",
+            "#FFE5B8" => "TextWarning",
+            _ => null
+        };
+
+        if (key is not null && TryGetThemeBrush(key, out var brush))
+        {
+            return brush;
+        }
+
         return new SolidColorBrush(Color.Parse(hex));
+    }
+
+    private static bool TryGetThemeBrush(string key, out IBrush brush)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true &&
+            value is IBrush resourceBrush)
+        {
+            brush = resourceBrush;
+            return true;
+        }
+
+        brush = null!;
+        return false;
     }
 }

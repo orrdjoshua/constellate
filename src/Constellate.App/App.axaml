@@ -3,7 +3,161 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:fluent="clr-namespace:Avalonia.Themes.Fluent;assembly=Avalonia.Themes.Fluent"
              x:Class="Constellate.App.App">
+
+  <Application.Resources>
+    <SolidColorBrush x:Key="AppBackground" Color="#050911"/>
+    <SolidColorBrush x:Key="WindowSurface" Color="#0B1220"/>
+    <SolidColorBrush x:Key="CardSurface" Color="#13212C"/>
+    <SolidColorBrush x:Key="SettingsSurface" Color="#142636"/>
+    <SolidColorBrush x:Key="ResourceSurface" Color="#162535"/>
+    <SolidColorBrush x:Key="WarningSurface" Color="#332514"/>
+    <SolidColorBrush x:Key="WarningBorder" Color="#8C6933"/>
+    <SolidColorBrush x:Key="PaneChromeSurface" Color="#121A23"/>
+    <SolidColorBrush x:Key="DeepSurface" Color="#101A24"/>
+    <SolidColorBrush x:Key="DialogSurface" Color="#101722"/>
+    <SolidColorBrush x:Key="SurfaceHover" Color="#152230"/>
+
+    <SolidColorBrush x:Key="TextPrimary" Color="#F3F8FD"/>
+    <SolidColorBrush x:Key="TextHighEmphasis" Color="#E5EDF7"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#D5E4F1"/>
+    <SolidColorBrush x:Key="TextMuted" Color="#9DB3C5"/>
+    <SolidColorBrush x:Key="TextAccent" Color="#9DD1F0"/>
+    <SolidColorBrush x:Key="TextInfo" Color="#7DD3FC"/>
+    <SolidColorBrush x:Key="TextWarning" Color="#FFE5B8"/>
+
+    <SolidColorBrush x:Key="ButtonBackground" Color="#20384A"/>
+    <SolidColorBrush x:Key="ButtonBackgroundHover" Color="#2B4C64"/>
+    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#172B3A"/>
+    <SolidColorBrush x:Key="ButtonForeground" Color="#F3F8FD"/>
+    <SolidColorBrush x:Key="ButtonBorder" Color="#557A96"/>
+    <SolidColorBrush x:Key="PrimaryButtonBackground" Color="#2D5A7A"/>
+    <SolidColorBrush x:Key="PrimaryButtonBackgroundHover" Color="#3E6F94"/>
+    <SolidColorBrush x:Key="PrimaryButtonBackgroundPressed" Color="#1F4259"/>
+    <SolidColorBrush x:Key="PaneButtonBackground" Color="#233142"/>
+    <SolidColorBrush x:Key="ButtonSecondaryBackground" Color="#223142"/>
+    <SolidColorBrush x:Key="ButtonSecondaryBackgroundHover" Color="#2A4056"/>
+    <SolidColorBrush x:Key="ButtonSecondaryBackgroundPressed" Color="#18232F"/>
+    <SolidColorBrush x:Key="ButtonSecondaryForeground" Color="#F3F8FD"/>
+
+    <SolidColorBrush x:Key="BorderSubtle" Color="#355066"/>
+    <SolidColorBrush x:Key="BorderStrong" Color="#486983"/>
+    <SolidColorBrush x:Key="FocusAccent" Color="#7DD3FC"/>
+    <SolidColorBrush x:Key="DragAccent" Color="#FFC48A"/>
+    <SolidColorBrush x:Key="InputBackground" Color="#0B1220"/>
+  </Application.Resources>
+
   <Application.Styles>
     <fluent:FluentTheme />
+
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextHighEmphasis}"/>
+    </Style>
+
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+    </Style>
+
+    <Style Selector="TextBlock.accent">
+      <Setter Property="Foreground" Value="{DynamicResource TextAccent}"/>
+    </Style>
+
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}"/>
+      <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="12,7"/>
+      <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonBackgroundHover}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusAccent}"/>
+    </Style>
+
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}"/>
+    </Style>
+
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource PrimaryButtonBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryButtonBackground}"/>
+    </Style>
+
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PrimaryButtonBackgroundHover}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusAccent}"/>
+    </Style>
+
+    <Style Selector="Button.primary:pressed">
+      <Setter Property="Background" Value="{DynamicResource PrimaryButtonBackgroundPressed}"/>
+    </Style>
+
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource ButtonSecondaryForeground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}"/>
+    </Style>
+
+    <Style Selector="Button.secondary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundHover}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource FocusAccent}"/>
+    </Style>
+
+    <Style Selector="Button.secondary:pressed">
+      <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundPressed}"/>
+    </Style>
+
+    <Style Selector="Button.paneAction">
+      <Setter Property="Background" Value="{DynamicResource PaneButtonBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextHighEmphasis}"/>
+      <Setter Property="Padding" Value="0"/>
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextHighEmphasis}"/>
+      <Setter Property="Background" Value="{DynamicResource InputBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource FocusAccent}"/>
+    </Style>
+
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextHighEmphasis}"/>
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource CardSurface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+
+    <Style Selector="Border.resourceCard">
+      <Setter Property="Background" Value="{DynamicResource ResourceSurface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+
+    <Style Selector="Border.settingsCard">
+      <Setter Property="Background" Value="{DynamicResource SettingsSurface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderStrong}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="6"/>
+    </Style>
+
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextHighEmphasis}"/>
+    </Style>
   </Application.Styles>
 </Application>

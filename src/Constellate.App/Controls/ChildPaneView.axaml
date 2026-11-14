@@ -77,16 +77,16 @@
           <Grid>
             <TextBlock Text="{Binding Title}"
                        FontSize="12"
-                       Foreground="#E5EDF7"
+                       Foreground="{DynamicResource TextHighEmphasis}"
                        VerticalAlignment="Center"
                        IsVisible="{Binding IsInlineRenaming, Converter={StaticResource BooleanNotConverter}}"/>
             <TextBox x:Name="InlineRenameEditor"
                      IsVisible="{Binding IsInlineRenaming}"
                      MinWidth="180"
                      Padding="4,0"
-                     Background="#162432"
-                     Foreground="#E5EDF7"
-                     BorderBrush="#7DD3FC"
+                    Background="{DynamicResource InputBackground}"
+                    Foreground="{DynamicResource TextHighEmphasis}"
+                    BorderBrush="{DynamicResource FocusAccent}"
                      BorderThickness="1"
                      PlaceholderText="Pane title"
                      KeyDown="OnInlineRenameKeyDown"
@@ -205,8 +205,8 @@
                   Height="20"
                   Padding="0"
                   Content="–"
-                  Foreground="#E5EDF7"
-                  Background="#233142"
+                  Foreground="{DynamicResource TextHighEmphasis}"
+                  Background="{DynamicResource PaneButtonBackground}"
                   ToolTip.Tip="Minimize child pane"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).MinimizeChildPaneCommand}"
                   CommandParameter="{Binding Id}" />
@@ -214,8 +214,8 @@
                   Height="20"
                   Padding="0"
                   Content="×"
-                  Foreground="#E5EDF7"
-                  Background="#233142"
+                  Foreground="{DynamicResource TextHighEmphasis}"
+                  Background="{DynamicResource PaneButtonBackground}"
                   ToolTip.Tip="Destroy pane"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
                   CommandParameter="{Binding Id}" />
@@ -230,8 +230,8 @@
                   Height="20"
                   Padding="0"
                   Content="□"
-                  Foreground="#E5EDF7"
-                  Background="#233142"
+                  Foreground="{DynamicResource TextHighEmphasis}"
+                  Background="{DynamicResource PaneButtonBackground}"
                   ToolTip.Tip="Restore child pane"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).RestoreChildPaneFromTaskbarCommand}"
                   CommandParameter="{Binding Id}" />
@@ -239,8 +239,8 @@
                   Height="20"
                   Padding="0"
                   Content="×"
-                  Foreground="#E5EDF7"
-                  Background="#233142"
+                  Foreground="{DynamicResource TextHighEmphasis}"
+                  Background="{DynamicResource PaneButtonBackground}"
                   ToolTip.Tip="Destroy pane"
                   Command="{Binding $parent[Window].((app:MainWindowViewModel)DataContext).DestroyChildPaneCommand}"
                   CommandParameter="{Binding Id}" />
@@ -334,8 +334,8 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Auto">
           <StackPanel Spacing="8">
-            <Border Background="#13202C"
-                    BorderBrush="#2F4A5F"
+            <Border Background="{DynamicResource CardSurface}"
+                    BorderBrush="{DynamicResource BorderSubtle}"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="8"
@@ -382,11 +382,11 @@
             <TextBlock x:Name="EmptyChildPaneBodyText"
                        Text="(empty child pane)"
                        IsVisible="{Binding ShouldShowDefaultEmptyBodyText}"
-                       Foreground="#9BA8B7"
+                       Foreground="{DynamicResource TextMuted}"
                        FontSize="11"/>
             <Border x:Name="RealizedPaneDefinitionContainer"
-                    Background="#101A24"
-                    BorderBrush="#355066"
+                    Background="{DynamicResource DeepSurface}"
+                    BorderBrush="{DynamicResource BorderSubtle}"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="8"
@@ -398,8 +398,8 @@
                 <ContentControl x:Name="RealizedPaneDefinitionHost"/>
               </StackPanel>
             </Border>
-            <Border Background="#162535"
-                    BorderBrush="#3A6E8E"
+            <Border Background="{DynamicResource ResourceSurface}"
+                    BorderBrush="{DynamicResource BorderStrong}"
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="8"
@@ -420,8 +420,8 @@
             </Border>
               <Border x:Name="BoundResourceContextReadout"
                       IsVisible="False"
-                      Background="#162535"
-                      BorderBrush="#3A6E8E"
+                      Background="{DynamicResource ResourceSurface}"
+                      BorderBrush="{DynamicResource BorderStrong}"
                       BorderThickness="1"
                       CornerRadius="4"
                       Padding="8">

@@ -242,22 +242,27 @@ ORDER BY display_label COLLATE NOCASE, element_type_id;");
             var hostMap = Query(conn, @"
 SELECT element_type_id, host_class_id
 FROM pane_visual_element_type_host_classes;")
-                .GroupBy(r => (string)r["element_type_id"])
+                .GroupBy(r => GetRequiredString(r, "element_type_id"), StringComparer.Ordinal)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Select(r => ParseHost((string)r["host_class_id"])).Where(h => h.HasValue).Select(h => h!.Value).ToArray()
-                );
+                    g => g.Select(r => ParseHost(GetRequiredString(r, "host_class_id")))
+                        .Where(h => h.HasValue)
+                        .Select(h => h!.Value)
+                        .ToArray(),
+                    StringComparer.Ordinal);
 
             var list = new List<PaneAuthoringElementCatalogEntry>(rows.Count);
             foreach (var row in rows)
             {
-                var id = (string)row["element_type_id"];
-                var kind = ParseElementKind((string)row["element_kind"]) ?? PaneElementKind.TextBlock;
-                var label = (string)row["display_label"];
-                var desc = (string?)row["description"] ?? string.Empty;
-                var w = Convert.ToDouble(row["default_width"]);
-                var h = Convert.ToDouble(row["default_height"]);
-                var classes = hostMap.TryGetValue(id, out var cls) ? (IReadOnlyList<PaneCapabilityHostClass>)cls : Array.Empty<PaneCapabilityHostClass>();
+                var id = GetRequiredString(row, "element_type_id");
+                var kind = ParseElementKind(GetRequiredString(row, "element_kind")) ?? PaneElementKind.TextBlock;
+                var label = GetRequiredString(row, "display_label");
+                var desc = GetOptionalString(row, "description") ?? string.Empty;
+                var w = GetRequiredDouble(row, "default_width");
+                var h = GetRequiredDouble(row, "default_height");
+                var classes = hostMap.TryGetValue(id, out var cls)
+                    ? (IReadOnlyList<PaneCapabilityHostClass>)cls
+                    : Array.Empty<PaneCapabilityHostClass>();
 
                 list.Add(new PaneAuthoringElementCatalogEntry(id, kind, label, desc, w, h, classes));
             }
@@ -370,21 +375,25 @@ VALUES ($bid, $etype, $label, $desc, $w, $h, $cap, $ord, $gk, $x, $y);",
 SELECT element_type_id, element_kind, default_width, default_height
 FROM pane_visual_element_types;")
                 .ToDictionary(
-                    r => (string)r["element_type_id"],
+                    r => GetRequiredString(r, "element_type_id"),
                     r => new
                     {
-                        Kind = ParseElementKind((string)r["element_kind"]) ?? PaneElementKind.TextBlock,
-                        W = Convert.ToDouble(r["default_width"]),
-                        H = Convert.ToDouble(r["default_height"])
-                    });
+                        Kind = ParseElementKind(GetRequiredString(r, "element_kind")) ?? PaneElementKind.TextBlock,
+                        W = GetRequiredDouble(r, "default_width"),
+                        H = GetRequiredDouble(r, "default_height")
+                    },
+                    StringComparer.Ordinal);
 
             var elementHostMap = Query(conn, @"
 SELECT element_type_id, host_class_id FROM pane_visual_element_type_host_classes;")
-                .GroupBy(r => (string)r["element_type_id"])
+                .GroupBy(r => GetRequiredString(r, "element_type_id"), StringComparer.Ordinal)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Select(r => ParseHost((string)r["host_class_id"])).Where(h => h.HasValue).Select(h => h!.Value).ToArray()
-                );
+                    g => g.Select(r => ParseHost(GetRequiredString(r, "host_class_id")))
+                        .Where(h => h.HasValue)
+                        .Select(h => h!.Value)
+                        .ToArray(),
+                    StringComparer.Ordinal);
 
             var bundlesRaw = Query(conn, @"
 SELECT bundle_id, display_label, description, category
@@ -396,9 +405,9 @@ ORDER BY display_label COLLATE NOCASE, bundle_id;");
 
             foreach (var b in bundlesRaw)
             {
-                var bundleId = (string)b["bundle_id"];
-                var label = (string)b["display_label"];
-                var desc = (string?)b["description"] ?? string.Empty;
+                var bundleId = GetRequiredString(b, "bundle_id");
+                var label = GetRequiredString(b, "display_label");
+                var desc = GetOptionalString(b, "description") ?? string.Empty;
 
                 var items = Query(conn, @"
 SELECT element_type_id, display_label, description, default_width, default_height, default_capability_id, ordinal
@@ -409,23 +418,22 @@ ORDER BY ordinal, id;", ("$bid", bundleId));
                 var specs = new List<PaneAuthoringBundleElementSpec>(items.Count);
                 foreach (var it in items)
                 {
-                    var elementTypeId = (string)it["element_type_id"];
+                    var elementTypeId = GetRequiredString(it, "element_type_id");
                     var elementMeta = elements.TryGetValue(elementTypeId, out var em) ? em : null;
                     var kind = elementMeta?.Kind ?? PaneElementKind.TextBlock;
-                    var itemLabel = (string)it["display_label"];
-                    var itemDesc = (string?)it["description"] ?? string.Empty;
+                    var itemLabel = GetRequiredString(it, "display_label");
+                    var itemDesc = GetOptionalString(it, "description") ?? string.Empty;
 
                     // Prefer item defaults; fall back to type defaults
-                    var w = it["default_width"] is double dw ? dw :
-                            it["default_width"] is float fw ? (double)fw :
-                            (elementMeta?.W ?? 240.0);
+                    var w = GetOptionalDouble(it, "default_width") ?? elementMeta?.W ?? 240.0;
+                    var h = GetOptionalDouble(it, "default_height") ?? elementMeta?.H ?? 72.0;
 
-                    var h = it["default_height"] is double dh ? dh :
-                            it["default_height"] is float fh ? (double)fh :
-                            (elementMeta?.H ?? 72.0);
-
-                    var defaultCap = it["default_capability_id"] is string cap && !string.IsNullOrWhiteSpace(cap) ? cap : null;
-                    var classes = elementHostMap.TryGetValue(elementTypeId, out var cls) ? (IReadOnlyList<PaneCapabilityHostClass>)cls : Array.Empty<PaneCapabilityHostClass>();
+                    var defaultCap = GetOptionalString(it, "default_capability_id") is { } cap && !string.IsNullOrWhiteSpace(cap)
+                        ? cap
+                        : null;
+                    var classes = elementHostMap.TryGetValue(elementTypeId, out var cls)
+                        ? (IReadOnlyList<PaneCapabilityHostClass>)cls
+                        : Array.Empty<PaneCapabilityHostClass>();
 
                     specs.Add(new PaneAuthoringBundleElementSpec(
                         elementTypeId,
@@ -493,6 +501,54 @@ ORDER BY ordinal, id;", ("$bid", bundleId));
                 list.Add(row);
             }
             return list;
+        }
+
+        private static string GetRequiredString(IReadOnlyDictionary<string, object?> row, string key)
+        {
+            return row.TryGetValue(key, out var value) && value is string text
+                ? text
+                : throw new InvalidOperationException($"Required row value '{key}' is missing or not a string.");
+        }
+
+        private static string? GetOptionalString(IReadOnlyDictionary<string, object?> row, string key)
+        {
+            return row.TryGetValue(key, out var value) && value is string text
+                ? text
+                : null;
+        }
+
+        private static double GetRequiredDouble(IReadOnlyDictionary<string, object?> row, string key)
+        {
+            if (!row.TryGetValue(key, out var value) || value is null)
+            {
+                throw new InvalidOperationException($"Required row value '{key}' is missing.");
+            }
+
+            return value switch
+            {
+                double d => d,
+                float f => f,
+                int i => i,
+                long l => l,
+                _ => Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)
+            };
+        }
+
+        private static double? GetOptionalDouble(IReadOnlyDictionary<string, object?> row, string key)
+        {
+            if (!row.TryGetValue(key, out var value) || value is null)
+            {
+                return null;
+            }
+
+            return value switch
+            {
+                double d => d,
+                float f => f,
+                int i => i,
+                long l => l,
+                _ => Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)
+            };
         }
 
         private static bool Any(SqliteConnection conn, string sql)

@@ -67,18 +67,35 @@ namespace Constellate.App
 
         private void CreateWorld_OnClick(object? sender, RoutedEventArgs e)
         {
-            NewWorldNameBox.Text = string.Empty;
-            CreateWorldForm.IsVisible = true;
+            var nameBox = this.FindControl<TextBox>("NewWorldNameBox");
+            if (nameBox is null)
+            {
+                return;
+            }
+
+            nameBox.Text = string.Empty;
+
+            var form = this.FindControl<Border>("CreateWorldForm");
+            if (form is not null)
+            {
+                form.IsVisible = true;
+            }
         }
 
         private void CancelCreateWorld_OnClick(object? sender, RoutedEventArgs e)
         {
-            CreateWorldForm.IsVisible = false;
+            var form = this.FindControl<Border>("CreateWorldForm");
+            if (form is not null)
+            {
+                form.IsVisible = false;
+            }
         }
 
         private void ConfirmCreateWorld_OnClick(object? sender, RoutedEventArgs e)
         {
-            var name = NewWorldNameBox.Text?.Trim();
+            var nameBox = this.FindControl<TextBox>("NewWorldNameBox");
+            var form = this.FindControl<Border>("CreateWorldForm");
+            var name = nameBox?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(name))
             {
                 name = "Untitled World";
@@ -87,7 +104,10 @@ namespace Constellate.App
             var descriptor = _worldLibraryService.CreateNewWorld(name);
             _viewModel.Worlds.Add(descriptor);
             _viewModel.SelectedWorld = descriptor;
-            CreateWorldForm.IsVisible = false;
+            if (form is not null)
+            {
+                form.IsVisible = false;
+            }
         }
 
         private async void AddRoot_OnClick(object? sender, RoutedEventArgs e)
@@ -118,6 +138,17 @@ namespace Constellate.App
         private void WorldList_OnDoubleTapped(object? sender, TappedEventArgs e)
         {
             OpenSelectedWorld();
+        }
+
+        private void WorldList_OnKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter)
+            {
+                return;
+            }
+
+            OpenSelectedWorld();
+            e.Handled = true;
         }
 
         private void OpenSelected_OnClick(object? sender, RoutedEventArgs e)
@@ -153,7 +184,9 @@ namespace Constellate.App
                 Height = 190,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 CanResize = false,
-                ShowInTaskbar = false
+                ShowInTaskbar = false,
+                Background = GetThemeBrush("WindowSurface"),
+                Foreground = GetThemeBrush("TextHighEmphasis")
             };
 
             var root = new StackPanel
@@ -171,8 +204,10 @@ namespace Constellate.App
             var closeButton = new Button
             {
                 Content = "OK",
+                MinWidth = 90,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
+            closeButton.Classes.Add("primary");
             closeButton.Click += (_, _) => dialog.Close();
 
             root.Children.Add(messageBlock);
@@ -180,6 +215,17 @@ namespace Constellate.App
             dialog.Content = root;
 
             await dialog.ShowDialog(this);
+        }
+
+        private static IBrush GetThemeBrush(string key)
+        {
+            if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true &&
+                value is IBrush brush)
+            {
+                return brush;
+            }
+
+            return Brushes.Transparent;
         }
 
         private static WorldDescriptor BuildDescriptorFromPath(string path, string rootId)

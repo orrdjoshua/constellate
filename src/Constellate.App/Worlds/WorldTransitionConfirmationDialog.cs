@@ -27,7 +27,9 @@ namespace Constellate.App.Worlds
                 Height = 200,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 CanResize = false,
-                ShowInTaskbar = false
+                ShowInTaskbar = false,
+                Background = GetThemeBrush("WindowSurface"),
+                Foreground = GetThemeBrush("TextHighEmphasis")
             };
 
             var root = new StackPanel
@@ -50,12 +52,15 @@ namespace Constellate.App.Worlds
             };
 
             var cancelButton = new Button { Content = "Cancel" };
+            cancelButton.Classes.Add("secondary");
             cancelButton.Click += (_, _) => dialog.Close(WorldTransitionDecision.Cancel);
 
             var discardButton = new Button { Content = "Discard" };
+            discardButton.Classes.Add("secondary");
             discardButton.Click += (_, _) => dialog.Close(WorldTransitionDecision.Discard);
 
             var saveButton = new Button { Content = "Save" };
+            saveButton.Classes.Add("primary");
             saveButton.Click += (_, _) => dialog.Close(WorldTransitionDecision.Save);
 
             buttonRow.Children.Add(cancelButton);
@@ -67,5 +72,16 @@ namespace Constellate.App.Worlds
 
             return dialog.ShowDialog<WorldTransitionDecision>(owner);
         }
+
+    private static IBrush GetThemeBrush(string key)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true &&
+            value is IBrush brush)
+        {
+            return brush;
+        }
+
+        return Brushes.Transparent;
+    }
     }
 }

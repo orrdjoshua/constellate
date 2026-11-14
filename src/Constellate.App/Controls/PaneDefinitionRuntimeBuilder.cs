@@ -2659,6 +2659,48 @@ internal static class PaneDefinitionRuntimeBuilder
 
     private static IBrush ParseBrush(string hex)
     {
+        var key = hex.ToUpperInvariant() switch
+        {
+            "#0F1B25" or "#0C141C" or "#101722" => "DialogSurface",
+            "#13212C" => "CardSurface",
+            "#142636" => "SettingsSurface",
+            "#162535" => "ResourceSurface",
+            "#152230" => "SurfaceHover",
+            "#20364A" or "#223140" => "SurfaceHover",
+            "#F3F8FD" => "TextPrimary",
+            "#E5EDF7" or "#D6ECFA" or "#E4F3FD" or "#D7E6F1" or "#D9EAF7" => "TextHighEmphasis",
+            "#D5E4F1" or "#D4E3EF" or "#C5D5E4" or "#BFD3E4" => "TextSecondary",
+            "#9DB3C5" => "TextMuted",
+            "#9DD1F0" or "#8FD2FF" or "#D8F0FF" => "TextAccent",
+            "#7DD3FC" => "TextInfo",
+            "#FFE5B8" => "TextWarning",
+            "#355066" or "#2E475B" or "#22384A" => "BorderSubtle",
+            "#486983" or "#4A6378" or "#3A6E8E" => "BorderStrong",
+            "#233142" => "ButtonSecondaryBackground",
+            "#2D5A7A" => "PrimaryButtonBackground",
+            "#332514" => "WarningSurface",
+            "#8C6933" => "WarningBorder",
+            _ => null
+        };
+
+        if (key is not null && TryGetThemeBrush(key, out var brush))
+        {
+            return brush;
+        }
+
         return new SolidColorBrush(Color.Parse(hex));
+    }
+
+    private static bool TryGetThemeBrush(string key, out IBrush brush)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true &&
+            value is IBrush resourceBrush)
+        {
+            brush = resourceBrush;
+            return true;
+        }
+
+        brush = null!;
+        return false;
     }
 }

@@ -198,10 +198,10 @@ internal static class PaneDefinitionConfirmationDialog
         var button = new Button
         {
             Content = text,
-            MinWidth = 130,
-            Background = isPrimary ? CreateBrush("#2D5A7A") : CreateBrush("#223142"),
-            Foreground = CreateBrush("#E5EDF7")
+            MinWidth = 130
         };
+
+        button.Classes.Add(isPrimary ? "primary" : "secondary");
 
         button.Click += (_, _) => dialog.Close(result);
         return button;
@@ -253,6 +253,38 @@ internal static class PaneDefinitionConfirmationDialog
 
     private static IBrush CreateBrush(string hex)
     {
+        var key = hex.ToUpperInvariant() switch
+        {
+            "#101722" => "DialogSurface",
+            "#152230" => "SurfaceHover",
+            "#355066" => "BorderSubtle",
+            "#E5EDF7" => "TextHighEmphasis",
+            "#D5E4F1" => "TextSecondary",
+            "#223142" => "ButtonSecondaryBackground",
+            "#2D5A7A" => "PrimaryButtonBackground",
+            "#FFE5B8" => "TextWarning",
+            "#9DD1F0" => "TextAccent",
+            _ => null
+        };
+
+        if (key is not null && TryGetThemeBrush(key, out var brush))
+        {
+            return brush;
+        }
+
         return new SolidColorBrush(Color.Parse(hex));
+    }
+
+    private static bool TryGetThemeBrush(string key, out IBrush brush)
+    {
+        if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true &&
+            value is IBrush resourceBrush)
+        {
+            brush = resourceBrush;
+            return true;
+        }
+
+        brush = null!;
+        return false;
     }
 }
